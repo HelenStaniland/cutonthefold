@@ -24,25 +24,62 @@ export default function Home() {
   const pattern = draftGatheredSkirt(measurements, { length });
   const preview = previewGatheredSkirt(measurements, { length });
 
-  const gap = 60; // mm between pieces
-  let cursorY = 0;
-  let layoutWidth = 0;
-  const placed = pattern.pieces.map((piece) => {
+  const gap = 60;
+  const rowGap = 80;
+  const labelSpace = 44;
+
+  function pieceBounds(piece: (typeof pattern.pieces)[number]) {
     const xs = piece.outline.map((p) => p.x);
     const ys = piece.outline.map((p) => p.y);
-    const minX = Math.min(...xs);
-    const minY = Math.min(...ys);
-    const w = Math.max(...xs) - minX;
-    const h = Math.max(...ys) - minY;
-    const top = cursorY;
-    const dx = -minX;
-    const dy = top - minY;
-    cursorY += h + gap;
-    layoutWidth = Math.max(layoutWidth, w);
-    return { piece, dx, dy, top };
+    return {
+      minX: Math.min(...xs),
+      minY: Math.min(...ys),
+      w: Math.max(...xs) - Math.min(...xs),
+      h: Math.max(...ys) - Math.min(...ys),
+    };
+  }
+
+  const back = pattern.pieces.find((p) => p.name === "Back")!;
+  const front = pattern.pieces.find((p) => p.name === "Front")!;
+  const waistband = pattern.pieces.find((p) => p.name === "Waistband")!;
+
+  const placed: {
+    piece: (typeof pattern.pieces)[number];
+    dx: number;
+    dy: number;
+    top: number;
+  }[] = [];
+
+  let row1X = 0;
+  const row1Y = labelSpace;
+  let row1Height = 0;
+  for (const piece of [back, front]) {
+    const { minX, minY, w, h } = pieceBounds(piece);
+    placed.push({ piece, dx: row1X - minX, dy: row1Y - minY, top: row1Y });
+    row1X += w + gap;
+    row1Height = Math.max(row1Height, h);
+  }
+  const row1Width = row1X - gap;
+
+  const wb = pieceBounds(waistband);
+  const row2Y = row1Y + row1Height + rowGap;
+  const waistbandX = Math.max(0, (row1Width - wb.w) / 2);
+  placed.push({
+    piece: waistband,
+    dx: waistbandX - wb.minX,
+    dy: row2Y - wb.minY,
+    top: row2Y,
   });
-  const layoutHeight = cursorY - gap;
+
+  const layoutWidth = Math.max(row1Width, waistbandX + wb.w);
+  const layoutHeight = row2Y + wb.h;
   const pad = 60;
+  const patternViewWidth = layoutWidth + pad * 2;
+  const patternViewHeight = layoutHeight + pad * 2;
+  const patternSvgWidth = 720;
+  const patternSvgHeight = Math.round(
+    patternSvgWidth * (patternViewHeight / patternViewWidth),
+  );
 
   const previewPad = 40;
   const previewPoints = [
@@ -130,9 +167,9 @@ export default function Home() {
         <div>
           <h2 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 8px" }}>Pattern</h2>
           <svg
-            width={340}
-            height={460}
-            viewBox={`${-pad} ${-pad} ${layoutWidth + pad * 2} ${layoutHeight + pad * 2}`}
+            width={patternSvgWidth}
+            height={patternSvgHeight}
+            viewBox={`${-pad} ${-pad} ${patternViewWidth} ${patternViewHeight}`}
             style={{ border: "1px solid #ccc", display: "block" }}
           >
         <defs>
@@ -187,6 +224,9 @@ export default function Home() {
                       .join(" ");
                     const midX = (A.x + B.x) / 2 + dx;
                     const midY = (A.y + B.y) / 2 + dy;
+                    const labelX = midX + 25 * n.x;
+                    const labelY = midY + 25 * n.y;
+                    const labelAngle = (Math.atan2(u.y, u.x) * 180) / Math.PI;
                     return (
                       <g key={i}>
                         <polyline
@@ -197,11 +237,13 @@ export default function Home() {
                         />
                         {m.label && (
                           <text
-                            x={midX + 25 * n.x}
-                            y={midY + 25 * n.y}
+                            x={labelX}
+                            y={labelY}
                             fontSize={18}
                             fill="#333"
                             textAnchor="middle"
+                            dominantBaseline="middle"
+                            transform={`rotate(${labelAngle}, ${labelX}, ${labelY})`}
                           >
                             {m.label}
                           </text>
@@ -210,22 +252,32 @@ export default function Home() {
                     );
                   }
                   case "gather": {
-                    const x1 = m.line.from.x + dx;
-                    const y1 = m.line.from.y + dy;
-                    const x2 = m.line.to.x + dx;
-                    const y2 = m.line.to.y + dy;
+                    const A = m.line.from;
+                    const B = m.line.to;
+                    const edgeDx = B.x - A.x;
+                    const edgeDy = B.y - A.y;
+                    const edgeLen = Math.hypot(edgeDx, edgeDy);
+                    const u = { x: edgeDx / edgeLen, y: edgeDy / edgeLen };
+                    let n = { x: -edgeDy / edgeLen, y: edgeDx / edgeLen };
+                    if (n.y < 0) {
+                      n = { x: -n.x, y: -n.y };
+                    }
+                    const endInset = 30;
+                    const belowOffset = 25;
+                    const from = {
+                      x: A.x + endInset * u.x + belowOffset * n.x,
+                      y: A.y + endInset * u.y + belowOffset * n.y,
+                    };
+                    const to = {
+                      x: B.x - endInset * u.x + belowOffset * n.x,
+                      y: B.y - endInset * u.y + belowOffset * n.y,
+                    };
+                    const x1 = from.x + dx;
+                    const y1 = from.y + dy;
+                    const x2 = to.x + dx;
+                    const y2 = to.y + dy;
                     const mx = (x1 + x2) / 2;
                     const my = (y1 + y2) / 2;
-                    const ldx = x2 - x1;
-                    const ldy = y2 - y1;
-                    const len = Math.hypot(ldx, ldy);
-                    let nx = -ldy / len;
-                    let ny = ldx / len;
-                    if (ny > 0) {
-                      nx = -nx;
-                      ny = -ny;
-                    }
-                    const labelOffset = 20;
                     return (
                       <g key={i}>
                         <line
@@ -234,11 +286,14 @@ export default function Home() {
                           x2={x2}
                           y2={y2}
                           stroke="#5a3e6b"
-                          strokeWidth={2}
+                          strokeWidth={3}
+                          strokeDasharray="18 12"
+                          markerStart="url(#arrow)"
+                          markerEnd="url(#arrow)"
                         />
                         <text
-                          x={mx + nx * labelOffset}
-                          y={my + ny * labelOffset}
+                          x={mx + n.x * 18}
+                          y={my + n.y * 18}
                           fontSize={16}
                           fill="#333"
                           textAnchor="middle"
