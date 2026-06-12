@@ -1,66 +1,330 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+"use client";
+
+import { useState } from "react";
+import {
+  BodyMeasurements,
+  SKIRT_BODY_MEASUREMENTS,
+} from "@/lib/types/measurements";
+import { draftGatheredSkirt } from "@/lib/patterns/gatheredSkirt";
+import { previewGatheredSkirt } from "@/lib/previews/gatheredSkirt";
 
 export default function Home() {
+  const [measurements, setMeasurements] = useState<BodyMeasurements>({
+    waist: 700,
+    hip: 980,
+    hipDepth: 200,
+  });
+  const [length, setLength] = useState(600); // mm, a style choice
+
+  function updateMeasurement(key: keyof BodyMeasurements, value: number) {
+    setMeasurements({ ...measurements, [key]: value });
+  }
+
+  // Domain code produces the pattern; this component only draws it.
+  const pattern = draftGatheredSkirt(measurements, { length });
+  const preview = previewGatheredSkirt(measurements, { length });
+
+  const gap = 60; // mm between pieces
+  let cursorY = 0;
+  let layoutWidth = 0;
+  const placed = pattern.pieces.map((piece) => {
+    const xs = piece.outline.map((p) => p.x);
+    const ys = piece.outline.map((p) => p.y);
+    const minX = Math.min(...xs);
+    const minY = Math.min(...ys);
+    const w = Math.max(...xs) - minX;
+    const h = Math.max(...ys) - minY;
+    const top = cursorY;
+    const dx = -minX;
+    const dy = top - minY;
+    cursorY += h + gap;
+    layoutWidth = Math.max(layoutWidth, w);
+    return { piece, dx, dy, top };
+  });
+  const layoutHeight = cursorY - gap;
+  const pad = 60;
+
+  const previewPad = 40;
+  const previewPoints = [
+    ...preview.waistband,
+    ...preview.skirt,
+    ...preview.gatherLines.flatMap((line) => [line.from, line.to]),
+  ];
+  const previewXs = previewPoints.map((p) => p.x);
+  const previewYs = previewPoints.map((p) => p.y);
+  const previewMinX = Math.min(...previewXs);
+  const previewMaxX = Math.max(...previewXs);
+  const previewMinY = Math.min(...previewYs);
+  const previewMaxY = Math.max(...previewYs);
+  const previewWidth = previewMaxX - previewMinX + previewPad * 2;
+  const previewHeight = previewMaxY - previewMinY + previewPad * 2;
+
+  const polygonPoints = (pts: { x: number; y: number }[]) =>
+    pts.map((p) => `${p.x},${p.y}`).join(" ");
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.tsx file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+    <main style={{ padding: 24, fontFamily: "sans-serif" }}>
+      <h1>Gathered skirt — slightly gathered</h1>
+
+      {SKIRT_BODY_MEASUREMENTS.map((def) => (
+        <div key={def.key}>
+          <label>
+            {def.label} (mm):
+            <input
+              type="number"
+              value={measurements[def.key]}
+              onChange={(e) => updateMeasurement(def.key, Number(e.target.value))}
             />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          </label>
         </div>
-      </main>
-    </div>
+      ))}
+
+      <div>
+        <label>
+          Length (mm):
+          <input
+            type="number"
+            value={length}
+            onChange={(e) => setLength(Number(e.target.value))}
+          />
+        </label>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "row", gap: 24, marginTop: 16 }}>
+        <div>
+          <h2 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 8px" }}>
+            Stylised skirt
+          </h2>
+          <svg
+            width={340}
+            height={460}
+            viewBox={`${previewMinX - previewPad} ${previewMinY - previewPad} ${previewWidth} ${previewHeight}`}
+            style={{ border: "1px solid #ccc", display: "block" }}
+          >
+            <polygon
+              points={polygonPoints(preview.skirt)}
+              fill="#ddd6f3"
+              stroke="#5a3e6b"
+              strokeWidth={4}
+            />
+            <polygon
+              points={polygonPoints(preview.waistband)}
+              fill="#b8a9c9"
+              stroke="#5a3e6b"
+              strokeWidth={4}
+            />
+            {preview.gatherLines.map((line, i) => (
+              <line
+                key={i}
+                x1={line.from.x}
+                y1={line.from.y}
+                x2={line.to.x}
+                y2={line.to.y}
+                stroke="#5a3e6b"
+                strokeWidth={2}
+              />
+            ))}
+          </svg>
+        </div>
+
+        <div>
+          <h2 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 8px" }}>Pattern</h2>
+          <svg
+            width={340}
+            height={460}
+            viewBox={`${-pad} ${-pad} ${layoutWidth + pad * 2} ${layoutHeight + pad * 2}`}
+            style={{ border: "1px solid #ccc", display: "block" }}
+          >
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
+                  markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#5a3e6b" />
+          </marker>
+        </defs>
+
+        {placed.map(({ piece, dx, dy, top }) => {
+          const points = piece.outline.map((p) => `${p.x + dx},${p.y + dy}`).join(" ");
+          return (
+            <g key={piece.name}>
+              <text x={0} y={top - 34} fontSize={22} fill="#333">{piece.name}</text>
+
+              <polygon points={points} fill="#cdb4db" stroke="#5a3e6b" strokeWidth={4} />
+
+              {piece.markings.map((m, i) => {
+                switch (m.kind) {
+                  case "grainline":
+                    return (
+                      <line key={i}
+                        x1={m.line.from.x + dx} y1={m.line.from.y + dy}
+                        x2={m.line.to.x + dx} y2={m.line.to.y + dy}
+                        stroke="#5a3e6b" strokeWidth={3}
+                        markerStart="url(#arrow)" markerEnd="url(#arrow)" />
+                    );
+                  case "foldLine":
+                    return (
+                      <line key={i}
+                        x1={m.line.from.x + dx} y1={m.line.from.y + dy}
+                        x2={m.line.to.x + dx} y2={m.line.to.y + dy}
+                        stroke="#5a3e6b" strokeWidth={3} strokeDasharray="18 12" />
+                    );
+                  case "placeOnFold": {
+                    const A = m.line.from;
+                    const B = m.line.to;
+                    const n = m.inward;
+                    const edgeDx = B.x - A.x;
+                    const edgeDy = B.y - A.y;
+                    const edgeLen = Math.hypot(edgeDx, edgeDy);
+                    const u = { x: edgeDx / edgeLen, y: edgeDy / edgeLen };
+                    const p1 = { x: A.x + 30 * u.x, y: A.y + 30 * u.y };
+                    const p2 = { x: p1.x + 15 * n.x, y: p1.y + 15 * n.y };
+                    const p3 = {
+                      x: B.x - 30 * u.x + 15 * n.x,
+                      y: B.y - 30 * u.y + 15 * n.y,
+                    };
+                    const p4 = { x: B.x - 30 * u.x, y: B.y - 30 * u.y };
+                    const bracket = [p1, p2, p3, p4]
+                      .map((p) => `${p.x + dx},${p.y + dy}`)
+                      .join(" ");
+                    const midX = (A.x + B.x) / 2 + dx;
+                    const midY = (A.y + B.y) / 2 + dy;
+                    return (
+                      <g key={i}>
+                        <polyline
+                          points={bracket}
+                          fill="none"
+                          stroke="#5a3e6b"
+                          strokeWidth={3}
+                        />
+                        {m.label && (
+                          <text
+                            x={midX + 25 * n.x}
+                            y={midY + 25 * n.y}
+                            fontSize={18}
+                            fill="#333"
+                            textAnchor="middle"
+                          >
+                            {m.label}
+                          </text>
+                        )}
+                      </g>
+                    );
+                  }
+                  case "gather": {
+                    const x1 = m.line.from.x + dx;
+                    const y1 = m.line.from.y + dy;
+                    const x2 = m.line.to.x + dx;
+                    const y2 = m.line.to.y + dy;
+                    const mx = (x1 + x2) / 2;
+                    const my = (y1 + y2) / 2;
+                    const ldx = x2 - x1;
+                    const ldy = y2 - y1;
+                    const len = Math.hypot(ldx, ldy);
+                    let nx = -ldy / len;
+                    let ny = ldx / len;
+                    if (ny > 0) {
+                      nx = -nx;
+                      ny = -ny;
+                    }
+                    const labelOffset = 20;
+                    return (
+                      <g key={i}>
+                        <line
+                          x1={x1}
+                          y1={y1}
+                          x2={x2}
+                          y2={y2}
+                          stroke="#5a3e6b"
+                          strokeWidth={2}
+                        />
+                        <text
+                          x={mx + nx * labelOffset}
+                          y={my + ny * labelOffset}
+                          fontSize={16}
+                          fill="#333"
+                          textAnchor="middle"
+                        >
+                          gather
+                        </text>
+                      </g>
+                    );
+                  }
+                  case "notch": {
+                    const cx = m.at.x + dx;
+                    const cy = m.at.y + dy;
+                    if (m.dir) {
+                      const depth = 14;
+                      const halfWidth = 7;
+                      const nx = m.dir.x;
+                      const ny = m.dir.y;
+                      const px = -ny;
+                      const py = nx;
+                      const apexX = cx + nx * depth;
+                      const apexY = cy + ny * depth;
+                      const notchPoints = [
+                        `${apexX},${apexY}`,
+                        `${cx + px * halfWidth},${cy + py * halfWidth}`,
+                        `${cx - px * halfWidth},${cy - py * halfWidth}`,
+                      ].join(" ");
+                      return (
+                        <g key={i}>
+                          <polygon points={notchPoints} fill="#5a3e6b" />
+                          {m.label && (
+                            <text
+                              x={cx + nx * (depth + 12)}
+                              y={cy + ny * (depth + 12)}
+                              fontSize={18}
+                              fill="#333"
+                              textAnchor="middle"
+                            >
+                              {m.label}
+                            </text>
+                          )}
+                        </g>
+                      );
+                    }
+                    return (
+                      <g key={i}>
+                        <polygon
+                          points={`${m.at.x + dx - 7},${m.at.y + dy} ${m.at.x + dx + 7},${m.at.y + dy} ${m.at.x + dx},${m.at.y + dy + 14}`}
+                          fill="#5a3e6b" />
+                        {m.label && (
+                          <text x={m.at.x + dx} y={m.at.y + dy - 8} fontSize={18}
+                                fill="#333" textAnchor="middle">{m.label}</text>
+                        )}
+                      </g>
+                    );
+                  }
+                  case "button": {
+                    const s = 9, cx = m.at.x + dx, cy = m.at.y + dy;
+                    return (
+                      <g key={i} stroke="#5a3e6b" strokeWidth={3}>
+                        <line x1={cx - s} y1={cy - s} x2={cx + s} y2={cy + s} />
+                        <line x1={cx - s} y1={cy + s} x2={cx + s} y2={cy - s} />
+                      </g>
+                    );
+                  }
+                  case "buttonhole": {
+                    const s = 9, cx = m.at.x + dx, cy = m.at.y + dy;
+                    return <line key={i} x1={cx - s} y1={cy} x2={cx + s} y2={cy}
+                                 stroke="#5a3e6b" strokeWidth={3} />;
+                  }
+                  case "constructionLine":
+                    return (
+                      <line key={i}
+                        x1={m.line.from.x + dx} y1={m.line.from.y + dy}
+                        x2={m.line.to.x + dx} y2={m.line.to.y + dy}
+                        stroke="#5a3e6b" strokeWidth={3} />
+                    );
+                  default:
+                    return null;
+                }
+              })}
+            </g>
+          );
+        })}
+          </svg>
+        </div>
+      </div>
+    </main>
   );
 }
