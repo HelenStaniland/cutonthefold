@@ -1,4 +1,8 @@
 import { BodyMeasurements, Line, Point } from "@/lib/types/measurements";
+import {
+  GatheredSkirtStyle,
+  validateGatheredSkirt,
+} from "@/lib/patterns/gatheredSkirt";
 
 export type GarmentPreview = {
   waistband: Point[];
@@ -8,8 +12,12 @@ export type GarmentPreview = {
 
 export function previewGatheredSkirt(
   body: BodyMeasurements,
-  style: { length: number },
-): GarmentPreview {
+  style: GatheredSkirtStyle,
+): GarmentPreview | null {
+  if (!validateGatheredSkirt(body, style).valid) {
+    return null;
+  }
+
   const W = body.waist;
   const H = body.hip;
   const L = style.length;

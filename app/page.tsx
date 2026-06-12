@@ -5,7 +5,7 @@ import {
   BodyMeasurements,
   SKIRT_BODY_MEASUREMENTS,
 } from "@/lib/types/measurements";
-import { draftGatheredSkirt } from "@/lib/patterns/gatheredSkirt";
+import { draftGatheredSkirt, validateGatheredSkirt } from "@/lib/patterns/gatheredSkirt";
 import { previewGatheredSkirt } from "@/lib/previews/gatheredSkirt";
 import styles from "./page.module.css";
 
@@ -22,6 +22,10 @@ export default function Home() {
   }
 
   // Domain code produces the pattern; this component only draws it.
+  const validation = validateGatheredSkirt(measurements, { length });
+  const flaggedFields = new Set(
+    validation.issues.flatMap((issue) => issue.fields ?? []),
+  );
   const pattern = draftGatheredSkirt(measurements, { length });
   const preview = previewGatheredSkirt(measurements, { length });
 
@@ -91,17 +95,19 @@ export default function Home() {
   );
 
   const previewPad = 40;
-  const previewPoints = [
-    ...preview.waistband,
-    ...preview.skirt,
-    ...preview.gatherLines.flatMap((line) => [line.from, line.to]),
-  ];
+  const previewPoints = preview
+    ? [
+        ...preview.waistband,
+        ...preview.skirt,
+        ...preview.gatherLines.flatMap((line) => [line.from, line.to]),
+      ]
+    : [];
   const previewXs = previewPoints.map((p) => p.x);
   const previewYs = previewPoints.map((p) => p.y);
-  const previewMinX = Math.min(...previewXs);
-  const previewMaxX = Math.max(...previewXs);
-  const previewMinY = Math.min(...previewYs);
-  const previewMaxY = Math.max(...previewYs);
+  const previewMinX = preview && previewPoints.length > 0 ? Math.min(...previewXs) : -200;
+  const previewMaxX = preview && previewPoints.length > 0 ? Math.max(...previewXs) : 200;
+  const previewMinY = preview && previewPoints.length > 0 ? Math.min(...previewYs) : 0;
+  const previewMaxY = preview && previewPoints.length > 0 ? Math.max(...previewYs) : 640;
   const previewWidth = previewMaxX - previewMinX + previewPad * 2;
   const previewHeight = previewMaxY - previewMinY + previewPad * 2;
 
@@ -121,7 +127,9 @@ export default function Home() {
           </div>
         </div>
         <p className={styles.headerMeta}>
-          {pieceCount} pieces · updates as you edit
+          {validation.valid
+            ? `${pieceCount} pieces · updates as you edit`
+            : `${validation.issues.length} check${validation.issues.length === 1 ? "" : "s"} need attention`}
         </p>
       </header>
 
@@ -135,7 +143,9 @@ export default function Home() {
                   {def.label}
                 </label>
                 <span className={styles.fieldHint}>{def.hint}</span>
-                <div className={styles.inputWrap}>
+                <div
+                  className={`${styles.inputWrap} ${flaggedFields.has(def.key) ? styles.inputWrapInvalid : ""}`}
+                >
                   <input
                     id={def.key}
                     type="number"
@@ -174,6 +184,26 @@ export default function Home() {
               </div>
             </div>
           </section>
+
+          {validation.issues.length > 0 && (
+            <section className={styles.section} aria-live="polite">
+              <h2 className={styles.sectionTitle}>Checks</h2>
+              <ul className={styles.issueList}>
+                {validation.issues.map((issue, i) => (
+                  <li
+                    key={i}
+                    className={
+                      issue.severity === "error"
+                        ? styles.issueError
+                        : styles.issueWarning
+                    }
+                  >
+                    {issue.message}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
         </aside>
 
         <div className={styles.canvasArea}>
@@ -196,35 +226,45 @@ export default function Home() {
                 <span className={styles.cardSubtitle}>Stylised</span>
               </div>
               <div className={styles.cardBody}>
-                <svg
-                  width={340}
-                  height={460}
-                  viewBox={`${previewMinX - previewPad} ${previewMinY - previewPad} ${previewWidth} ${previewHeight}`}
-                >
-                  <polygon
-                    points={polygonPoints(preview.skirt)}
-                    fill="#ddd6f3"
-                    stroke="#5a3e6b"
-                    strokeWidth={4}
-                  />
-                  <polygon
-                    points={polygonPoints(preview.waistband)}
-                    fill="#b8a9c9"
-                    stroke="#5a3e6b"
-                    strokeWidth={4}
-                  />
-                  {preview.gatherLines.map((line, i) => (
-                    <line
-                      key={i}
-                      x1={line.from.x}
-                      y1={line.from.y}
-                      x2={line.to.x}
-                      y2={line.to.y}
+                {preview ? (
+                  <svg
+                    width={340}
+                    height={460}
+                    viewBox={`${previewMinX - previewPad} ${previewMinY - previewPad} ${previewWidth} ${previewHeight}`}
+                  >
+                    <polygon
+                      points={polygonPoints(preview.skirt)}
+                      fill="#ddd6f3"
                       stroke="#5a3e6b"
-                      strokeWidth={2}
+                      strokeWidth={4}
                     />
-                  ))}
-                </svg>
+                    <polygon
+                      points={polygonPoints(preview.waistband)}
+                      fill="#b8a9c9"
+                      stroke="#5a3e6b"
+                      strokeWidth={4}
+                    />
+                    {preview.gatherLines.map((line, i) => (
+                      <line
+                        key={i}
+                        x1={line.from.x}
+                        y1={line.from.y}
+                        x2={line.to.x}
+                        y2={line.to.y}
+                        stroke="#5a3e6b"
+                        strokeWidth={2}
+                      />
+                    ))}
+                  </svg>
+                ) : (
+                  <div className={styles.canvasUnavailable}>
+                    <p className={styles.canvasUnavailableTitle}>Preview unavailable</p>
+                    <p className={styles.canvasUnavailableMessage}>
+                      {validation.issues[0]?.message ??
+                        "Fix the checks in the sidebar to see a preview."}
+                    </p>
+                  </div>
+                )}
               </div>
             </article>
 
@@ -234,6 +274,7 @@ export default function Home() {
                 <span className={styles.cardSubtitle}>Flat layout</span>
               </div>
               <div className={styles.cardBody}>
+                {validation.valid ? (
                 <svg
                   width={patternSvgWidth}
                   height={patternSvgHeight}
@@ -447,6 +488,15 @@ export default function Home() {
           );
         })}
                 </svg>
+                ) : (
+                  <div className={styles.canvasUnavailable}>
+                    <p className={styles.canvasUnavailableTitle}>Pattern unavailable</p>
+                    <p className={styles.canvasUnavailableMessage}>
+                      {validation.issues[0]?.message ??
+                        "Fix the checks in the sidebar to see pattern pieces."}
+                    </p>
+                  </div>
+                )}
               </div>
             </article>
           </div>
