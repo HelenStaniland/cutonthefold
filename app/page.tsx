@@ -7,6 +7,7 @@ import {
 } from "@/lib/types/measurements";
 import { draftGatheredSkirt } from "@/lib/patterns/gatheredSkirt";
 import { previewGatheredSkirt } from "@/lib/previews/gatheredSkirt";
+import styles from "./page.module.css";
 
 export default function Home() {
   const [measurements, setMeasurements] = useState<BodyMeasurements>({
@@ -48,6 +49,7 @@ export default function Home() {
     dx: number;
     dy: number;
     top: number;
+    labelX: number;
   }[] = [];
 
   let row1X = 0;
@@ -55,7 +57,13 @@ export default function Home() {
   let row1Height = 0;
   for (const piece of [back, front]) {
     const { minX, minY, w, h } = pieceBounds(piece);
-    placed.push({ piece, dx: row1X - minX, dy: row1Y - minY, top: row1Y });
+    placed.push({
+      piece,
+      dx: row1X - minX,
+      dy: row1Y - minY,
+      top: row1Y,
+      labelX: row1X + w / 2,
+    });
     row1X += w + gap;
     row1Height = Math.max(row1Height, h);
   }
@@ -69,6 +77,7 @@ export default function Home() {
     dx: waistbandX - wb.minX,
     dy: row2Y - wb.minY,
     top: row2Y,
+    labelX: waistbandX + wb.w / 2,
   });
 
   const layoutWidth = Math.max(row1Width, waistbandX + wb.w);
@@ -99,79 +108,137 @@ export default function Home() {
   const polygonPoints = (pts: { x: number; y: number }[]) =>
     pts.map((p) => `${p.x},${p.y}`).join(" ");
 
+  const pieceCount = pattern.pieces.reduce((n, p) => n + p.cutCount, 0);
+
   return (
-    <main style={{ padding: 24, fontFamily: "sans-serif" }}>
-      <h1>Gathered skirt — slightly gathered</h1>
-
-      {SKIRT_BODY_MEASUREMENTS.map((def) => (
-        <div key={def.key}>
-          <label>
-            {def.label} (mm):
-            <input
-              type="number"
-              value={measurements[def.key]}
-              onChange={(e) => updateMeasurement(def.key, Number(e.target.value))}
-            />
-          </label>
+    <div className={styles.page}>
+      <header className={styles.header}>
+        <div className={styles.brand}>
+          <div className={styles.logo} aria-hidden />
+          <div className={styles.brandText}>
+            <h1>Cut on the Fold</h1>
+            <p>Gathered skirt · slightly gathered</p>
+          </div>
         </div>
-      ))}
+        <p className={styles.headerMeta}>
+          {pieceCount} pieces · updates as you edit
+        </p>
+      </header>
 
-      <div>
-        <label>
-          Length (mm):
-          <input
-            type="number"
-            value={length}
-            onChange={(e) => setLength(Number(e.target.value))}
-          />
-        </label>
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "row", gap: 24, marginTop: 16 }}>
-        <div>
-          <h2 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 8px" }}>
-            Stylised skirt
-          </h2>
-          <svg
-            width={340}
-            height={460}
-            viewBox={`${previewMinX - previewPad} ${previewMinY - previewPad} ${previewWidth} ${previewHeight}`}
-            style={{ border: "1px solid #ccc", display: "block" }}
-          >
-            <polygon
-              points={polygonPoints(preview.skirt)}
-              fill="#ddd6f3"
-              stroke="#5a3e6b"
-              strokeWidth={4}
-            />
-            <polygon
-              points={polygonPoints(preview.waistband)}
-              fill="#b8a9c9"
-              stroke="#5a3e6b"
-              strokeWidth={4}
-            />
-            {preview.gatherLines.map((line, i) => (
-              <line
-                key={i}
-                x1={line.from.x}
-                y1={line.from.y}
-                x2={line.to.x}
-                y2={line.to.y}
-                stroke="#5a3e6b"
-                strokeWidth={2}
-              />
+      <div className={styles.workspace}>
+        <aside className={styles.sidebar}>
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>Your measurements</h2>
+            {SKIRT_BODY_MEASUREMENTS.map((def) => (
+              <div key={def.key} className={styles.field}>
+                <label className={styles.fieldLabel} htmlFor={def.key}>
+                  {def.label}
+                </label>
+                <span className={styles.fieldHint}>{def.hint}</span>
+                <div className={styles.inputWrap}>
+                  <input
+                    id={def.key}
+                    type="number"
+                    min={def.min}
+                    max={def.max}
+                    value={measurements[def.key]}
+                    onChange={(e) =>
+                      updateMeasurement(def.key, Number(e.target.value))
+                    }
+                  />
+                  <span className={styles.inputSuffix}>mm</span>
+                </div>
+              </div>
             ))}
-          </svg>
-        </div>
+          </section>
 
-        <div>
-          <h2 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 8px" }}>Pattern</h2>
-          <svg
-            width={patternSvgWidth}
-            height={patternSvgHeight}
-            viewBox={`${-pad} ${-pad} ${patternViewWidth} ${patternViewHeight}`}
-            style={{ border: "1px solid #ccc", display: "block" }}
-          >
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>Style</h2>
+            <div className={styles.field}>
+              <label className={styles.fieldLabel} htmlFor="length">
+                Skirt length
+              </label>
+              <span className={styles.fieldHint}>
+                Waist to hem — adjust to your preferred finished length.
+              </span>
+              <div className={styles.inputWrap}>
+                <input
+                  id="length"
+                  type="number"
+                  min={200}
+                  max={1200}
+                  value={length}
+                  onChange={(e) => setLength(Number(e.target.value))}
+                />
+                <span className={styles.inputSuffix}>mm</span>
+              </div>
+            </div>
+          </section>
+        </aside>
+
+        <div className={styles.canvasArea}>
+          <div className={styles.summary}>
+            <span className={styles.chip}>
+              Waist <strong>{measurements.waist}</strong> mm
+            </span>
+            <span className={styles.chip}>
+              Hip <strong>{measurements.hip}</strong> mm
+            </span>
+            <span className={styles.chip}>
+              Length <strong>{length}</strong> mm
+            </span>
+          </div>
+
+          <div className={styles.canvasGrid}>
+            <article className={styles.card}>
+              <div className={styles.cardHeader}>
+                <h2 className={styles.cardTitle}>Preview</h2>
+                <span className={styles.cardSubtitle}>Stylised</span>
+              </div>
+              <div className={styles.cardBody}>
+                <svg
+                  width={340}
+                  height={460}
+                  viewBox={`${previewMinX - previewPad} ${previewMinY - previewPad} ${previewWidth} ${previewHeight}`}
+                >
+                  <polygon
+                    points={polygonPoints(preview.skirt)}
+                    fill="#ddd6f3"
+                    stroke="#5a3e6b"
+                    strokeWidth={4}
+                  />
+                  <polygon
+                    points={polygonPoints(preview.waistband)}
+                    fill="#b8a9c9"
+                    stroke="#5a3e6b"
+                    strokeWidth={4}
+                  />
+                  {preview.gatherLines.map((line, i) => (
+                    <line
+                      key={i}
+                      x1={line.from.x}
+                      y1={line.from.y}
+                      x2={line.to.x}
+                      y2={line.to.y}
+                      stroke="#5a3e6b"
+                      strokeWidth={2}
+                    />
+                  ))}
+                </svg>
+              </div>
+            </article>
+
+            <article className={styles.card}>
+              <div className={styles.cardHeader}>
+                <h2 className={styles.cardTitle}>Pattern pieces</h2>
+                <span className={styles.cardSubtitle}>Flat layout</span>
+              </div>
+              <div className={styles.cardBody}>
+                <svg
+                  width={patternSvgWidth}
+                  height={patternSvgHeight}
+                  viewBox={`${-pad} ${-pad} ${patternViewWidth} ${patternViewHeight}`}
+                >
         <defs>
           <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
                   markerWidth="6" markerHeight="6" orient="auto-start-reverse">
@@ -179,11 +246,13 @@ export default function Home() {
           </marker>
         </defs>
 
-        {placed.map(({ piece, dx, dy, top }) => {
+        {placed.map(({ piece, dx, dy, top, labelX }) => {
           const points = piece.outline.map((p) => `${p.x + dx},${p.y + dy}`).join(" ");
           return (
             <g key={piece.name}>
-              <text x={0} y={top - 34} fontSize={22} fill="#333">{piece.name}</text>
+              <text x={labelX} y={top - 34} fontSize={22} fill="#333" textAnchor="middle">
+                {piece.name}
+              </text>
 
               <polygon points={points} fill="#cdb4db" stroke="#5a3e6b" strokeWidth={4} />
 
@@ -377,9 +446,12 @@ export default function Home() {
             </g>
           );
         })}
-          </svg>
+                </svg>
+              </div>
+            </article>
+          </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
