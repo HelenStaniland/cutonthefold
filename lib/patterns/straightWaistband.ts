@@ -1,4 +1,4 @@
-import { PatternPiece, Point, Marking } from "@/lib/types/measurements";
+import { OutlinePoint, PatternPiece, Marking } from "@/lib/types/measurements";
 
 export type StraightWaistbandOptions = {
   finishedDepth: number; // mm — Aldrich: 3–5cm
@@ -14,11 +14,11 @@ export function draftStraightWaistband(
   const width = options.finishedDepth * 2;
   const q = waist / 4;
 
-  const outline: Point[] = [
-    { x: 0, y: 0 },
-    { x: length, y: 0 },
-    { x: length, y: width },
-    { x: 0, y: width },
+  const outline: OutlinePoint[] = [
+    { at: { x: 0, y: 0 }, edge: "seam" },
+    { at: { x: length, y: 0 }, edge: "seam" },
+    { at: { x: length, y: width }, edge: "seam" },
+    { at: { x: 0, y: width }, edge: "seam" },
   ];
 
   const markings: Marking[] = [

@@ -1,4 +1,4 @@
-import { BodyMeasurements, Pattern, Point, Marking } from "@/lib/types/measurements";
+import { BodyMeasurements, OutlinePoint, Pattern, Point, Marking } from "@/lib/types/measurements";
 import { validationResult, ValidationResult } from "@/lib/types/validation";
 import { draftStraightWaistband } from "@/lib/patterns/straightWaistband";
 
@@ -53,10 +53,10 @@ export function draftGatheredSkirt(
     waistEdge.push({ x, y });
   }
 
-  const outline: Point[] = [
-    ...waistEdge,
-    { x: width, y: depth },
-    { x: 0, y: depth },
+  const outline: OutlinePoint[] = [
+    ...waistEdge.map((at) => ({ at, edge: "seam" as const })),
+    { at: { x: width, y: depth }, edge: "hem" },
+    { at: { x: 0, y: depth }, edge: "fold" },
   ];
 
   return {

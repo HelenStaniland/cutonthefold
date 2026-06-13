@@ -7,6 +7,10 @@ import {
 } from "@/lib/types/measurements";
 import { draftGatheredSkirt, GatheredSkirtFit, validateGatheredSkirt } from "@/lib/patterns/gatheredSkirt";
 import { previewGatheredSkirt } from "@/lib/previews/gatheredSkirt";
+import {
+  DEFAULT_SEAM_ALLOWANCE,
+  withSeamAllowance,
+} from "@/lib/geometry/seamAllowance";
 import styles from "./page.module.css";
 
 export default function Home() {
@@ -29,16 +33,22 @@ export default function Home() {
   const flaggedFields = new Set(
     validation.issues.flatMap((issue) => issue.fields ?? []),
   );
-  const pattern = draftGatheredSkirt(measurements, fit, style);
+  const net = draftGatheredSkirt(measurements, fit, style);
+  const pattern = withSeamAllowance(net, DEFAULT_SEAM_ALLOWANCE);
   const preview = previewGatheredSkirt(measurements, fit, style);
 
   const gap = 60;
   const rowGap = 80;
   const labelSpace = 44;
 
+  function pieceBoundary(piece: (typeof pattern.pieces)[number]) {
+    return piece.cuttingOutline ?? piece.outline.map((p) => p.at);
+  }
+
   function pieceBounds(piece: (typeof pattern.pieces)[number]) {
-    const xs = piece.outline.map((p) => p.x);
-    const ys = piece.outline.map((p) => p.y);
+    const boundary = pieceBoundary(piece);
+    const xs = boundary.map((p) => p.x);
+    const ys = boundary.map((p) => p.y);
     return {
       minX: Math.min(...xs),
       minY: Math.min(...ys),
@@ -320,14 +330,35 @@ export default function Home() {
         </defs>
 
         {placed.map(({ piece, dx, dy, top, labelX }) => {
-          const points = piece.outline.map((p) => `${p.x + dx},${p.y + dy}`).join(" ");
+          const boundary = pieceBoundary(piece);
+          const cutPoints = boundary
+            .map((p) => `${p.x + dx},${p.y + dy}`)
+            .join(" ");
+          const netPoints = piece.outline
+            .map((p) => `${p.at.x + dx},${p.at.y + dy}`)
+            .join(" ");
+          const hasCuttingLine = piece.cuttingOutline !== undefined;
           return (
             <g key={piece.name}>
               <text x={labelX} y={top - 34} fontSize={22} fill="#333" textAnchor="middle">
                 {piece.name}
               </text>
 
-              <polygon points={points} fill="#cdb4db" stroke="#5a3e6b" strokeWidth={4} />
+              <polygon
+                points={hasCuttingLine ? cutPoints : netPoints}
+                fill="#cdb4db"
+                stroke="#5a3e6b"
+                strokeWidth={4}
+              />
+              {hasCuttingLine && (
+                <polygon
+                  points={netPoints}
+                  fill="none"
+                  stroke="#5a3e6b"
+                  strokeWidth={2}
+                  strokeDasharray="12 8"
+                />
+              )}
 
               {piece.markings.map((m, i) => {
                 switch (m.kind) {

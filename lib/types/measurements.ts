@@ -21,6 +21,15 @@ export type SkirtFit = "fitted" | "relaxed";
 export type Point = { x: Millimetres; y: Millimetres };
 export type Line = { from: Point; to: Point };
 
+export type EdgeType = "seam" | "fold" | "hem";
+
+// A point on the outline that names the edge LEAVING it
+// (the segment from this point to the next, wrapping at the end).
+export type OutlinePoint = { at: Point; edge: EdgeType };
+
+export type SeamAllowancePolicy = { seam: Millimetres; hem: Millimetres };
+// fold is always 0 — not part of the policy.
+
 // The standard markings, as a tagged union. The renderer draws each `kind`
 // exactly once; a piece just lists the markings it carries.
 export type Marking =
@@ -37,7 +46,8 @@ export type PatternPiece = {
   name: string;
   cutCount: number;
   onFold: boolean;
-  outline: Point[];
+  outline: OutlinePoint[]; // net / stitching line
+  cuttingOutline?: Point[]; // derived; the solid cut edge (set by the transform)
   markings: Marking[];
 };
 
