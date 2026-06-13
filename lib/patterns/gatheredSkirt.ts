@@ -2,8 +2,11 @@ import { BodyMeasurements, Pattern, Point, Marking } from "@/lib/types/measureme
 import { validationResult, ValidationResult } from "@/lib/types/validation";
 import { draftStraightWaistband } from "@/lib/patterns/straightWaistband";
 
-const SLIGHTLY_GATHERED_EXTRA = 150; // mm — quarter hip + 15cm (Aldrich p172)
-const WAIST_RISE = 15;               // mm — waist 1.5cm higher at the side seam
+const WAIST_RISE = 15; // mm — waist 1.5cm higher at the side seam
+
+export type GatheredSkirtFit = {
+  fullness: number; // mm beyond the quarter-hip
+};
 
 export type GatheredSkirtStyle = {
   length: number; // mm, waist to hem
@@ -36,9 +39,10 @@ function skirtPanelMarkings(
 
 export function draftGatheredSkirt(
   body: BodyMeasurements,
+  fit: GatheredSkirtFit,
   style: GatheredSkirtStyle,
 ): Pattern {
-  const width = body.hip / 4 + SLIGHTLY_GATHERED_EXTRA;
+  const width = body.hip / 4 + fit.fullness;
   const depth = style.length;
 
   const SEGMENTS = 8;
@@ -78,6 +82,7 @@ export function draftGatheredSkirt(
 
 export function validateGatheredSkirt(
   body: BodyMeasurements,
+  _fit: GatheredSkirtFit,
   _style: GatheredSkirtStyle,
 ): ValidationResult {
   const issues = [];

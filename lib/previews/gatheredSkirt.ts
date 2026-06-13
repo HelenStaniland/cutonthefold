@@ -1,5 +1,6 @@
 import { BodyMeasurements, Line, Point } from "@/lib/types/measurements";
 import {
+  GatheredSkirtFit,
   GatheredSkirtStyle,
   validateGatheredSkirt,
 } from "@/lib/patterns/gatheredSkirt";
@@ -12,14 +13,15 @@ export type GarmentPreview = {
 
 export function previewGatheredSkirt(
   body: BodyMeasurements,
+  fit: GatheredSkirtFit,
   style: GatheredSkirtStyle,
 ): GarmentPreview | null {
-  if (!validateGatheredSkirt(body, style).valid) {
+  if (!validateGatheredSkirt(body, fit, style).valid) {
     return null;
   }
 
   const W = body.waist;
-  const H = body.hip;
+  const hemWidth = body.hip + fit.fullness;
   const L = style.length;
   const bandDepth = 40;
 
@@ -33,8 +35,8 @@ export function previewGatheredSkirt(
   const skirt: Point[] = [
     { x: -W / 2, y: bandDepth },
     { x: W / 2, y: bandDepth },
-    { x: H / 2, y: bandDepth + L },
-    { x: -H / 2, y: bandDepth + L },
+    { x: hemWidth / 2, y: bandDepth + L },
+    { x: -hemWidth / 2, y: bandDepth + L },
   ];
 
   const gatherCount = 7;

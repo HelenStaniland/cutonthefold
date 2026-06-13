@@ -5,7 +5,7 @@ import {
   BodyMeasurements,
   SKIRT_BODY_MEASUREMENTS,
 } from "@/lib/types/measurements";
-import { draftGatheredSkirt, validateGatheredSkirt } from "@/lib/patterns/gatheredSkirt";
+import { draftGatheredSkirt, GatheredSkirtFit, validateGatheredSkirt } from "@/lib/patterns/gatheredSkirt";
 import { previewGatheredSkirt } from "@/lib/previews/gatheredSkirt";
 import styles from "./page.module.css";
 
@@ -16,18 +16,21 @@ export default function Home() {
     hipDepth: 200,
   });
   const [length, setLength] = useState(600); // mm, a style choice
+  const [fit, setFit] = useState<GatheredSkirtFit>({ fullness: 150 });
 
   function updateMeasurement(key: keyof BodyMeasurements, value: number) {
     setMeasurements({ ...measurements, [key]: value });
   }
 
+  const style = { length };
+
   // Domain code produces the pattern; this component only draws it.
-  const validation = validateGatheredSkirt(measurements, { length });
+  const validation = validateGatheredSkirt(measurements, fit, style);
   const flaggedFields = new Set(
     validation.issues.flatMap((issue) => issue.fields ?? []),
   );
-  const pattern = draftGatheredSkirt(measurements, { length });
-  const preview = previewGatheredSkirt(measurements, { length });
+  const pattern = draftGatheredSkirt(measurements, fit, style);
+  const preview = previewGatheredSkirt(measurements, fit, style);
 
   const gap = 60;
   const rowGap = 80;
@@ -123,7 +126,7 @@ export default function Home() {
           <div className={styles.logo} aria-hidden />
           <div className={styles.brandText}>
             <h1>Cut on the Fold</h1>
-            <p>Gathered skirt · slightly gathered</p>
+            <p>Gathered skirt</p>
           </div>
         </div>
         <p className={styles.headerMeta}>
@@ -160,6 +163,32 @@ export default function Home() {
                 </div>
               </div>
             ))}
+          </section>
+
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>Fit</h2>
+            <div className={styles.field}>
+              <label className={styles.fieldLabel} htmlFor="fullness">
+                Fullness allowance
+              </label>
+              <span className={styles.fieldHint}>
+                Extra width beyond quarter-hip — Aldrich&apos;s slightly gathered
+                skirt uses 150&nbsp;mm (15&nbsp;cm).
+              </span>
+              <div className={styles.inputWrap}>
+                <input
+                  id="fullness"
+                  type="number"
+                  min={0}
+                  max={400}
+                  value={fit.fullness}
+                  onChange={(e) =>
+                    setFit({ fullness: Number(e.target.value) })
+                  }
+                />
+                <span className={styles.inputSuffix}>mm</span>
+              </div>
+            </div>
           </section>
 
           <section className={styles.section}>
@@ -213,6 +242,9 @@ export default function Home() {
             </span>
             <span className={styles.chip}>
               Hip <strong>{measurements.hip}</strong> mm
+            </span>
+            <span className={styles.chip}>
+              Fullness <strong>{fit.fullness}</strong> mm
             </span>
             <span className={styles.chip}>
               Length <strong>{length}</strong> mm
