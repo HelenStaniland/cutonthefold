@@ -5,13 +5,14 @@ import {
   BodyMeasurements,
   SKIRT_BODY_MEASUREMENTS,
 } from "@/lib/types/measurements";
-import { draftGatheredSkirt, GatheredSkirtFit, validateGatheredSkirt } from "@/lib/patterns/gatheredSkirt";
+import { draftGatheredSkirt, gatheredSkirtInstructions, GatheredSkirtFit, validateGatheredSkirt } from "@/lib/patterns/gatheredSkirt";
 import { previewGatheredSkirt } from "@/lib/previews/gatheredSkirt";
 import {
   DEFAULT_SEAM_ALLOWANCE,
   withSeamAllowance,
 } from "@/lib/geometry/seamAllowance";
 import styles from "./page.module.css";
+import { NumericInput } from "./NumericInput";
 
 export default function Home() {
   const [measurements, setMeasurements] = useState<BodyMeasurements>({
@@ -36,6 +37,7 @@ export default function Home() {
   const net = draftGatheredSkirt(measurements, fit, style);
   const pattern = withSeamAllowance(net, DEFAULT_SEAM_ALLOWANCE);
   const preview = previewGatheredSkirt(measurements, fit, style);
+  const method = gatheredSkirtInstructions();
 
   const gap = 60;
   const rowGap = 80;
@@ -100,6 +102,11 @@ export default function Home() {
   const layoutWidth = Math.max(row1Width, waistbandX + wb.w);
   const layoutHeight = row2Y + wb.h;
   const pad = 60;
+  const sheetInset = 36;
+  const sheetX = -sheetInset;
+  const sheetY = 0;
+  const sheetWidth = layoutWidth + sheetInset * 2;
+  const sheetHeight = layoutHeight + sheetInset;
   const patternViewWidth = layoutWidth + pad * 2;
   const patternViewHeight = layoutHeight + pad * 2;
   const patternSvgWidth = 720;
@@ -159,15 +166,12 @@ export default function Home() {
                 <div
                   className={`${styles.inputWrap} ${flaggedFields.has(def.key) ? styles.inputWrapInvalid : ""}`}
                 >
-                  <input
+                  <NumericInput
                     id={def.key}
-                    type="number"
                     min={def.min}
                     max={def.max}
                     value={measurements[def.key]}
-                    onChange={(e) =>
-                      updateMeasurement(def.key, Number(e.target.value))
-                    }
+                    onChange={(value) => updateMeasurement(def.key, value)}
                   />
                   <span className={styles.inputSuffix}>mm</span>
                 </div>
@@ -186,15 +190,12 @@ export default function Home() {
                 skirt uses 150&nbsp;mm (15&nbsp;cm).
               </span>
               <div className={styles.inputWrap}>
-                <input
+                <NumericInput
                   id="fullness"
-                  type="number"
                   min={0}
                   max={400}
                   value={fit.fullness}
-                  onChange={(e) =>
-                    setFit({ fullness: Number(e.target.value) })
-                  }
+                  onChange={(fullness) => setFit({ fullness })}
                 />
                 <span className={styles.inputSuffix}>mm</span>
               </div>
@@ -211,13 +212,12 @@ export default function Home() {
                 Waist to hem — adjust to your preferred finished length.
               </span>
               <div className={styles.inputWrap}>
-                <input
+                <NumericInput
                   id="length"
-                  type="number"
                   min={200}
                   max={1200}
                   value={length}
-                  onChange={(e) => setLength(Number(e.target.value))}
+                  onChange={setLength}
                 />
                 <span className={styles.inputSuffix}>mm</span>
               </div>
@@ -315,7 +315,7 @@ export default function Home() {
                 <h2 className={styles.cardTitle}>Pattern pieces</h2>
                 <span className={styles.cardSubtitle}>Flat layout</span>
               </div>
-              <div className={styles.cardBody}>
+              <div className={`${styles.cardBody} ${styles.patternCardBody}`}>
                 {validation.valid ? (
                 <svg
                   width={patternSvgWidth}
@@ -323,11 +323,27 @@ export default function Home() {
                   viewBox={`${-pad} ${-pad} ${patternViewWidth} ${patternViewHeight}`}
                 >
         <defs>
-          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
-                  markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="#5a3e6b" />
+          <filter id="paperShadow" x="-8%" y="-8%" width="116%" height="116%">
+            <feDropShadow dx="0" dy="3" stdDeviation="5" floodColor="#2c2420" floodOpacity="0.1" />
+          </filter>
+          <marker id="grainArrow" viewBox="0 0 10 10" refX="9" refY="5"
+                  markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#2d6a4f" />
+          </marker>
+          <marker id="instructionArrow" viewBox="0 0 10 10" refX="9" refY="5"
+                  markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#4a6741" />
           </marker>
         </defs>
+
+        <rect
+          x={sheetX}
+          y={sheetY}
+          width={sheetWidth}
+          height={sheetHeight}
+          className={styles.paperSheet}
+          filter="url(#paperShadow)"
+        />
 
         {placed.map(({ piece, dx, dy, top, labelX }) => {
           const boundary = pieceBoundary(piece);
@@ -340,23 +356,24 @@ export default function Home() {
           const hasCuttingLine = piece.cuttingOutline !== undefined;
           return (
             <g key={piece.name}>
-              <text x={labelX} y={top - 34} fontSize={22} fill="#333" textAnchor="middle">
+              <text
+                x={labelX}
+                y={top - labelSpace / 2}
+                className={styles.pieceTitle}
+                textAnchor="middle"
+                dominantBaseline="middle"
+              >
                 {piece.name}
               </text>
 
               <polygon
                 points={hasCuttingLine ? cutPoints : netPoints}
-                fill="#cdb4db"
-                stroke="#5a3e6b"
-                strokeWidth={4}
+                className={styles.cutLine}
               />
               {hasCuttingLine && (
                 <polygon
                   points={netPoints}
-                  fill="none"
-                  stroke="#5a3e6b"
-                  strokeWidth={2}
-                  strokeDasharray="12 8"
+                  className={styles.stitchLine}
                 />
               )}
 
@@ -367,15 +384,15 @@ export default function Home() {
                       <line key={i}
                         x1={m.line.from.x + dx} y1={m.line.from.y + dy}
                         x2={m.line.to.x + dx} y2={m.line.to.y + dy}
-                        stroke="#5a3e6b" strokeWidth={3}
-                        markerStart="url(#arrow)" markerEnd="url(#arrow)" />
+                        className={styles.grainline}
+                        markerStart="url(#grainArrow)" markerEnd="url(#grainArrow)" />
                     );
                   case "foldLine":
                     return (
                       <line key={i}
                         x1={m.line.from.x + dx} y1={m.line.from.y + dy}
                         x2={m.line.to.x + dx} y2={m.line.to.y + dy}
-                        stroke="#5a3e6b" strokeWidth={3} strokeDasharray="18 12" />
+                        className={styles.foldLine} />
                     );
                   case "placeOnFold": {
                     const A = m.line.from;
@@ -404,16 +421,13 @@ export default function Home() {
                       <g key={i}>
                         <polyline
                           points={bracket}
-                          fill="none"
-                          stroke="#5a3e6b"
-                          strokeWidth={3}
+                          className={styles.foldMark}
                         />
                         {m.label && (
                           <text
                             x={labelX}
                             y={labelY}
-                            fontSize={18}
-                            fill="#333"
+                            className={styles.patternLabel}
                             textAnchor="middle"
                             dominantBaseline="middle"
                             transform={`rotate(${labelAngle}, ${labelX}, ${labelY})`}
@@ -458,17 +472,14 @@ export default function Home() {
                           y1={y1}
                           x2={x2}
                           y2={y2}
-                          stroke="#5a3e6b"
-                          strokeWidth={3}
-                          strokeDasharray="18 12"
-                          markerStart="url(#arrow)"
-                          markerEnd="url(#arrow)"
+                          className={styles.instructionLine}
+                          markerStart="url(#instructionArrow)"
+                          markerEnd="url(#instructionArrow)"
                         />
                         <text
                           x={mx + n.x * 18}
                           y={my + n.y * 18}
-                          fontSize={16}
-                          fill="#333"
+                          className={styles.patternLabel}
                           textAnchor="middle"
                         >
                           gather
@@ -480,7 +491,7 @@ export default function Home() {
                     const cx = m.at.x + dx;
                     const cy = m.at.y + dy;
                     if (m.dir) {
-                      const depth = 14;
+                      const depth = m.depth ?? 14;
                       const halfWidth = 7;
                       const nx = m.dir.x;
                       const ny = m.dir.y;
@@ -495,13 +506,12 @@ export default function Home() {
                       ].join(" ");
                       return (
                         <g key={i}>
-                          <polygon points={notchPoints} fill="#5a3e6b" />
+                          <polygon points={notchPoints} className={styles.notch} />
                           {m.label && (
                             <text
                               x={cx + nx * (depth + 12)}
                               y={cy + ny * (depth + 12)}
-                              fontSize={18}
-                              fill="#333"
+                              className={styles.patternLabel}
                               textAnchor="middle"
                             >
                               {m.label}
@@ -514,10 +524,11 @@ export default function Home() {
                       <g key={i}>
                         <polygon
                           points={`${m.at.x + dx - 7},${m.at.y + dy} ${m.at.x + dx + 7},${m.at.y + dy} ${m.at.x + dx},${m.at.y + dy + 14}`}
-                          fill="#5a3e6b" />
+                          className={styles.notch} />
                         {m.label && (
-                          <text x={m.at.x + dx} y={m.at.y + dy - 8} fontSize={18}
-                                fill="#333" textAnchor="middle">{m.label}</text>
+                          <text x={m.at.x + dx} y={m.at.y + dy - 8}
+                                className={styles.patternLabel}
+                                textAnchor="middle">{m.label}</text>
                         )}
                       </g>
                     );
@@ -525,7 +536,7 @@ export default function Home() {
                   case "button": {
                     const s = 9, cx = m.at.x + dx, cy = m.at.y + dy;
                     return (
-                      <g key={i} stroke="#5a3e6b" strokeWidth={3}>
+                      <g key={i} className={styles.hardwareMark}>
                         <line x1={cx - s} y1={cy - s} x2={cx + s} y2={cy + s} />
                         <line x1={cx - s} y1={cy + s} x2={cx + s} y2={cy - s} />
                       </g>
@@ -534,14 +545,14 @@ export default function Home() {
                   case "buttonhole": {
                     const s = 9, cx = m.at.x + dx, cy = m.at.y + dy;
                     return <line key={i} x1={cx - s} y1={cy} x2={cx + s} y2={cy}
-                                 stroke="#5a3e6b" strokeWidth={3} />;
+                                 className={styles.hardwareMark} />;
                   }
                   case "constructionLine":
                     return (
                       <line key={i}
                         x1={m.line.from.x + dx} y1={m.line.from.y + dy}
                         x2={m.line.to.x + dx} y2={m.line.to.y + dy}
-                        stroke="#5a3e6b" strokeWidth={3} />
+                        className={styles.constructionLine} />
                     );
                   default:
                     return null;
@@ -563,6 +574,24 @@ export default function Home() {
               </div>
             </article>
           </div>
+
+          {validation.valid && (
+            <article className={styles.card}>
+              <div className={styles.cardHeader}>
+                <h2 className={styles.cardTitle}>Method</h2>
+                <span className={styles.cardSubtitle}>Construction order</span>
+              </div>
+              <div className={styles.methodBody}>
+                <ol className={styles.methodList}>
+                  {method.map((step) => (
+                    <li key={step.id} className={styles.methodStep}>
+                      {step.text}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </article>
+          )}
         </div>
       </div>
     </div>

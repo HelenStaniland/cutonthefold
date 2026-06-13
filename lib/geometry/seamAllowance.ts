@@ -1,4 +1,5 @@
 import {
+  Marking,
   OutlinePoint,
   Pattern,
   PatternPiece,
@@ -9,6 +10,9 @@ import {
 export const DEFAULT_SEAM_ALLOWANCE: SeamAllowancePolicy = { seam: 15, hem: 50 };
 
 const PARALLEL_ANGLE_THRESHOLD = (5 * Math.PI) / 180;
+const NOTCH_EDGE_TOLERANCE = 3; // mm
+
+type EdgeOffset = { normal: Point; allowance: number };
 
 function allowanceFor(edge: OutlinePoint["edge"], policy: SeamAllowancePolicy): number {
   switch (edge) {
@@ -74,6 +78,86 @@ function normalsNearlyParallel(n1: Point, n2: Point): boolean {
   return angle < PARALLEL_ANGLE_THRESHOLD || Math.PI - angle < PARALLEL_ANGLE_THRESHOLD;
 }
 
+function computeEdgeOffsets(
+  outline: OutlinePoint[],
+  clockwise: boolean,
+  policy: SeamAllowancePolicy,
+): EdgeOffset[] {
+  const n = outline.length;
+  return outline.map((pt, i) => {
+    const from = pt.at;
+    const to = outline[(i + 1) % n].at;
+    const dir = edgeDirection(from, to);
+    return {
+      normal: outwardNormal(dir.x, dir.y, clockwise),
+      allowance: allowanceFor(pt.edge, policy),
+    };
+  });
+}
+
+function distanceToSegment(p: Point, a: Point, b: Point): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) {
+    return Math.hypot(p.x - a.x, p.y - a.y);
+  }
+  const t = Math.max(
+    0,
+    Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / lenSq),
+  );
+  const projX = a.x + t * dx;
+  const projY = a.y + t * dy;
+  return Math.hypot(p.x - projX, p.y - projY);
+}
+
+function findEdgeOffsetForPoint(
+  p: Point,
+  outline: OutlinePoint[],
+  edgeOffsets: EdgeOffset[],
+): EdgeOffset | null {
+  const n = outline.length;
+  for (let i = 0; i < n; i++) {
+    const from = outline[i].at;
+    const to = outline[(i + 1) % n].at;
+    if (distanceToSegment(p, from, to) <= NOTCH_EDGE_TOLERANCE) {
+      return edgeOffsets[i];
+    }
+  }
+  return null;
+}
+
+function relocateNotchOntoCuttingLine(
+  marking: Extract<Marking, { kind: "notch" }>,
+  outline: OutlinePoint[],
+  edgeOffsets: EdgeOffset[],
+): Extract<Marking, { kind: "notch" }> {
+  const edge = findEdgeOffsetForPoint(marking.at, outline, edgeOffsets);
+  if (!edge || edge.allowance === 0) {
+    return marking;
+  }
+
+  const inward = { x: -edge.normal.x, y: -edge.normal.y };
+  return {
+    ...marking,
+    at: offsetPoint(marking.at, edge.normal, edge.allowance),
+    dir: inward,
+    depth: edge.allowance,
+  };
+}
+
+function relocateNotches(
+  markings: Marking[],
+  outline: OutlinePoint[],
+  edgeOffsets: EdgeOffset[],
+): Marking[] {
+  return markings.map((marking) =>
+    marking.kind === "notch"
+      ? relocateNotchOntoCuttingLine(marking, outline, edgeOffsets)
+      : marking,
+  );
+}
+
 export function addSeamAllowance(
   piece: PatternPiece,
   policy: SeamAllowancePolicy,
@@ -85,6 +169,7 @@ export function addSeamAllowance(
   }
 
   const clockwise = signedArea(outline) > 0;
+  const edgeOffsets = computeEdgeOffsets(outline, clockwise, policy);
   const cuttingOutline: Point[] = [];
 
   for (let i = 0; i < n; i++) {
@@ -100,11 +185,11 @@ export function addSeamAllowance(
     const prevDir = edgeDirection(prevFrom, prevTo);
     const currDir = edgeDirection(currFrom, currTo);
 
-    const prevNormal = outwardNormal(prevDir.x, prevDir.y, clockwise);
-    const currNormal = outwardNormal(currDir.x, currDir.y, clockwise);
+    const prevNormal = edgeOffsets[prev].normal;
+    const currNormal = edgeOffsets[i].normal;
 
-    const prevAllowance = allowanceFor(outline[prev].edge, policy);
-    const currAllowance = allowanceFor(outline[i].edge, policy);
+    const prevAllowance = edgeOffsets[prev].allowance;
+    const currAllowance = edgeOffsets[i].allowance;
 
     let corner: Point;
 
@@ -120,9 +205,7 @@ export function addSeamAllowance(
       corner = offsetPoint(vertex, avgNormal, allowance);
     } else {
       const prevOffsetStart = offsetPoint(prevFrom, prevNormal, prevAllowance);
-      const prevOffsetEnd = offsetPoint(prevTo, prevNormal, prevAllowance);
       const currOffsetStart = offsetPoint(currFrom, currNormal, currAllowance);
-      const currOffsetEnd = offsetPoint(currTo, currNormal, currAllowance);
 
       const intersection = lineIntersection(
         prevOffsetStart,
@@ -139,7 +222,11 @@ export function addSeamAllowance(
     cuttingOutline.push(corner);
   }
 
-  return { ...piece, cuttingOutline };
+  return {
+    ...piece,
+    cuttingOutline,
+    markings: relocateNotches(piece.markings, outline, edgeOffsets),
+  };
 }
 
 export function withSeamAllowance(

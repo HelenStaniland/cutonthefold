@@ -274,6 +274,144 @@
   box-shadow: 0 1px 3px rgba(44, 36, 32, 0.06);
 }
 
+.patternCardBody {
+  --pattern-cut: #2c2420;
+  --pattern-stitch: #b5aaa0;
+  --pattern-grain: #2d6a4f;
+  --pattern-fold: #5a3e6b;
+  --pattern-instruction: #4a6741;
+  --pattern-construction: #7a8796;
+  --pattern-label: #2c2420;
+
+  padding: 20px;
+  background:
+    linear-gradient(rgba(44, 36, 32, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(44, 36, 32, 0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-color: #e8e2d9;
+}
+
+.methodBody {
+  padding: 20px 24px 24px;
+  background: var(--paper-elevated);
+}
+
+.methodList {
+  list-style: none;
+  counter-reset: method-step;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.methodStep {
+  counter-increment: method-step;
+  position: relative;
+  padding-left: 2.75rem;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+.methodStep::before {
+  content: counter(method-step);
+  position: absolute;
+  left: 0;
+  top: 0.05em;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid rgba(90, 62, 107, 0.15);
+}
+
+.patternCardBody svg {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.paperSheet {
+  fill: #fff;
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+
+.cutLine {
+  fill: none;
+  stroke: var(--pattern-cut);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.stitchLine {
+  fill: none;
+  stroke: var(--pattern-stitch);
+  stroke-width: 1.75;
+  stroke-dasharray: 10 7;
+  stroke-linejoin: round;
+}
+
+.grainline {
+  stroke: var(--pattern-grain);
+  stroke-width: 2;
+}
+
+.foldLine {
+  stroke: var(--pattern-fold);
+  stroke-width: 2;
+  stroke-dasharray: 16 10;
+}
+
+.foldMark {
+  fill: none;
+  stroke: var(--pattern-fold);
+  stroke-width: 2;
+}
+
+.instructionLine {
+  stroke: var(--pattern-instruction);
+  stroke-width: 1.75;
+  stroke-dasharray: 14 9;
+}
+
+.constructionLine {
+  stroke: var(--pattern-construction);
+  stroke-width: 1.5;
+  stroke-dasharray: 8 6;
+}
+
+.notch {
+  fill: var(--pattern-cut);
+  stroke: none;
+}
+
+.patternLabel {
+  fill: var(--pattern-label);
+  font-size: 16px;
+}
+
+.pieceTitle {
+  fill: var(--pattern-label);
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.hardwareMark {
+  fill: none;
+  stroke: var(--pattern-cut);
+  stroke-width: 2;
+}
+
 .canvasUnavailable {
   width: 100%;
   min-height: 280px;

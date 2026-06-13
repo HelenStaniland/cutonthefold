@@ -1,4 +1,4 @@
-import { BodyMeasurements, OutlinePoint, Pattern, Point, Marking } from "@/lib/types/measurements";
+import { BodyMeasurements, ConstructionStep, OutlinePoint, Pattern, Point, Marking } from "@/lib/types/measurements";
 import { validationResult, ValidationResult } from "@/lib/types/validation";
 import { draftStraightWaistband } from "@/lib/patterns/straightWaistband";
 
@@ -78,6 +78,41 @@ export function draftGatheredSkirt(
       draftStraightWaistband(body.waist, { finishedDepth: 40, underwrap: 40 }),
     ],
   };
+}
+
+export function gatheredSkirtInstructions(): ConstructionStep[] {
+  return [
+    {
+      id: "finish-edges",
+      text: "Neaten the side-seam and hem edges of both panels by your preferred method (overlock or zigzag).",
+      pieces: ["Front", "Back"],
+    },
+    {
+      id: "side-seams",
+      text: "Right sides together, match the side-seam notches and stitch the panels down each side. Sew one side fully; on the other, stitch only from the hem up to the opening, leaving the top open for the closure. Press seams open.",
+      pieces: ["Front", "Back"],
+    },
+    {
+      id: "gather-waist",
+      text: "Run two rows of long gathering stitches along the waist edge and draw them up until the gathered waist matches the waistband (excluding its underwrap), distributing fullness evenly.",
+      pieces: ["Front", "Back"],
+    },
+    {
+      id: "attach-waistband",
+      text: "Right sides together, pin the band to the gathered waist edge matching notches, underwrap extending past the opening. Stitch, press the seam toward the band, fold the band on its fold line, close the short ends, turn, and finish the inner edge down over the seam.",
+      pieces: ["Waistband", "Front", "Back"],
+    },
+    {
+      id: "fastening",
+      text: "Work the buttonhole and sew the button at the marked positions on the underwrap.",
+      pieces: ["Waistband"],
+    },
+    {
+      id: "hem",
+      text: "Turn up the hem allowance, press, and stitch by your preferred method.",
+      pieces: ["Front", "Back"],
+    },
+  ];
 }
 
 export function validateGatheredSkirt(

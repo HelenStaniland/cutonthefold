@@ -38,7 +38,7 @@ export type Marking =
   | { kind: "placeOnFold"; line: Line; inward: { x: number; y: number }; label?: string }
   | { kind: "gather"; line: Line }
   | { kind: "constructionLine"; line: Line }
-  | { kind: "notch"; at: Point; label?: string; dir?: { x: number; y: number } }
+  | { kind: "notch"; at: Point; label?: string; dir?: { x: number; y: number }; depth?: Millimetres }
   | { kind: "button"; at: Point }
   | { kind: "buttonhole"; at: Point };
 
@@ -52,6 +52,12 @@ export type PatternPiece = {
 };
 
 export type Pattern = { pieces: PatternPiece[] };
+
+export type ConstructionStep = {
+  id: string;
+  text: string; // human-readable instruction
+  pieces?: string[]; // names of pieces this step involves (must match PatternPiece.name)
+};
 
 
 // Metadata that will build the input form and validate it.
