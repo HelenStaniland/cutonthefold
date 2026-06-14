@@ -12,6 +12,9 @@
   --shadow: 0 1px 2px rgba(44, 36, 32, 0.04), 0 8px 24px rgba(44, 36, 32, 0.06);
   --radius: 12px;
   --radius-sm: 8px;
+  --preview-skirt: #ddd6f3;
+  --preview-waistband: #b8a9c9;
+  --preview-stroke: #5a3e6b;
 
   min-height: 100vh;
   display: flex;
@@ -258,10 +261,6 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  background:
-    linear-gradient(var(--border) 1px, transparent 1px),
-    linear-gradient(90deg, var(--border) 1px, transparent 1px);
-  background-size: 20px 20px;
   background-color: #faf7f2;
 }
 
@@ -284,10 +283,6 @@
   --pattern-label: #2c2420;
 
   padding: 20px;
-  background:
-    linear-gradient(rgba(44, 36, 32, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(44, 36, 32, 0.04) 1px, transparent 1px);
-  background-size: 24px 24px;
   background-color: #e8e2d9;
 }
 
@@ -364,6 +359,49 @@
   fill: #fff;
   stroke: var(--border-strong);
   stroke-width: 1;
+}
+
+.referenceGrid {
+  pointer-events: none;
+}
+
+.gridLine {
+  stroke: var(--ink-faint);
+  stroke-opacity: 0.28;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.gridLineMajor {
+  stroke: var(--ink-faint);
+  stroke-opacity: 0.48;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.cardHeaderActions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.gridToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.gridToggle input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 
 .cutLine {
@@ -483,6 +521,174 @@
 .chip strong {
   color: var(--accent);
   font-weight: 600;
+}
+
+.previewSkirt {
+  fill: var(--preview-skirt);
+  stroke: var(--preview-stroke);
+  stroke-width: 4;
+}
+
+.previewWaistband {
+  fill: var(--preview-waistband);
+  stroke: var(--preview-stroke);
+  stroke-width: 4;
+}
+
+.previewLine {
+  stroke: var(--preview-stroke);
+  stroke-width: 2;
+}
+
+.themeToggle {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--paper-elevated);
+}
+
+.themeToggle button {
+  border: none;
+  background: transparent;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.themeToggle button:hover {
+  color: var(--ink);
+}
+
+.themeToggleActive {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.headerActions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+/* Alternate skin: cool studio / workbench (toggle in header; default .page unchanged) */
+.pageStudio {
+  --paper: #eceff4;
+  --paper-elevated: #ffffff;
+  --ink: #111827;
+  --ink-muted: #4b5563;
+  --ink-faint: #9ca3af;
+  --accent: #0d9488;
+  --accent-soft: #ccfbf1;
+  --accent-mid: #5eead4;
+  --border: #d1d5db;
+  --border-strong: #9ca3af;
+  --shadow: 0 1px 3px rgba(17, 24, 39, 0.08);
+  --radius: 4px;
+  --radius-sm: 3px;
+  --preview-skirt: #dbeafe;
+  --preview-waistband: #93c5fd;
+  --preview-stroke: #1e3a8a;
+
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--paper);
+}
+
+.pageStudio .header {
+  background: rgba(255, 255, 255, 0.88);
+  border-bottom-color: var(--border);
+  backdrop-filter: blur(8px);
+}
+
+.pageStudio .logo {
+  border-radius: 4px;
+  background: linear-gradient(145deg, var(--accent-mid), var(--accent));
+}
+
+.pageStudio .sidebar {
+  background: rgba(255, 255, 255, 0.55);
+  border-right-color: var(--border);
+}
+
+.pageStudio .inputWrap:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
+}
+
+.pageStudio .inputSuffix {
+  background: #e5e7eb;
+  border-left-color: var(--border);
+  color: var(--ink-muted);
+}
+
+.pageStudio .card {
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+.pageStudio .cardHeader {
+  background: #f9fafb;
+}
+
+.pageStudio .cardBody {
+  background-color: #e5e7eb;
+}
+
+.pageStudio .patternCardBody {
+  --pattern-cut: #111827;
+  --pattern-stitch: #9ca3af;
+  --pattern-grain: #047857;
+  --pattern-fold: #0d9488;
+  --pattern-instruction: #b45309;
+  --pattern-construction: #64748b;
+  --pattern-label: #111827;
+  background-color: #cbd5e1;
+}
+
+.pageStudio .paperSheet {
+  fill: #fff;
+  stroke: #d1d5db;
+}
+
+.pageStudio .stepHighlight {
+  stroke: var(--accent);
+}
+
+.pageStudio .methodStep:hover {
+  background: rgba(13, 148, 136, 0.08);
+}
+
+.pageStudio .methodStepSelected {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px rgba(13, 148, 136, 0.25);
+}
+
+.pageStudio .methodStep::before {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: rgba(13, 148, 136, 0.2);
+  border-radius: 4px;
+}
+
+.pageStudio .chip {
+  background: #fff;
+  border-color: var(--border);
+}
+
+.pageStudio .themeToggleActive {
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 @media (max-width: 1100px) {

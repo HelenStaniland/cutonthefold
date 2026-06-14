@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   BodyMeasurements,
   SKIRT_BODY_MEASUREMENTS,
@@ -21,6 +21,51 @@ import {
 import styles from "./page.module.css";
 import { NumericInput } from "./NumericInput";
 
+type UiSkin = "default" | "studio";
+
+const GRID_SPACING_MM = 50;
+
+type GridLine = {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  major: boolean;
+};
+
+function referenceGridLines(
+  xMin: number,
+  xMax: number,
+  yMin: number,
+  yMax: number,
+): GridLine[] {
+  const lines: GridLine[] = [];
+  const gridXMin = Math.floor(xMin / GRID_SPACING_MM) * GRID_SPACING_MM;
+  const gridXMax = Math.ceil(xMax / GRID_SPACING_MM) * GRID_SPACING_MM;
+  const gridYMin = Math.floor(yMin / GRID_SPACING_MM) * GRID_SPACING_MM;
+  const gridYMax = Math.ceil(yMax / GRID_SPACING_MM) * GRID_SPACING_MM;
+
+  for (let x = gridXMin; x <= gridXMax; x += GRID_SPACING_MM) {
+    lines.push({
+      x1: x,
+      y1: yMin,
+      x2: x,
+      y2: yMax,
+      major: x % 100 === 0,
+    });
+  }
+  for (let y = gridYMin; y <= gridYMax; y += GRID_SPACING_MM) {
+    lines.push({
+      x1: xMin,
+      y1: y,
+      x2: xMax,
+      y2: y,
+      major: y % 100 === 0,
+    });
+  }
+  return lines;
+}
+
 export default function Home() {
   const [measurements, setMeasurements] = useState<BodyMeasurements>({
     waist: 700,
@@ -30,6 +75,9 @@ export default function Home() {
   const [length, setLength] = useState(600); // mm, a style choice
   const [fit, setFit] = useState<GatheredSkirtFit>({ fullness: 150 });
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
+  const [uiSkin, setUiSkin] = useState<UiSkin>("default");
+  const [showGrid, setShowGrid] = useState(false);
+  const pageClass = uiSkin === "studio" ? styles.pageStudio : styles.page;
 
   function updateMeasurement(key: keyof BodyMeasurements, value: number) {
     setMeasurements({ ...measurements, [key]: value });
@@ -124,6 +172,16 @@ export default function Home() {
   const patternSvgHeight = Math.round(
     patternSvgWidth * (patternViewHeight / patternViewWidth),
   );
+  const referenceGrid = useMemo(
+    () =>
+      referenceGridLines(
+        sheetX,
+        sheetX + sheetWidth,
+        sheetY,
+        sheetY + sheetHeight,
+      ),
+    [sheetX, sheetY, sheetWidth, sheetHeight],
+  );
 
   const previewPad = 40;
   const previewPoints = preview
@@ -148,7 +206,7 @@ export default function Home() {
   const pieceCount = pattern.pieces.reduce((n, p) => n + p.cutCount, 0);
 
   return (
-    <div className={styles.page}>
+    <div className={pageClass}>
       <header className={styles.header}>
         <div className={styles.brand}>
           <div className={styles.logo} aria-hidden />
@@ -157,11 +215,29 @@ export default function Home() {
             <p>Gathered skirt</p>
           </div>
         </div>
-        <p className={styles.headerMeta}>
-          {validation.valid
-            ? `${pieceCount} pieces · updates as you edit`
-            : `${validation.issues.length} check${validation.issues.length === 1 ? "" : "s"} need attention`}
-        </p>
+        <div className={styles.headerActions}>
+          <div className={styles.themeToggle} role="group" aria-label="UI style comparison">
+            <button
+              type="button"
+              className={uiSkin === "default" ? styles.themeToggleActive : undefined}
+              onClick={() => setUiSkin("default")}
+            >
+              Warm
+            </button>
+            <button
+              type="button"
+              className={uiSkin === "studio" ? styles.themeToggleActive : undefined}
+              onClick={() => setUiSkin("studio")}
+            >
+              Studio
+            </button>
+          </div>
+          <p className={styles.headerMeta}>
+            {validation.valid
+              ? `${pieceCount} pieces · updates as you edit`
+              : `${validation.issues.length} check${validation.issues.length === 1 ? "" : "s"} need attention`}
+          </p>
+        </div>
       </header>
 
       <div className={styles.workspace}>
@@ -287,15 +363,11 @@ export default function Home() {
                   >
                     <polygon
                       points={polygonPoints(preview.skirt)}
-                      fill="#ddd6f3"
-                      stroke="#5a3e6b"
-                      strokeWidth={4}
+                      className={styles.previewSkirt}
                     />
                     <polygon
                       points={polygonPoints(preview.waistband)}
-                      fill="#b8a9c9"
-                      stroke="#5a3e6b"
-                      strokeWidth={4}
+                      className={styles.previewWaistband}
                     />
                     {preview.gatherLines.map((line, i) => (
                       <line
@@ -304,8 +376,7 @@ export default function Home() {
                         y1={line.from.y}
                         x2={line.to.x}
                         y2={line.to.y}
-                        stroke="#5a3e6b"
-                        strokeWidth={2}
+                        className={styles.previewLine}
                       />
                     ))}
                   </svg>
@@ -324,7 +395,17 @@ export default function Home() {
             <article className={styles.card}>
               <div className={styles.cardHeader}>
                 <h2 className={styles.cardTitle}>Pattern pieces</h2>
-                <span className={styles.cardSubtitle}>Flat layout</span>
+                <div className={styles.cardHeaderActions}>
+                  <label className={styles.gridToggle}>
+                    <input
+                      type="checkbox"
+                      checked={showGrid}
+                      onChange={(e) => setShowGrid(e.target.checked)}
+                    />
+                    Show grid (5 cm)
+                  </label>
+                  <span className={styles.cardSubtitle}>Flat layout</span>
+                </div>
               </div>
               <div className={`${styles.cardBody} ${styles.patternCardBody}`}>
                 {validation.valid ? (
@@ -345,6 +426,9 @@ export default function Home() {
                   markerWidth="5" markerHeight="5" orient="auto-start-reverse">
             <path d="M 0 0 L 10 5 L 0 10 z" fill="#4a6741" />
           </marker>
+          <clipPath id="paperClip">
+            <rect x={sheetX} y={sheetY} width={sheetWidth} height={sheetHeight} />
+          </clipPath>
         </defs>
 
         <rect
@@ -355,6 +439,28 @@ export default function Home() {
           className={styles.paperSheet}
           filter="url(#paperShadow)"
         />
+
+        {showGrid && (
+          <g
+            className={styles.referenceGrid}
+            clipPath="url(#paperClip)"
+            pointerEvents="none"
+          >
+            {referenceGrid.map((line, i) => (
+              <line
+                key={i}
+                x1={line.x1}
+                y1={line.y1}
+                x2={line.x2}
+                y2={line.y2}
+                className={
+                  line.major ? styles.gridLineMajor : styles.gridLine
+                }
+                vectorEffect="non-scaling-stroke"
+              />
+            ))}
+          </g>
+        )}
 
         {placed.map(({ piece, dx, dy, top, labelX }) => {
           const boundary = pieceBoundary(piece);
