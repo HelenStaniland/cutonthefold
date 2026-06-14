@@ -307,10 +307,31 @@
 .methodStep {
   counter-increment: method-step;
   position: relative;
-  padding-left: 2.75rem;
+  padding: 12px 12px 12px 2.75rem;
   font-size: 0.9375rem;
   line-height: 1.55;
   color: var(--ink);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.methodStep:hover {
+  background: rgba(90, 62, 107, 0.06);
+}
+
+.methodStepSelected {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px rgba(90, 62, 107, 0.2);
+}
+
+.stepHighlight {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
 }
 
 .methodStep::before {

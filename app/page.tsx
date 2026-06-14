@@ -11,6 +11,13 @@ import {
   DEFAULT_SEAM_ALLOWANCE,
   withSeamAllowance,
 } from "@/lib/geometry/seamAllowance";
+import {
+  edgeRunsForRoles,
+  findPieceHighlight,
+  isWholePieceTarget,
+  runToNetPolyline,
+  runToPolyline,
+} from "@/lib/patternHighlight";
 import styles from "./page.module.css";
 import { NumericInput } from "./NumericInput";
 
@@ -22,6 +29,7 @@ export default function Home() {
   });
   const [length, setLength] = useState(600); // mm, a style choice
   const [fit, setFit] = useState<GatheredSkirtFit>({ fullness: 150 });
+  const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
 
   function updateMeasurement(key: keyof BodyMeasurements, value: number) {
     setMeasurements({ ...measurements, [key]: value });
@@ -38,6 +46,9 @@ export default function Home() {
   const pattern = withSeamAllowance(net, DEFAULT_SEAM_ALLOWANCE);
   const preview = previewGatheredSkirt(measurements, fit, style);
   const method = gatheredSkirtInstructions();
+  const selectedStep = method.find((step) => step.id === selectedStepId);
+  const activeHighlights = selectedStep?.highlight ?? [];
+  const stepSelectionActive = selectedStepId !== null;
 
   const gap = 60;
   const rowGap = 80;
@@ -354,8 +365,24 @@ export default function Home() {
             .map((p) => `${p.at.x + dx},${p.at.y + dy}`)
             .join(" ");
           const hasCuttingLine = piece.cuttingOutline !== undefined;
+          const pieceHighlight = findPieceHighlight(piece.name, activeHighlights);
+          const wholePieceHighlighted =
+            pieceHighlight !== undefined && isWholePieceTarget(pieceHighlight);
+          const edgeRuns =
+            pieceHighlight &&
+            !wholePieceHighlighted &&
+            pieceHighlight.edges &&
+            pieceHighlight.edges.length > 0
+              ? edgeRunsForRoles(piece.outline, pieceHighlight.edges)
+              : [];
+          const dimBase =
+            stepSelectionActive &&
+            (pieceHighlight === undefined || edgeRuns.length > 0);
+          const baseOpacity = dimBase ? 0.22 : 1;
+
           return (
             <g key={piece.name}>
+              <g opacity={baseOpacity}>
               <text
                 x={labelX}
                 y={top - labelSpace / 2}
@@ -558,6 +585,38 @@ export default function Home() {
                     return null;
                 }
               })}
+              </g>
+
+              {stepSelectionActive && wholePieceHighlighted && (
+                <polygon
+                  points={cutPoints}
+                  className={styles.stepHighlight}
+                />
+              )}
+
+              {stepSelectionActive &&
+                edgeRuns.map((run) => {
+                  const cutSegment = runToPolyline(boundary, run, dx, dy);
+                  const netSegment = runToNetPolyline(piece, run, dx, dy);
+                  return (
+                    <g key={`${run.role}-${run.startIndex}`}>
+                      <polyline
+                        points={cutSegment}
+                        className={styles.cutLine}
+                      />
+                      {hasCuttingLine && (
+                        <polyline
+                          points={netSegment}
+                          className={styles.stitchLine}
+                        />
+                      )}
+                      <polyline
+                        points={cutSegment}
+                        className={styles.stepHighlight}
+                      />
+                    </g>
+                  );
+                })}
             </g>
           );
         })}
@@ -584,7 +643,26 @@ export default function Home() {
               <div className={styles.methodBody}>
                 <ol className={styles.methodList}>
                   {method.map((step) => (
-                    <li key={step.id} className={styles.methodStep}>
+                    <li
+                      key={step.id}
+                      className={`${styles.methodStep} ${selectedStepId === step.id ? styles.methodStepSelected : ""}`}
+                      onClick={() =>
+                        setSelectedStepId((id) =>
+                          id === step.id ? null : step.id,
+                        )
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setSelectedStepId((id) =>
+                            id === step.id ? null : step.id,
+                          );
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={selectedStepId === step.id}
+                    >
                       {step.text}
                     </li>
                   ))}

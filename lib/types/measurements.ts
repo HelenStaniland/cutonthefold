@@ -25,7 +25,7 @@ export type EdgeType = "seam" | "fold" | "hem";
 
 // A point on the outline that names the edge LEAVING it
 // (the segment from this point to the next, wrapping at the end).
-export type OutlinePoint = { at: Point; edge: EdgeType };
+export type OutlinePoint = { at: Point; edge: EdgeType; role?: string };
 
 export type SeamAllowancePolicy = { seam: Millimetres; hem: Millimetres };
 // fold is always 0 — not part of the policy.
@@ -53,10 +53,12 @@ export type PatternPiece = {
 
 export type Pattern = { pieces: PatternPiece[] };
 
+export type StepHighlight = { piece: string; edges?: string[] }; // edges by role; omit = whole piece
+
 export type ConstructionStep = {
   id: string;
   text: string; // human-readable instruction
-  pieces?: string[]; // names of pieces this step involves (must match PatternPiece.name)
+  highlight?: StepHighlight[];
 };
 
 

@@ -54,9 +54,13 @@ export function draftGatheredSkirt(
   }
 
   const outline: OutlinePoint[] = [
-    ...waistEdge.map((at) => ({ at, edge: "seam" as const })),
-    { at: { x: width, y: depth }, edge: "hem" },
-    { at: { x: 0, y: depth }, edge: "fold" },
+    ...waistEdge.map((at, i) => ({
+      at,
+      edge: "seam" as const,
+      role: i === SEGMENTS ? "side-seam" : "waist",
+    })),
+    { at: { x: width, y: depth }, edge: "hem", role: "hem" },
+    { at: { x: 0, y: depth }, edge: "fold", role: "centre-fold" },
   ];
 
   return {
@@ -85,32 +89,48 @@ export function gatheredSkirtInstructions(): ConstructionStep[] {
     {
       id: "finish-edges",
       text: "Neaten the side-seam and hem edges of both panels by your preferred method (overlock or zigzag).",
-      pieces: ["Front", "Back"],
+      highlight: [
+        { piece: "Front", edges: ["side-seam", "hem"] },
+        { piece: "Back", edges: ["side-seam", "hem"] },
+      ],
     },
     {
       id: "side-seams",
       text: "Right sides together, match the side-seam notches and stitch the panels down each side. Sew one side fully; on the other, stitch only from the hem up to the opening, leaving the top open for the closure. Press seams open.",
-      pieces: ["Front", "Back"],
+      highlight: [
+        { piece: "Front", edges: ["side-seam"] },
+        { piece: "Back", edges: ["side-seam"] },
+      ],
     },
     {
       id: "gather-waist",
       text: "Run two rows of long gathering stitches along the waist edge and draw them up until the gathered waist matches the waistband (excluding its underwrap), distributing fullness evenly.",
-      pieces: ["Front", "Back"],
+      highlight: [
+        { piece: "Front", edges: ["waist"] },
+        { piece: "Back", edges: ["waist"] },
+      ],
     },
     {
       id: "attach-waistband",
       text: "Right sides together, pin the band to the gathered waist edge matching notches, underwrap extending past the opening. Stitch, press the seam toward the band, fold the band on its fold line, close the short ends, turn, and finish the inner edge down over the seam.",
-      pieces: ["Waistband", "Front", "Back"],
+      highlight: [
+        { piece: "Waistband" },
+        { piece: "Front", edges: ["waist"] },
+        { piece: "Back", edges: ["waist"] },
+      ],
     },
     {
       id: "fastening",
       text: "Work the buttonhole and sew the button at the marked positions on the underwrap.",
-      pieces: ["Waistband"],
+      highlight: [{ piece: "Waistband" }],
     },
     {
       id: "hem",
       text: "Turn up the hem allowance, press, and stitch by your preferred method.",
-      pieces: ["Front", "Back"],
+      highlight: [
+        { piece: "Front", edges: ["hem"] },
+        { piece: "Back", edges: ["hem"] },
+      ],
     },
   ];
 }
