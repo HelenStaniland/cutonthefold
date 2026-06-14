@@ -5,6 +5,11 @@ import {
   BodyMeasurements,
   SKIRT_BODY_MEASUREMENTS,
 } from "@/lib/types/measurements";
+import {
+  DEFAULT_SIZE_CODE,
+  STANDARD_SIZES,
+  bodyForSizeCode,
+} from "@/lib/data/standardSizes";
 import { draftGatheredSkirt, gatheredSkirtInstructions, GatheredSkirtFit, validateGatheredSkirt } from "@/lib/patterns/gatheredSkirt";
 import { previewGatheredSkirt } from "@/lib/previews/gatheredSkirt";
 import {
@@ -67,11 +72,9 @@ function referenceGridLines(
 }
 
 export default function Home() {
-  const [measurements, setMeasurements] = useState<BodyMeasurements>({
-    waist: 700,
-    hip: 980,
-    hipDepth: 200,
-  });
+  const defaultBody = bodyForSizeCode(DEFAULT_SIZE_CODE)!;
+  const [selectedSize, setSelectedSize] = useState<string>(DEFAULT_SIZE_CODE);
+  const [measurements, setMeasurements] = useState<BodyMeasurements>(defaultBody);
   const [length, setLength] = useState(600); // mm, a style choice
   const [fit, setFit] = useState<GatheredSkirtFit>({ fullness: 150 });
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
@@ -80,7 +83,36 @@ export default function Home() {
   const pageClass = uiSkin === "studio" ? styles.pageStudio : styles.page;
 
   function updateMeasurement(key: keyof BodyMeasurements, value: number) {
-    setMeasurements({ ...measurements, [key]: value });
+    setMeasurements((prev) => {
+      const next = { ...prev, [key]: value };
+      setSelectedSize((current) => {
+        if (current === "custom") {
+          return current;
+        }
+        const sizeBody = bodyForSizeCode(current);
+        if (!sizeBody) {
+          return "custom";
+        }
+        const matchesPreset =
+          next.waist === sizeBody.waist &&
+          next.hip === sizeBody.hip &&
+          next.hipDepth === sizeBody.hipDepth;
+        return matchesPreset ? current : "custom";
+      });
+      return next;
+    });
+  }
+
+  function selectStandardSize(code: string) {
+    if (code === "custom") {
+      setSelectedSize("custom");
+      return;
+    }
+    const body = bodyForSizeCode(code);
+    if (body) {
+      setSelectedSize(code);
+      setMeasurements(body);
+    }
   }
 
   const style = { length };
@@ -244,6 +276,27 @@ export default function Home() {
         <aside className={styles.sidebar}>
           <section className={styles.section}>
             <h2 className={styles.sectionTitle}>Your measurements</h2>
+            <div className={styles.field}>
+              <label className={styles.fieldLabel} htmlFor="standard-size">
+                Standard size
+              </label>
+              <span className={styles.fieldHint}>
+                Aldrich standard sizing — fills the body measurements below.
+              </span>
+              <select
+                id="standard-size"
+                className={styles.sizeSelect}
+                value={selectedSize}
+                onChange={(e) => selectStandardSize(e.target.value)}
+              >
+                {STANDARD_SIZES.map((size) => (
+                  <option key={size.code} value={size.code}>
+                    {size.code}
+                  </option>
+                ))}
+                <option value="custom">Custom</option>
+              </select>
+            </div>
             {SKIRT_BODY_MEASUREMENTS.map((def) => (
               <div key={def.key} className={styles.field}>
                 <label className={styles.fieldLabel} htmlFor={def.key}>
