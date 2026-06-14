@@ -78,8 +78,8 @@ export default function Home() {
   const [length, setLength] = useState(600); // mm, a style choice
   const [fit, setFit] = useState<GatheredSkirtFit>({ fullness: 150 });
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
-  const [uiSkin, setUiSkin] = useState<UiSkin>("default");
-  const [showGrid, setShowGrid] = useState(false);
+  const [uiSkin, setUiSkin] = useState<UiSkin>("studio");
+  const [showGrid, setShowGrid] = useState(true);
   const pageClass = uiSkin === "studio" ? styles.pageStudio : styles.page;
 
   function updateMeasurement(key: keyof BodyMeasurements, value: number) {
