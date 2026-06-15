@@ -34,6 +34,15 @@ export default function Nav({ onNavigate }: NavProps) {
               Gathered skirt
             </Link>
           </li>
+          <li>
+            <Link
+              href="/garments/tailored-trousers"
+              className={`${styles.navLink} ${pathname === "/garments/tailored-trousers" ? styles.navLinkActive : ""}`}
+              onClick={onNavigate}
+            >
+              Tailored trousers
+            </Link>
+          </li>
         </ul>
       </li>
     </ul>

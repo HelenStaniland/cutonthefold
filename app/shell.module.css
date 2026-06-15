@@ -463,6 +463,13 @@
   stroke-dasharray: 8 6;
 }
 
+.dartMark line {
+  fill: none;
+  stroke: var(--pattern-construction);
+  stroke-width: 1.5;
+  stroke-dasharray: 8 6;
+}
+
 .notch {
   fill: var(--pattern-cut);
   stroke: none;

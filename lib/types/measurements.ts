@@ -42,7 +42,8 @@ export type Marking =
   | { kind: "constructionLine"; line: Line }
   | { kind: "notch"; at: Point; label?: string; dir?: { x: number; y: number }; depth?: Millimetres }
   | { kind: "button"; at: Point }
-  | { kind: "buttonhole"; at: Point };
+  | { kind: "buttonhole"; at: Point }
+  | { kind: "dart"; apex: Point; legs: [Point, Point] };
 
 export type PatternPiece = {
   name: string;

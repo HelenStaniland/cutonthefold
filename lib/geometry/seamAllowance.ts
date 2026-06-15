@@ -10,7 +10,41 @@ import {
 export const DEFAULT_SEAM_ALLOWANCE: SeamAllowancePolicy = { seam: 15, hem: 50 };
 
 const PARALLEL_ANGLE_THRESHOLD = (5 * Math.PI) / 180;
+const MITER_LIMIT = 2.5; // max corner extension as a multiple of local allowance
 const NOTCH_EDGE_TOLERANCE = 3; // mm
+const DUPLICATE_VERTEX_TOLERANCE = 0.01; // mm
+
+function collapseDuplicateVertices(outline: OutlinePoint[]): OutlinePoint[] {
+  if (outline.length === 0) {
+    return outline;
+  }
+
+  const collapsed: OutlinePoint[] = [];
+  for (const point of outline) {
+    const last = collapsed[collapsed.length - 1];
+    if (
+      last &&
+      Math.hypot(point.at.x - last.at.x, point.at.y - last.at.y) <
+        DUPLICATE_VERTEX_TOLERANCE
+    ) {
+      continue;
+    }
+    collapsed.push(point);
+  }
+
+  if (collapsed.length > 1) {
+    const first = collapsed[0];
+    const last = collapsed[collapsed.length - 1];
+    if (
+      Math.hypot(first.at.x - last.at.x, first.at.y - last.at.y) <
+      DUPLICATE_VERTEX_TOLERANCE
+    ) {
+      collapsed.pop();
+    }
+  }
+
+  return collapsed;
+}
 
 type EdgeOffset = { normal: Point; allowance: number };
 
@@ -49,6 +83,22 @@ function outwardNormal(dx: number, dy: number, clockwise: boolean): Point {
 
 function offsetPoint(p: Point, normal: Point, distance: number): Point {
   return { x: p.x + normal.x * distance, y: p.y + normal.y * distance };
+}
+
+function averagedCorner(
+  vertex: Point,
+  prevNormal: Point,
+  currNormal: Point,
+  prevAllowance: number,
+  currAllowance: number,
+): Point {
+  const avgNx = prevNormal.x + currNormal.x;
+  const avgNy = prevNormal.y + currNormal.y;
+  const avgLen = Math.hypot(avgNx, avgNy);
+  const avgNormal =
+    avgLen > 0 ? { x: avgNx / avgLen, y: avgNy / avgLen } : prevNormal;
+  const allowance = (prevAllowance + currAllowance) / 2;
+  return offsetPoint(vertex, avgNormal, allowance);
 }
 
 function lineIntersection(
@@ -162,7 +212,8 @@ export function addSeamAllowance(
   piece: PatternPiece,
   policy: SeamAllowancePolicy,
 ): PatternPiece {
-  const { outline } = piece;
+  const { outline: rawOutline } = piece;
+  const outline = collapseDuplicateVertices(rawOutline);
   const n = outline.length;
   if (n < 3) {
     return piece;
@@ -194,15 +245,13 @@ export function addSeamAllowance(
     let corner: Point;
 
     if (normalsNearlyParallel(prevNormal, currNormal)) {
-      const avgNx = prevNormal.x + currNormal.x;
-      const avgNy = prevNormal.y + currNormal.y;
-      const avgLen = Math.hypot(avgNx, avgNy);
-      const avgNormal =
-        avgLen > 0
-          ? { x: avgNx / avgLen, y: avgNy / avgLen }
-          : prevNormal;
-      const allowance = (prevAllowance + currAllowance) / 2;
-      corner = offsetPoint(vertex, avgNormal, allowance);
+      corner = averagedCorner(
+        vertex,
+        prevNormal,
+        currNormal,
+        prevAllowance,
+        currAllowance,
+      );
     } else {
       const prevOffsetStart = offsetPoint(prevFrom, prevNormal, prevAllowance);
       const currOffsetStart = offsetPoint(currFrom, currNormal, currAllowance);
@@ -214,9 +263,26 @@ export function addSeamAllowance(
         currDir,
       );
 
-      corner =
-        intersection ??
-        offsetPoint(vertex, currNormal, currAllowance);
+      if (intersection) {
+        const miterDistance = Math.hypot(
+          intersection.x - vertex.x,
+          intersection.y - vertex.y,
+        );
+        const maxMiter =
+          Math.max(prevAllowance, currAllowance) * MITER_LIMIT;
+        corner =
+          miterDistance <= maxMiter
+            ? intersection
+            : averagedCorner(
+                vertex,
+                prevNormal,
+                currNormal,
+                prevAllowance,
+                currAllowance,
+              );
+      } else {
+        corner = offsetPoint(vertex, currNormal, currAllowance);
+      }
     }
 
     cuttingOutline.push(corner);
