@@ -8,6 +8,7 @@ import {
   trouserInstructions,
   validateTrousers,
 } from "@/lib/patterns/trouserBlock";
+import { previewTrousers } from "@/lib/previews/trouserBlock";
 import {
   DEFAULT_SEAM_ALLOWANCE,
   withSeamAllowance,
@@ -76,6 +77,7 @@ export default function TailoredTrousersPage() {
   const validation = validateTrousers(body, style);
   const net = draftTrousers(body, style);
   const pattern = withSeamAllowance(net, DEFAULT_SEAM_ALLOWANCE);
+  const preview = previewTrousers(body, style);
   const method = trouserInstructions();
   const selectedStep = method.find((step) => step.id === selectedStepId);
   const activeHighlights = selectedStep?.highlight ?? [];
@@ -144,6 +146,20 @@ export default function TailoredTrousersPage() {
       ),
     [sheetX, sheetY, sheetWidth, sheetHeight],
   );
+
+  const previewPad = 40;
+  const previewPoints = preview ? preview.outline : [];
+  const previewXs = previewPoints.map((p) => p.x);
+  const previewYs = previewPoints.map((p) => p.y);
+  const previewMinX = preview && previewPoints.length > 0 ? Math.min(...previewXs) : -200;
+  const previewMaxX = preview && previewPoints.length > 0 ? Math.max(...previewXs) : 200;
+  const previewMinY = preview && previewPoints.length > 0 ? Math.min(...previewYs) : 0;
+  const previewMaxY = preview && previewPoints.length > 0 ? Math.max(...previewYs) : 640;
+  const previewWidth = previewMaxX - previewMinX + previewPad * 2;
+  const previewHeight = previewMaxY - previewMinY + previewPad * 2;
+
+  const polygonPoints = (pts: { x: number; y: number }[]) =>
+    pts.map((p) => `${p.x},${p.y}`).join(" ");
 
   const pieceCount = pattern.pieces.reduce((n, p) => n + p.cutCount, 0);
 
@@ -226,12 +242,34 @@ export default function TailoredTrousersPage() {
                 <span className={styles.cardSubtitle}>Stylised</span>
               </div>
               <div className={styles.cardBody}>
-                <div className={styles.canvasUnavailable}>
-                  <p className={styles.canvasUnavailableTitle}>Preview unavailable</p>
-                  <p className={styles.canvasUnavailableMessage}>
-                    A stylised preview for trousers is not yet available.
-                  </p>
-                </div>
+                {preview ? (
+                  <svg
+                    width={340}
+                    height={460}
+                    viewBox={`${previewMinX - previewPad} ${previewMinY - previewPad} ${previewWidth} ${previewHeight}`}
+                  >
+                    <polygon
+                      points={polygonPoints(preview.outline)}
+                      className={styles.previewSkirt}
+                      fill="none"
+                    />
+                    <line
+                      x1={preview.waistline.from.x}
+                      y1={preview.waistline.from.y}
+                      x2={preview.waistline.to.x}
+                      y2={preview.waistline.to.y}
+                      className={styles.previewLine}
+                    />
+                  </svg>
+                ) : (
+                  <div className={styles.canvasUnavailable}>
+                    <p className={styles.canvasUnavailableTitle}>Preview unavailable</p>
+                    <p className={styles.canvasUnavailableMessage}>
+                      {validation.issues[0]?.message ??
+                        "Fix the checks in the sidebar to see a preview."}
+                    </p>
+                  </div>
+                )}
               </div>
             </article>
 

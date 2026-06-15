@@ -43,46 +43,57 @@ function quadBezier(p0: Point, p1: Point, p2: Point, n = CURVE_SAMPLES): Point[]
   return points;
 }
 
-function catmullRom(knots: Point[], n = CURVE_SAMPLES, alpha = 0.5): Point[] {
-  if (knots.length < 2) return [...knots];
+// Shape-preserving (monotone) cubic through points ordered by ascending y,
+// interpolating x as a function of y. Unlike Catmull-Rom it cannot overshoot:
+// each tangent comes from the neighbouring secant slopes and is forced flat at
+// a local peak, and stays straight through collinear points.
+function pchipByY(knots: Point[], n = CURVE_SAMPLES): Point[] {
+  const k = knots.length;
+  if (k < 3) return [...knots];
 
-  // phantom points just beyond each end, so the curve passes through the real ends
-  const pts: Point[] = [
-    { x: 2 * knots[0].x - knots[1].x, y: 2 * knots[0].y - knots[1].y },
-    ...knots,
-    {
-      x: 2 * knots[knots.length - 1].x - knots[knots.length - 2].x,
-      y: 2 * knots[knots.length - 1].y - knots[knots.length - 2].y,
-    },
-  ];
+  const ys = knots.map((p) => p.y);
+  const xs = knots.map((p) => p.x);
+  const h: number[] = [];
+  const d: number[] = []; // secant slope dx/dy on each span
+  for (let i = 0; i < k - 1; i++) {
+    h.push(ys[i + 1] - ys[i]);
+    d.push((xs[i + 1] - xs[i]) / h[i]);
+  }
 
-  const spans = knots.length - 1;
-  const per = Math.max(1, Math.round(n / spans));
+  const m = new Array<number>(k).fill(0); // tangent dx/dy at each knot
+  for (let i = 1; i < k - 1; i++) {
+    if (d[i - 1] * d[i] <= 0) {
+      m[i] = 0; // local extremum (e.g. the hip) -> flat, so no overshoot
+    } else {
+      const w1 = 2 * h[i] + h[i - 1];
+      const w2 = h[i] + 2 * h[i - 1];
+      m[i] = (w1 + w2) / (w1 / d[i - 1] + w2 / d[i]); // weighted harmonic mean
+    }
+  }
+  const endTangent = (de: number, dn: number, he: number, hn: number) => {
+    let t = ((2 * he + hn) * de - he * dn) / (he + hn);
+    if (t * de <= 0) t = 0;
+    else if (de * dn <= 0 && Math.abs(t) > 3 * Math.abs(de)) t = 3 * de;
+    return t;
+  };
+  m[0] = endTangent(d[0], d[1], h[0], h[1]);
+  m[k - 1] = endTangent(d[k - 2], d[k - 3], h[k - 2], h[k - 3]);
+
+  const perSpan = Math.max(1, Math.round(n / (k - 1)));
   const out: Point[] = [];
-
-  const knot = (a: Point, b: Point) =>
-    Math.max(Math.hypot(b.x - a.x, b.y - a.y), 1e-6) ** alpha; // centripetal: alpha = 0.5
-  const lerp = (a: Point, b: Point, f: number): Point => ({
-    x: a.x + (b.x - a.x) * f,
-    y: a.y + (b.y - a.y) * f,
-  });
-
-  for (let i = 1; i < pts.length - 2; i++) {
-    const p0 = pts[i - 1], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2];
-    const t0 = 0;
-    const t1 = t0 + knot(p0, p1);
-    const t2 = t1 + knot(p1, p2);
-    const t3 = t2 + knot(p2, p3);
-
-    const startJ = i === 1 ? 0 : 1;
-    for (let j = startJ; j <= per; j++) {
-      const t = t1 + ((t2 - t1) * j) / per;
-      const a1 = lerp(p0, p1, (t - t0) / (t1 - t0));
-      const a2 = lerp(p1, p2, (t - t1) / (t2 - t1));
-      const a3 = lerp(p2, p3, (t - t2) / (t3 - t2));
-      const b1 = lerp(a1, a2, (t - t0) / (t2 - t0));
-      const b2 = lerp(a2, a3, (t - t1) / (t3 - t1));
-      out.push(lerp(b1, b2, (t - t1) / (t2 - t1)));
+  for (let i = 0; i < k - 1; i++) {
+    for (let j = i === 0 ? 0 : 1; j <= perSpan; j++) {
+      const t = j / perSpan;
+      const t2 = t * t;
+      const t3 = t2 * t;
+      out.push({
+        x:
+          (2 * t3 - 3 * t2 + 1) * xs[i] +
+          (t3 - 2 * t2 + t) * h[i] * m[i] +
+          (-2 * t3 + 3 * t2) * xs[i + 1] +
+          (t3 - t2) * h[i] * m[i + 1],
+        y: ys[i] + t * h[i],
+      });
     }
   }
   return out;
@@ -185,7 +196,7 @@ export function draftTrouserFront(
       role: "waist",
     },
     {
-      points: catmullRom([p11, p8, p13, p12]),
+      points: pchipByY([p11, p8, p13, p12]),
       edge: "seam",
       role: "side-seam",
     },
