@@ -8,19 +8,34 @@ export type StandardSize = { code: string; body: BodyMeasurements };
 export const DEFAULT_SIZE_CODE = "12";
 
 export const STANDARD_SIZES: StandardSize[] = [
-  { code: "6", body: { waist: 600, hip: 840, hipDepth: 197 } },
-  { code: "8", body: { waist: 640, hip: 880, hipDepth: 200 } },
-  { code: "10", body: { waist: 680, hip: 920, hipDepth: 203 } },
-  { code: "12", body: { waist: 720, hip: 960, hipDepth: 206 } },
-  { code: "14", body: { waist: 760, hip: 1000, hipDepth: 209 } },
-  { code: "16", body: { waist: 800, hip: 1040, hipDepth: 212 } },
-  { code: "18", body: { waist: 840, hip: 1080, hipDepth: 215 } },
-  { code: "20", body: { waist: 880, hip: 1120, hipDepth: 218 } },
-  { code: "22", body: { waist: 940, hip: 1170, hipDepth: 221 } },
-  { code: "24", body: { waist: 1000, hip: 1220, hipDepth: 224 } },
-  { code: "26", body: { waist: 1060, hip: 1270, hipDepth: 227 } },
+  { code: "6", body: { waist: 600, hip: 840, hipDepth: 197, bodyRise: 259, waistToFloor: 1010 } },
+  { code: "8", body: { waist: 640, hip: 880, hipDepth: 200, bodyRise: 266, waistToFloor: 1020 } },
+  { code: "10", body: { waist: 680, hip: 920, hipDepth: 203, bodyRise: 273, waistToFloor: 1030 } },
+  { code: "12", body: { waist: 720, hip: 960, hipDepth: 206, bodyRise: 280, waistToFloor: 1040 } },
+  { code: "14", body: { waist: 760, hip: 1000, hipDepth: 209, bodyRise: 287, waistToFloor: 1050 } },
+  { code: "16", body: { waist: 800, hip: 1040, hipDepth: 212, bodyRise: 294, waistToFloor: 1060 } },
+  { code: "18", body: { waist: 840, hip: 1080, hipDepth: 215, bodyRise: 301, waistToFloor: 1070 } },
+  { code: "20", body: { waist: 880, hip: 1120, hipDepth: 218, bodyRise: 308, waistToFloor: 1080 } },
+  { code: "22", body: { waist: 940, hip: 1170, hipDepth: 221, bodyRise: 318, waistToFloor: 1090 } },
+  { code: "24", body: { waist: 1000, hip: 1220, hipDepth: 224, bodyRise: 328, waistToFloor: 1100 } },
+  { code: "26", body: { waist: 1060, hip: 1270, hipDepth: 227, bodyRise: 338, waistToFloor: 1110 } },
 ];
 
 export function bodyForSizeCode(code: string): BodyMeasurements | undefined {
   return STANDARD_SIZES.find((size) => size.code === code)?.body;
+}
+
+export function bodiesMatch(a: BodyMeasurements, b: BodyMeasurements): boolean {
+  return (
+    a.waist === b.waist &&
+    a.hip === b.hip &&
+    a.hipDepth === b.hipDepth &&
+    a.bodyRise === b.bodyRise &&
+    a.waistToFloor === b.waistToFloor
+  );
+}
+
+export function sizeCodeForBody(body: BodyMeasurements): string {
+  const match = STANDARD_SIZES.find((size) => bodiesMatch(size.body, body));
+  return match?.code ?? "custom";
 }

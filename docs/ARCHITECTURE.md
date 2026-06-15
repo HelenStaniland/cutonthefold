@@ -92,13 +92,23 @@ cutonthefold/
 ├── AGENTS.md                      # terse architecture rules for AI coding agents
 ├── CLAUDE.md                      # pointer to AGENTS.md
 ├── app/                           # Next.js UI (App Router)
-│   ├── layout.tsx                 # root layout, fonts
-│   ├── page.tsx                   # home: input form, flat pattern SVG, preview, method list
-│   ├── page.module.css            # page and pattern styling (paper sheet, line-art colours)
+│   ├── layout.tsx                 # root layout, fonts; wraps children in Providers
+│   ├── providers.tsx              # MeasurementsProvider + AppShell
+│   ├── measurements-context.tsx   # shared body measurements + standard size (in-session)
+│   ├── AppShell.tsx               # left nav: brand, Measurements, Garments
+│   ├── shell.module.css           # shell, form, pattern, and preview styling
 │   ├── globals.css                # base styles
-│   ├── favicon.ico
-│   └── NumericInput.tsx           # numeric measurement fields (text input, leading-zero UX)
-├── lib/                           # domain layer — pure TypeScript, no React
+│   ├── page.tsx                   # redirects to /measurements
+│   ├── measurements/
+│   │   └── page.tsx               # shared body measurements + standard-size selector
+│   ├── garments/
+│   │   └── gathered-skirt/
+│   │       └── page.tsx           # fit/style, preview, pattern, method
+│   ├── NumericInput.tsx           # numeric measurement fields (text input, leading-zero UX)
+│   └── favicon.ico
+├── lib/
+│   ├── data/
+│   │   └── standardSizes.ts       # Aldrich size presets (6–26) + matching helpers
 │   ├── types/
 │   │   ├── measurements.ts        # Point, Line, Millimetres, OutlinePoint, Marking,
 │   │   │                          # PatternPiece, Pattern, ConstructionStep, StepHighlight,
@@ -124,12 +134,13 @@ cutonthefold/
 
 In prose:
 
+- **`lib/data/`** — Aldrich standard size presets and helpers to match a body back to a size code.
 - **`lib/types/`** — the shared data model: geometry types, `Pattern`, `ConstructionStep` / `StepHighlight`, body measurements, and per-garment fit/style types. Validation result types live in `validation.ts`.
 - **`lib/patterns/`** — one module per block (e.g. `gatheredSkirt.ts`) holding its draft, validation, and construction steps, plus shared construction such as `straightWaistband.ts`.
 - **`lib/previews/`** — stylised preview generator(s), one module per block that has a preview.
 - **`lib/geometry/`** — shared, garment-independent geometry, including the seam-allowance transform.
 - **`lib/patternHighlight.ts`** — helpers that turn a step's `highlight` targets into edge runs on the cutting outline (consumed by the page renderer, not by the draft).
-- **`app/`** — the Next.js UI: the input form, the flat-pattern SVG renderer, the preview, and the method list with step selection.
+- **`app/`** — the Next.js UI: a shell with left navigation, a shared Measurements page (body + standard size), and per-garment pages that read body from context and hold fit/style locally. Each garment page renders flat pattern, preview, and method.
 - **`AGENTS.md`** — the terse architecture rules for AI coding agents. **This document is its human-facing companion**; keep the two consistent.
 
 ---

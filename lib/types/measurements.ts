@@ -7,6 +7,8 @@ export type BodyMeasurements = {
   waist: Millimetres;
   hip: Millimetres;
   hipDepth: Millimetres;
+  bodyRise: Millimetres;
+  waistToFloor: Millimetres;
 };
 
 // Design choices for a skirt — decisions, not body facts.
@@ -72,8 +74,10 @@ export type MeasurementDefinition = {
 };
 
 
-export const SKIRT_BODY_MEASUREMENTS: MeasurementDefinition[] = [
-  { key: "waist",    label: "Waist",     hint: "Around the narrowest part of your waist.",       min: 500, max: 1500 },
-  { key: "hip",      label: "Hip",       hint: "Around the fullest part of your hips and seat.", min: 700, max: 1700 },
-  { key: "hipDepth", label: "Hip depth", hint: "From waist straight down to the fullest hip.",   min: 150, max: 300  },
+export const BODY_MEASUREMENTS: MeasurementDefinition[] = [
+  { key: "waist",        label: "Waist",          hint: "Around the narrowest part of your waist.",                         min: 500,  max: 1500 },
+  { key: "hip",          label: "Hip",            hint: "Around the fullest part of your hips and seat.",                   min: 700,  max: 1700 },
+  { key: "hipDepth",     label: "Hip depth",      hint: "From waist straight down to the fullest hip.",                     min: 150,  max: 300  },
+  { key: "bodyRise",     label: "Body rise",      hint: "Sitting on a flat surface, from waist to the seat.",             min: 200,  max: 400  },
+  { key: "waistToFloor", label: "Waist to floor", hint: "From the waist, straight down the side to the floor.",             min: 850,  max: 1250 },
 ];
