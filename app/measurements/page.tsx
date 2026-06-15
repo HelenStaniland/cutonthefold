@@ -10,7 +10,7 @@ export default function MeasurementsPage() {
   const { body, sizeCode, setSize, updateBodyField } = useMeasurements();
 
   return (
-    <div className={styles.pageContent}>
+    <div className={`${styles.pageContent} ${styles.measurementsPage}`}>
       <h1>Measurements</h1>
       <p className={styles.pageIntro}>
         Body measurements shared across all garments. Pick a standard size or
@@ -58,6 +58,58 @@ export default function MeasurementsPage() {
             </div>
           </div>
         ))}
+      </section>
+
+      <section className={styles.sizeChartSection} aria-labelledby="size-chart-heading">
+        <h2 id="size-chart-heading" className={styles.sectionTitle}>
+          Standard size chart <span className={styles.unitHint}>(mm)</span>
+        </h2>
+        <div className={styles.sizeChartScroll}>
+          <table className={styles.sizeChart}>
+            <thead>
+              <tr>
+                <th scope="col">Size</th>
+                {BODY_MEASUREMENTS.map((def) => (
+                  <th key={def.key} scope="col">
+                    {def.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {STANDARD_SIZES.map((size) => {
+                const selected = sizeCode === size.code;
+                return (
+                  <tr
+                    key={size.code}
+                    className={
+                      selected ? styles.sizeChartRowSelected : styles.sizeChartRow
+                    }
+                    onClick={() => setSize(size.code)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSize(size.code);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={selected}
+                  >
+                    <th scope="row">{size.code}</th>
+                    {BODY_MEASUREMENTS.map((def) => (
+                      <td key={def.key}>{size.body[def.key]}</td>
+                    ))}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className={styles.sizeChartCredit}>
+          Standard sizing from Winifred Aldrich, Metric Pattern Cutting for
+          Women&apos;s Wear (BS EN 13402-3).
+        </p>
       </section>
     </div>
   );
