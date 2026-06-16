@@ -23,6 +23,30 @@ export type SkirtFit = "fitted" | "relaxed";
 export type Point = { x: Millimetres; y: Millimetres };
 export type Line = { from: Point; to: Point };
 
+/** A labelled drafting point for construction overlays (not part of the cut outline). */
+export type DraftingPointKind = "construction" | "curveControl";
+
+export type DraftingPoint = {
+  id: string;
+  at: Point;
+  kind?: DraftingPointKind;
+};
+
+export type DraftingLineKind = "construction" | "helper" | "curveControl";
+
+export type DraftingLine = {
+  from: Point;
+  to: Point;
+  kind: DraftingLineKind;
+};
+
+/** Construction geometry for one pattern piece — points and reference lines. */
+export type PieceConstruction = {
+  pieceName: string;
+  points: DraftingPoint[];
+  lines: DraftingLine[];
+};
+
 export type EdgeType = "seam" | "fold" | "hem";
 
 // A point on the outline that names the edge LEAVING it

@@ -295,9 +295,17 @@
   --pattern-instruction: #b45309;
   --pattern-construction: #64748b;
   --pattern-label: #111827;
+  --draft-pattern: #111827;
+  --draft-construction: #2563eb;
+  --draft-curve-control: #ea580c;
+  --draft-helper: #94a3b8;
 
   padding: 20px;
   background-color: #cbd5e1;
+}
+
+.patternCardBodyCompact {
+  padding: 10px 12px;
 }
 
 .methodBody {
@@ -461,6 +469,87 @@
   stroke: var(--pattern-construction);
   stroke-width: 1.5;
   stroke-dasharray: 8 6;
+}
+
+.draftPatternLine {
+  fill: none;
+  stroke: var(--draft-pattern);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.draftConstructionLine {
+  fill: none;
+  stroke: var(--draft-construction);
+  stroke-width: 1.5;
+  stroke-dasharray: 8 6;
+  stroke-linejoin: round;
+}
+
+.draftHelperLine {
+  fill: none;
+  stroke: var(--draft-helper);
+  stroke-width: 1.25;
+  stroke-dasharray: 6 8;
+  stroke-linejoin: round;
+}
+
+.draftCurveControlLine {
+  fill: none;
+  stroke: var(--draft-curve-control);
+  stroke-width: 1.25;
+  stroke-dasharray: 4 5;
+  stroke-linejoin: round;
+}
+
+.draftConstructionPoint {
+  fill: var(--draft-construction);
+  stroke: #fff;
+  stroke-width: 1.25;
+}
+
+.draftCurveControlPoint {
+  fill: var(--draft-curve-control);
+  stroke: #fff;
+  stroke-width: 1.25;
+}
+
+.draftConstructionPointLabel {
+  fill: var(--draft-construction);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.draftCurveControlPointLabel {
+  fill: var(--draft-curve-control);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.constructionPoint {
+  fill: var(--pattern-construction);
+  stroke: #fff;
+  stroke-width: 1.25;
+}
+
+.constructionPointGuide {
+  fill: #b45309;
+  stroke: #fff;
+  stroke-width: 1.25;
+}
+
+.constructionPointLabel {
+  fill: var(--pattern-construction);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.constructionPointLabelGuide {
+  fill: #b45309;
 }
 
 .dartMark line {

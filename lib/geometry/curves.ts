@@ -2,6 +2,151 @@ import { Point } from "@/lib/types/measurements";
 
 export const CURVE_SAMPLES = 24;
 
+function catmullRomPoint(p0: Point, p1: Point, p2: Point, p3: Point, t: number): Point {
+  const t2 = t * t;
+  const t3 = t2 * t;
+  return {
+    x:
+      0.5 *
+      (2 * p1.x +
+        (-p0.x + p2.x) * t +
+        (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 +
+        (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+    y:
+      0.5 *
+      (2 * p1.y +
+        (-p0.y + p2.y) * t +
+        (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 +
+        (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3),
+  };
+}
+
+function catmullRomPointNonUniform(
+  p0: Point,
+  p1: Point,
+  p2: Point,
+  p3: Point,
+  t0: number,
+  t1: number,
+  t2: number,
+  t3: number,
+  t: number,
+): Point {
+  const a1 = {
+    x: ((t1 - t) / (t1 - t0)) * p0.x + ((t - t0) / (t1 - t0)) * p1.x,
+    y: ((t1 - t) / (t1 - t0)) * p0.y + ((t - t0) / (t1 - t0)) * p1.y,
+  };
+  const a2 = {
+    x: ((t2 - t) / (t2 - t1)) * p1.x + ((t - t1) / (t2 - t1)) * p2.x,
+    y: ((t2 - t) / (t2 - t1)) * p1.y + ((t - t1) / (t2 - t1)) * p2.y,
+  };
+  const a3 = {
+    x: ((t3 - t) / (t3 - t2)) * p2.x + ((t - t2) / (t3 - t2)) * p3.x,
+    y: ((t3 - t) / (t3 - t2)) * p2.y + ((t - t2) / (t3 - t2)) * p3.y,
+  };
+  const b1 = {
+    x: ((t2 - t) / (t2 - t0)) * a1.x + ((t - t0) / (t2 - t0)) * a2.x,
+    y: ((t2 - t) / (t2 - t0)) * a1.y + ((t - t0) / (t2 - t0)) * a2.y,
+  };
+  const b2 = {
+    x: ((t3 - t) / (t3 - t1)) * a2.x + ((t - t1) / (t3 - t1)) * a3.x,
+    y: ((t3 - t) / (t3 - t1)) * a2.y + ((t - t1) / (t3 - t1)) * a3.y,
+  };
+  return {
+    x: ((t2 - t) / (t2 - t1)) * b1.x + ((t - t1) / (t2 - t1)) * b2.x,
+    y: ((t2 - t) / (t2 - t1)) * b1.y + ((t - t1) / (t2 - t1)) * b2.y,
+  };
+}
+
+function reflectPhantom(a: Point, b: Point): Point {
+  return { x: a.x + (a.x - b.x), y: a.y + (a.y - b.y) };
+}
+
+/** Uniform Catmull-Rom — crotches only in this project. */
+export function catmullRom(knots: Point[], n = CURVE_SAMPLES): Point[] {
+  if (knots.length < 2) return [...knots];
+  const padded = [reflectPhantom(knots[0], knots[1]), ...knots, reflectPhantom(knots.at(-1)!, knots.at(-2)!)];
+
+  const spans = knots.length - 1;
+  const per = Math.max(1, Math.round(n / spans));
+  const points: Point[] = [];
+  for (let i = 1; i < padded.length - 2; i++) {
+    for (let j = i === 1 ? 0 : 1; j <= per; j++) {
+      points.push(
+        catmullRomPoint(padded[i - 1], padded[i], padded[i + 1], padded[i + 2], j / per),
+      );
+    }
+  }
+  return points;
+}
+
+export type CatmullRomOptions = {
+  /** Replace reflected start phantom — e.g. to match inseam tangent at the fork. */
+  startPhantom?: Point;
+  /** Replace reflected end phantom — e.g. to match waist tangent. */
+  endPhantom?: Point;
+  alpha?: number;
+};
+
+/**
+ * Centripetal Catmull-Rom (alpha = 0.5 by default). Spacing-aware parameterisation
+ * reduces overshoot on unevenly spaced guide points.
+ */
+export function catmullRomCentripetal(
+  knots: Point[],
+  options: CatmullRomOptions = {},
+  n = CURVE_SAMPLES,
+): Point[] {
+  if (knots.length < 2) return [...knots];
+
+  const alpha = options.alpha ?? 0.5;
+  const t: number[] = [0];
+  for (let i = 1; i < knots.length; i++) {
+    const dx = knots[i].x - knots[i - 1].x;
+    const dy = knots[i].y - knots[i - 1].y;
+    t.push(t[i - 1] + Math.pow(Math.hypot(dx, dy), alpha));
+  }
+
+  const startPhantom =
+    options.startPhantom ?? reflectPhantom(knots[0], knots[1]);
+  const endPhantom =
+    options.endPhantom ?? reflectPhantom(knots.at(-1)!, knots.at(-2)!);
+
+  const padded = [startPhantom, ...knots, endPhantom];
+  const tPadded = [
+    t[0] - (t[1] - t[0]),
+    ...t,
+    t.at(-1)! + (t.at(-1)! - t.at(-2)!),
+  ];
+
+  const spans = knots.length - 1;
+  const per = Math.max(1, Math.round(n / spans));
+  const points: Point[] = [];
+
+  for (let i = 1; i < padded.length - 2; i++) {
+    const t1 = tPadded[i];
+    const t2 = tPadded[i + 1];
+    for (let j = i === 1 ? 0 : 1; j <= per; j++) {
+      const u = t1 + (j / per) * (t2 - t1);
+      points.push(
+        catmullRomPointNonUniform(
+          padded[i - 1],
+          padded[i],
+          padded[i + 1],
+          padded[i + 2],
+          tPadded[i - 1],
+          tPadded[i],
+          tPadded[i + 1],
+          tPadded[i + 2],
+          u,
+        ),
+      );
+    }
+  }
+
+  return points;
+}
+
 export function quadBezier(
   p0: Point,
   p1: Point,

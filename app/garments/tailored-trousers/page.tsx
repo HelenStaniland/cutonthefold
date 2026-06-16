@@ -4,8 +4,12 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useMeasurements } from "@/app/measurements-context";
 import {
+  CROTCH_CURVE_OPTIONS,
+  CrotchCurveMethod,
   draftTrousers,
+  trouserConstruction,
   trouserInstructions,
+  TROUSER_LAYOUT_ANCHOR_Y,
   validateTrousers,
 } from "@/lib/patterns/trouserBlock";
 import { previewTrousers } from "@/lib/previews/trouserBlock";
@@ -22,8 +26,23 @@ import {
 } from "@/lib/patternHighlight";
 import styles from "@/app/shell.module.css";
 import { NumericInput } from "@/app/NumericInput";
+import type { DraftingLineKind } from "@/lib/types/measurements";
 
 const GRID_SPACING_MM = 50;
+
+type PatternViewMode = "pattern" | "construction";
+
+const DRAFT_LINE_CLASS: Record<DraftingLineKind, string> = {
+  construction: "draftConstructionLine",
+  helper: "draftHelperLine",
+  curveControl: "draftCurveControlLine",
+};
+
+const DRAFT_LINE_ORDER: DraftingLineKind[] = [
+  "helper",
+  "construction",
+  "curveControl",
+];
 
 type GridLine = {
   x1: number;
@@ -69,14 +88,19 @@ function referenceGridLines(
 export default function TailoredTrousersPage() {
   const { body } = useMeasurements();
   const [legBottomWidth, setLegBottomWidth] = useState(220);
+  const [crotchCurve, setCrotchCurve] = useState<CrotchCurveMethod>("catmull-centripetal");
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [showGrid, setShowGrid] = useState(true);
+  const [viewMode, setViewMode] = useState<PatternViewMode>("pattern");
+  const [showSeamAllowance, setShowSeamAllowance] = useState(true);
 
-  const style = { bottomWidth: legBottomWidth };
+  const style = { bottomWidth: legBottomWidth, crotchCurve };
 
   const validation = validateTrousers(body, style);
   const net = draftTrousers(body, style);
+  const construction = validation.valid ? trouserConstruction(body, style) : [];
   const pattern = withSeamAllowance(net, DEFAULT_SEAM_ALLOWANCE);
+  const displayPattern = showSeamAllowance ? pattern : net;
   const preview = previewTrousers(body, style);
   const method = trouserInstructions();
   const selectedStep = method.find((step) => step.id === selectedStepId);
@@ -84,29 +108,47 @@ export default function TailoredTrousersPage() {
   const stepSelectionActive = selectedStepId !== null;
 
   const gap = 60;
-  const labelSpace = 44;
+  const labelSpace = 36;
+  const sheetInset = 20;
+  const sheetTopMargin = 24;
+  const sheetBottomMargin = 16;
+  const pad = 24;
 
-  function pieceBoundary(piece: (typeof pattern.pieces)[number]) {
+  function pieceBoundary(piece: (typeof displayPattern.pieces)[number]) {
     return piece.cuttingOutline ?? piece.outline.map((p) => p.at);
   }
 
-  function pieceBounds(piece: (typeof pattern.pieces)[number]) {
+  function pieceBounds(piece: (typeof displayPattern.pieces)[number]) {
     const boundary = pieceBoundary(piece);
     const xs = boundary.map((p) => p.x);
     const ys = boundary.map((p) => p.y);
+    const minX = Math.min(...xs);
+    const minY = Math.min(...ys);
+    const maxX = Math.max(...xs);
+    const maxY = Math.max(...ys);
     return {
-      minX: Math.min(...xs),
-      minY: Math.min(...ys),
-      w: Math.max(...xs) - Math.min(...xs),
-      h: Math.max(...ys) - Math.min(...ys),
+      minX,
+      minY,
+      maxX,
+      maxY,
+      w: maxX - minX,
+      h: maxY - minY,
     };
   }
 
-  const front = pattern.pieces.find((p) => p.name === "Trouser front")!;
-  const back = pattern.pieces.find((p) => p.name === "Trouser back")!;
+  const front = displayPattern.pieces.find((p) => p.name === "Trouser front")!;
+  const back = displayPattern.pieces.find((p) => p.name === "Trouser back")!;
+  const frontBounds = pieceBounds(front);
+  const backBounds = pieceBounds(back);
+  const layoutMinY = Math.min(
+    TROUSER_LAYOUT_ANCHOR_Y,
+    frontBounds.minY,
+    backBounds.minY,
+  );
+  const layoutMaxY = Math.max(frontBounds.maxY, backBounds.maxY);
 
   const placed: {
-    piece: (typeof pattern.pieces)[number];
+    piece: (typeof displayPattern.pieces)[number];
     dx: number;
     dy: number;
     top: number;
@@ -115,30 +157,29 @@ export default function TailoredTrousersPage() {
 
   const rowY = labelSpace;
   let rowX = 0;
-  let rowHeight = 0;
   for (const piece of [front, back]) {
-    const { minX, minY, w, h } = pieceBounds(piece);
+    const { minX, minY, w } = pieceBounds(piece);
     placed.push({
       piece,
       dx: rowX - minX,
-      dy: rowY - minY,
-      top: rowY,
+      dy: rowY - TROUSER_LAYOUT_ANCHOR_Y,
+      top: rowY + minY - TROUSER_LAYOUT_ANCHOR_Y,
       labelX: rowX + w / 2,
     });
     rowX += w + gap;
-    rowHeight = Math.max(rowHeight, h);
   }
 
   const layoutWidth = rowX - gap;
-  const layoutHeight = rowY + rowHeight + gap;
-  const pad = 60;
-  const sheetInset = 36;
+  const contentBottom = rowY + layoutMaxY + gap;
+  const topLabelY = rowY + layoutMinY - labelSpace / 2;
+  const sheetY = topLabelY - sheetTopMargin;
   const sheetX = -sheetInset;
-  const sheetY = 0;
   const sheetWidth = layoutWidth + sheetInset * 2;
-  const sheetHeight = layoutHeight + sheetInset;
+  const sheetHeight = contentBottom - sheetY + sheetBottomMargin;
+  const layoutHeight = sheetHeight;
   const patternViewWidth = layoutWidth + pad * 2;
   const patternViewHeight = layoutHeight + pad * 2;
+  const viewBoxY = sheetY - pad;
   const patternSvgWidth = 720;
   const patternSvgHeight = Math.round(
     patternSvgWidth * (patternViewHeight / patternViewWidth),
@@ -168,7 +209,7 @@ export default function TailoredTrousersPage() {
   const polygonPoints = (pts: { x: number; y: number }[]) =>
     pts.map((p) => `${p.x},${p.y}`).join(" ");
 
-  const pieceCount = pattern.pieces.reduce((n, p) => n + p.cutCount, 0);
+  const pieceCount = displayPattern.pieces.reduce((n, p) => n + p.cutCount, 0);
 
   return (
     <div className={styles.pageContentWide}>
@@ -201,6 +242,30 @@ export default function TailoredTrousersPage() {
                   onChange={setLegBottomWidth}
                 />
                 <span className={styles.inputSuffix}>mm</span>
+              </div>
+            </div>
+            <div className={styles.field}>
+              <label className={styles.fieldLabel} htmlFor="crotch-curve">
+                Crotch curve
+              </label>
+              <span className={styles.fieldHint}>
+                Compare spline methods — centripetal is the new default.
+              </span>
+              <div className={styles.field}>
+                <select
+                  id="crotch-curve"
+                  className={styles.sizeSelect}
+                  value={crotchCurve}
+                  onChange={(e) =>
+                    setCrotchCurve(e.target.value as CrotchCurveMethod)
+                  }
+                >
+                  {CROTCH_CURVE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </section>
@@ -286,6 +351,38 @@ export default function TailoredTrousersPage() {
                 <div className={styles.cardHeaderActions}>
                   <label className={styles.gridToggle}>
                     <input
+                      type="radio"
+                      name="patternView"
+                      checked={viewMode === "pattern"}
+                      onChange={() => {
+                        setViewMode("pattern");
+                        setShowSeamAllowance(true);
+                      }}
+                    />
+                    Pattern
+                  </label>
+                  <label className={styles.gridToggle}>
+                    <input
+                      type="radio"
+                      name="patternView"
+                      checked={viewMode === "construction"}
+                      onChange={() => {
+                        setViewMode("construction");
+                        setShowSeamAllowance(false);
+                      }}
+                    />
+                    Construction
+                  </label>
+                  <label className={styles.gridToggle}>
+                    <input
+                      type="checkbox"
+                      checked={showSeamAllowance}
+                      onChange={(e) => setShowSeamAllowance(e.target.checked)}
+                    />
+                    Seam allowance
+                  </label>
+                  <label className={styles.gridToggle}>
+                    <input
                       type="checkbox"
                       checked={showGrid}
                       onChange={(e) => setShowGrid(e.target.checked)}
@@ -295,12 +392,12 @@ export default function TailoredTrousersPage() {
                   <span className={styles.cardSubtitle}>Flat layout</span>
                 </div>
               </div>
-              <div className={`${styles.cardBody} ${styles.patternCardBody}`}>
+              <div className={`${styles.cardBody} ${styles.patternCardBody} ${styles.patternCardBodyCompact}`}>
                 {validation.valid ? (
                 <svg
                   width={patternSvgWidth}
                   height={patternSvgHeight}
-                  viewBox={`${-pad} ${-pad} ${patternViewWidth} ${patternViewHeight}`}
+                  viewBox={`${-pad} ${viewBoxY} ${patternViewWidth} ${patternViewHeight}`}
                 >
         <defs>
           <filter id="paperShadow" x="-8%" y="-8%" width="116%" height="116%">
@@ -372,10 +469,19 @@ export default function TailoredTrousersPage() {
           const dimBase =
             stepSelectionActive &&
             (pieceHighlight === undefined || edgeRuns.length > 0);
-          const baseOpacity = dimBase ? 0.22 : 1;
+          const constructionMode = viewMode === "construction";
+          const pieceConstruction = construction.find(
+            (c) => c.pieceName === piece.name,
+          );
+          const baseOpacity = constructionMode
+            ? 1
+            : dimBase
+              ? 0.22
+              : 1;
 
           return (
             <g key={piece.name}>
+              {!constructionMode && (
               <g opacity={baseOpacity}>
               <text
                 x={labelX}
@@ -600,15 +706,91 @@ export default function TailoredTrousersPage() {
                 }
               })}
               </g>
+              )}
 
-              {stepSelectionActive && wholePieceHighlighted && (
+              {constructionMode && (
+                <>
+                  <text
+                    x={labelX}
+                    y={top - labelSpace / 2}
+                    className={styles.pieceTitle}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                  >
+                    {piece.name}
+                  </text>
+                  {pieceConstruction && (
+                    <g pointerEvents="none">
+                      {DRAFT_LINE_ORDER.flatMap((kind) =>
+                        pieceConstruction.lines
+                          .map((line, i) => ({ line, i }))
+                          .filter(({ line }) => line.kind === kind)
+                          .map(({ line, i }) => (
+                            <line
+                              key={`c-line-${kind}-${i}`}
+                              x1={line.from.x + dx}
+                              y1={line.from.y + dy}
+                              x2={line.to.x + dx}
+                              y2={line.to.y + dy}
+                              className={styles[DRAFT_LINE_CLASS[kind]]}
+                              vectorEffect="non-scaling-stroke"
+                            />
+                          )),
+                      )}
+                    </g>
+                  )}
+                  <polygon
+                    points={netPoints}
+                    className={styles.draftPatternLine}
+                  />
+                  {pieceConstruction && (
+                    <g pointerEvents="none">
+                      {pieceConstruction.points.map((pt) => {
+                        const cx = pt.at.x + dx;
+                        const cy = pt.at.y + dy;
+                        const isCurveControl = pt.kind === "curveControl";
+                        const labelOffsetX = isCurveControl ? 10 : 8;
+                        const labelOffsetY = isCurveControl ? -10 : -8;
+                        return (
+                          <g key={`c-pt-${pt.id}`}>
+                            <circle
+                              cx={cx}
+                              cy={cy}
+                              r={isCurveControl ? 5 : 4}
+                              className={
+                                isCurveControl
+                                  ? styles.draftCurveControlPoint
+                                  : styles.draftConstructionPoint
+                              }
+                            />
+                            <text
+                              x={cx + labelOffsetX}
+                              y={cy + labelOffsetY}
+                              className={
+                                isCurveControl
+                                  ? styles.draftCurveControlPointLabel
+                                  : styles.draftConstructionPointLabel
+                              }
+                            >
+                              {pt.id}
+                            </text>
+                          </g>
+                        );
+                      })}
+                    </g>
+                  )}
+                </>
+              )}
+
+              {!constructionMode && stepSelectionActive && wholePieceHighlighted && (
                 <polygon
                   points={cutPoints}
                   className={styles.stepHighlight}
                 />
               )}
 
-              {stepSelectionActive &&
+              {!constructionMode &&
+                stepSelectionActive &&
                 edgeRuns.map((run) => {
                   const cutSegment = runToPolyline(boundary, run, dx, dy);
                   const netSegment = runToNetPolyline(piece, run, dx, dy);
@@ -631,6 +813,7 @@ export default function TailoredTrousersPage() {
                     </g>
                   );
                 })}
+
             </g>
           );
         })}
