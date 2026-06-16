@@ -103,6 +103,7 @@ export default function TailoredTrousersPage() {
   }
 
   const front = pattern.pieces.find((p) => p.name === "Trouser front")!;
+  const back = pattern.pieces.find((p) => p.name === "Trouser back")!;
 
   const placed: {
     piece: (typeof pattern.pieces)[number];
@@ -113,17 +114,23 @@ export default function TailoredTrousersPage() {
   }[] = [];
 
   const rowY = labelSpace;
-  const { minX, minY, w } = pieceBounds(front);
-  placed.push({
-    piece: front,
-    dx: gap - minX,
-    dy: rowY - minY,
-    top: rowY,
-    labelX: gap + w / 2,
-  });
+  let rowX = 0;
+  let rowHeight = 0;
+  for (const piece of [front, back]) {
+    const { minX, minY, w, h } = pieceBounds(piece);
+    placed.push({
+      piece,
+      dx: rowX - minX,
+      dy: rowY - minY,
+      top: rowY,
+      labelX: rowX + w / 2,
+    });
+    rowX += w + gap;
+    rowHeight = Math.max(rowHeight, h);
+  }
 
-  const layoutWidth = gap + w + gap;
-  const layoutHeight = rowY + pieceBounds(front).h + gap;
+  const layoutWidth = rowX - gap;
+  const layoutHeight = rowY + rowHeight + gap;
   const pad = 60;
   const sheetInset = 36;
   const sheetX = -sheetInset;
