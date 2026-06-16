@@ -4,8 +4,6 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useMeasurements } from "@/app/measurements-context";
 import {
-  CROTCH_CURVE_OPTIONS,
-  CrotchCurveMethod,
   draftTrousers,
   trouserConstruction,
   trouserInstructions,
@@ -27,6 +25,7 @@ import {
 import styles from "@/app/shell.module.css";
 import { NumericInput } from "@/app/NumericInput";
 import type { DraftingLineKind } from "@/lib/types/measurements";
+import { cutLabel } from "@/lib/types/measurements";
 
 const GRID_SPACING_MM = 50;
 
@@ -88,13 +87,12 @@ function referenceGridLines(
 export default function TailoredTrousersPage() {
   const { body } = useMeasurements();
   const [legBottomWidth, setLegBottomWidth] = useState(220);
-  const [crotchCurve, setCrotchCurve] = useState<CrotchCurveMethod>("catmull-centripetal");
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [showGrid, setShowGrid] = useState(true);
   const [viewMode, setViewMode] = useState<PatternViewMode>("pattern");
   const [showSeamAllowance, setShowSeamAllowance] = useState(true);
 
-  const style = { bottomWidth: legBottomWidth, crotchCurve };
+  const style = { bottomWidth: legBottomWidth };
 
   const validation = validateTrousers(body, style);
   const net = draftTrousers(body, style);
@@ -108,11 +106,11 @@ export default function TailoredTrousersPage() {
   const stepSelectionActive = selectedStepId !== null;
 
   const gap = 60;
-  const labelSpace = 36;
-  const sheetInset = 20;
-  const sheetTopMargin = 24;
-  const sheetBottomMargin = 16;
-  const pad = 24;
+  const rowGap = 60;
+  const labelSpace = 44;
+  const sheetInset = 36;
+  const sheetTopMargin = 28;
+  const pad = 60;
 
   function pieceBoundary(piece: (typeof displayPattern.pieces)[number]) {
     return piece.cuttingOutline ?? piece.outline.map((p) => p.at);
@@ -138,6 +136,7 @@ export default function TailoredTrousersPage() {
 
   const front = displayPattern.pieces.find((p) => p.name === "Trouser front")!;
   const back = displayPattern.pieces.find((p) => p.name === "Trouser back")!;
+  const waistband = displayPattern.pieces.find((p) => p.name === "Waistband")!;
   const frontBounds = pieceBounds(front);
   const backBounds = pieceBounds(back);
   const layoutMinY = Math.min(
@@ -169,13 +168,27 @@ export default function TailoredTrousersPage() {
     rowX += w + gap;
   }
 
-  const layoutWidth = rowX - gap;
-  const contentBottom = rowY + layoutMaxY + gap;
+  const row1Width = rowX - gap;
+  const row1Bottom = rowY + layoutMaxY;
+  const wb = pieceBounds(waistband);
+  const row2Y = row1Bottom + rowGap;
+  const waistbandX = Math.max(0, (row1Width - wb.w) / 2);
+  placed.push({
+    piece: waistband,
+    dx: waistbandX - wb.minX,
+    dy: row2Y - TROUSER_LAYOUT_ANCHOR_Y,
+    top: row2Y + wb.minY - TROUSER_LAYOUT_ANCHOR_Y,
+    labelX: waistbandX + wb.w / 2,
+  });
+
+  const layoutWidth = Math.max(row1Width, waistbandX + wb.w);
+  const layoutBottom = row2Y + wb.maxY;
+  const contentBottom = layoutBottom + gap;
   const topLabelY = rowY + layoutMinY - labelSpace / 2;
   const sheetY = topLabelY - sheetTopMargin;
   const sheetX = -sheetInset;
   const sheetWidth = layoutWidth + sheetInset * 2;
-  const sheetHeight = contentBottom - sheetY + sheetBottomMargin;
+  const sheetHeight = contentBottom - sheetY + sheetInset;
   const layoutHeight = sheetHeight;
   const patternViewWidth = layoutWidth + pad * 2;
   const patternViewHeight = layoutHeight + pad * 2;
@@ -196,7 +209,9 @@ export default function TailoredTrousersPage() {
   );
 
   const previewPad = 40;
-  const previewPoints = preview ? preview.outline : [];
+  const previewPoints = preview
+    ? [...preview.waistband, ...preview.outline]
+    : [];
   const previewXs = previewPoints.map((p) => p.x);
   const previewYs = previewPoints.map((p) => p.y);
   const previewMinX = preview && previewPoints.length > 0 ? Math.min(...previewXs) : -200;
@@ -242,30 +257,6 @@ export default function TailoredTrousersPage() {
                   onChange={setLegBottomWidth}
                 />
                 <span className={styles.inputSuffix}>mm</span>
-              </div>
-            </div>
-            <div className={styles.field}>
-              <label className={styles.fieldLabel} htmlFor="crotch-curve">
-                Crotch curve
-              </label>
-              <span className={styles.fieldHint}>
-                Compare spline methods — centripetal is the new default.
-              </span>
-              <div className={styles.field}>
-                <select
-                  id="crotch-curve"
-                  className={styles.sizeSelect}
-                  value={crotchCurve}
-                  onChange={(e) =>
-                    setCrotchCurve(e.target.value as CrotchCurveMethod)
-                  }
-                >
-                  {CROTCH_CURVE_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
               </div>
             </div>
           </section>
@@ -320,6 +311,10 @@ export default function TailoredTrousersPage() {
                     height={460}
                     viewBox={`${previewMinX - previewPad} ${previewMinY - previewPad} ${previewWidth} ${previewHeight}`}
                   >
+                    <polygon
+                      points={polygonPoints(preview.waistband)}
+                      className={styles.previewWaistband}
+                    />
                     <polygon
                       points={polygonPoints(preview.outline)}
                       className={styles.previewSkirt}
@@ -392,7 +387,7 @@ export default function TailoredTrousersPage() {
                   <span className={styles.cardSubtitle}>Flat layout</span>
                 </div>
               </div>
-              <div className={`${styles.cardBody} ${styles.patternCardBody} ${styles.patternCardBodyCompact}`}>
+              <div className={`${styles.cardBody} ${styles.patternCardBody}`}>
                 {validation.valid ? (
                 <svg
                   width={patternSvgWidth}
@@ -490,7 +485,7 @@ export default function TailoredTrousersPage() {
                 textAnchor="middle"
                 dominantBaseline="middle"
               >
-                {piece.name}
+                {piece.name} · {cutLabel(piece)}
               </text>
 
               <polygon
@@ -717,7 +712,7 @@ export default function TailoredTrousersPage() {
                     textAnchor="middle"
                     dominantBaseline="middle"
                   >
-                    {piece.name}
+                    {piece.name} · {cutLabel(piece)}
                   </text>
                   {pieceConstruction && (
                     <g pointerEvents="none">
@@ -739,10 +734,23 @@ export default function TailoredTrousersPage() {
                       )}
                     </g>
                   )}
-                  <polygon
-                    points={netPoints}
-                    className={styles.draftPatternLine}
-                  />
+                  {hasCuttingLine ? (
+                    <>
+                      <polygon
+                        points={cutPoints}
+                        className={styles.cutLine}
+                      />
+                      <polygon
+                        points={netPoints}
+                        className={styles.stitchLine}
+                      />
+                    </>
+                  ) : (
+                    <polygon
+                      points={netPoints}
+                      className={styles.draftPatternLine}
+                    />
+                  )}
                   {pieceConstruction && (
                     <g pointerEvents="none">
                       {pieceConstruction.points.map((pt) => {

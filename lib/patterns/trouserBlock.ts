@@ -16,31 +16,16 @@ import {
 import { validationResult, ValidationResult } from "@/lib/types/validation";
 import {
   catmullRom,
-  catmullRomCentripetal,
   pchipByY,
   quadBezier,
 } from "@/lib/geometry/curves";
+import { draftStraightWaistband } from "@/lib/patterns/straightWaistband";
 
-export type CrotchCurveMethod =
-  | "catmull-uniform"
-  | "catmull-centripetal"
-  | "catmull-corner"
-  | "guide-twin-quad"
-  | "centripetal-fork-tangent";
-
-export const CROTCH_CURVE_OPTIONS: { value: CrotchCurveMethod; label: string }[] = [
-  { value: "catmull-uniform", label: "Uniform Catmull-Rom (original)" },
-  { value: "catmull-centripetal", label: "Centripetal Catmull-Rom" },
-  { value: "catmull-corner", label: "Centripetal + corner anchor" },
-  { value: "guide-twin-quad", label: "Twin quadratic through guide" },
-  { value: "centripetal-fork-tangent", label: "Centripetal + fork tangent match" },
-];
+export const TROUSER_WAISTBAND = { finishedDepth: 35, underwrap: 40 };
 
 export type TrouserFrontStyle = {
   /** Finished hem width of one leg (front piece, inseam to side seam). */
   bottomWidth: Millimetres;
-  /** Crotch spline variant — for comparison while tuning. */
-  crotchCurve?: CrotchCurveMethod;
 };
 
 export type FrontPoints = {
@@ -119,93 +104,6 @@ function crotchGuide(corner: Point, a: Point, b: Point, touch: Millimetres): Poi
   const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
   const u = normalize({ x: mid.x - corner.x, y: mid.y - corner.y });
   return { x: corner.x + touch * u.x, y: corner.y + touch * u.y };
-}
-
-function quadraticControlThroughGuide(a: Point, guide: Point, b: Point): Point {
-  return {
-    x: 2 * guide.x - 0.5 * (a.x + b.x),
-    y: 2 * guide.y - 0.5 * (a.y + b.y),
-  };
-}
-
-function phantomFromTangent(end: Point, tangent: Point, dist: Millimetres): Point {
-  return { x: end.x - tangent.x * dist, y: end.y - tangent.y * dist };
-}
-
-function guideTwinQuadControls(
-  fork: Point,
-  guide: Point,
-  corner: Point,
-  hip: Point,
-  waist: Point,
-): { lowerCtrl: Point; upperCtrl: Point } {
-  const lowerCtrl = quadraticControlThroughGuide(fork, guide, hip);
-  const toWaist = { x: waist.x - hip.x, y: waist.y - hip.y };
-  const waistLen = Math.hypot(toWaist.x, toWaist.y);
-  const approach = { x: hip.x - lowerCtrl.x, y: hip.y - lowerCtrl.y };
-  const approachLen = Math.hypot(approach.x, approach.y);
-  const reach = 0.35 * waistLen;
-
-  let upperCtrl: Point;
-  if (Math.abs(hip.x - corner.x) < 1) {
-    const scale = approachLen > 0 ? reach / approachLen : 0;
-    upperCtrl = {
-      x: hip.x,
-      y: hip.y + approach.y * scale,
-    };
-  } else if (approachLen > 0) {
-    upperCtrl = {
-      x: hip.x + (approach.x / approachLen) * reach,
-      y: hip.y + (approach.y / approachLen) * reach,
-    };
-  } else {
-    upperCtrl = {
-      x: hip.x + 0.45 * toWaist.x,
-      y: hip.y + 0.45 * toWaist.y,
-    };
-  }
-
-  return { lowerCtrl, upperCtrl };
-}
-
-function crotchCurve(
-  method: CrotchCurveMethod,
-  fork: Point,
-  guide: Point,
-  corner: Point,
-  hip: Point,
-  waist: Point,
-  forkTangent: Point,
-): Point[] {
-  switch (method) {
-    case "catmull-uniform":
-      return catmullRom([fork, guide, hip, waist]);
-    case "catmull-centripetal":
-      return catmullRomCentripetal([fork, guide, hip, waist]);
-    case "catmull-corner":
-      // Corner anchors the fork-end tangent; it must not sit between guide and hip —
-      // the guide bulges outboard of the hip on x, so visiting corner there loops the spline.
-      return catmullRomCentripetal([fork, guide, hip, waist], {
-        startPhantom: corner,
-      });
-    case "guide-twin-quad": {
-      const { lowerCtrl, upperCtrl } = guideTwinQuadControls(
-        fork,
-        guide,
-        corner,
-        hip,
-        waist,
-      );
-      const lower = quadBezier(fork, lowerCtrl, hip);
-      return [...lower, ...quadBezier(hip, upperCtrl, waist).slice(1)];
-    }
-    case "centripetal-fork-tangent": {
-      const forkDist = Math.pow(Math.hypot(guide.x - fork.x, guide.y - fork.y), 0.5);
-      return catmullRomCentripetal([fork, guide, hip, waist], {
-        startPhantom: phantomFromTangent(fork, forkTangent, forkDist),
-      });
-    }
-  }
 }
 
 function insideLegControl(a: Point, b: Point, bulge: Millimetres = 7.5): Point {
@@ -337,56 +235,14 @@ function draftLine(
   return { from, to, kind };
 }
 
-function crotchCurveControls(
-  method: CrotchCurveMethod,
-  fork: Point,
-  guide: Point,
-  corner: Point,
-  hip: Point,
-  waist: Point,
-  forkTangent: Point,
-): { points: DraftingPoint[]; lines: DraftingLine[] } {
-  const points: DraftingPoint[] = [
-    { id: "guide", at: guide, kind: "curveControl" },
-  ];
-  const lines: DraftingLine[] = [];
-
-  switch (method) {
-    case "guide-twin-quad": {
-      const { lowerCtrl, upperCtrl } = guideTwinQuadControls(
-        fork,
-        guide,
-        corner,
-        hip,
-        waist,
-      );
-      points.push(
-        { id: "crotchLo", at: lowerCtrl, kind: "curveControl" },
-        { id: "crotchHi", at: upperCtrl, kind: "curveControl" },
-      );
-      lines.push(
-        draftLine(fork, lowerCtrl, "curveControl"),
-        draftLine(lowerCtrl, hip, "curveControl"),
-        draftLine(hip, upperCtrl, "curveControl"),
-        draftLine(upperCtrl, waist, "curveControl"),
-      );
-      break;
-    }
-    case "centripetal-fork-tangent": {
-      const forkDist = Math.pow(
-        Math.hypot(guide.x - fork.x, guide.y - fork.y),
-        0.5,
-      );
-      const phantom = phantomFromTangent(fork, forkTangent, forkDist);
-      points.push({ id: "forkTan", at: phantom, kind: "curveControl" });
-      lines.push(draftLine(fork, phantom, "curveControl"));
-      break;
-    }
-    default:
-      break;
-  }
-
-  return { points, lines };
+function crotchCurveControls(guide: Point): {
+  points: DraftingPoint[];
+  lines: DraftingLine[];
+} {
+  return {
+    points: [{ id: "guide", at: guide, kind: "curveControl" }],
+    lines: [],
+  };
 }
 
 function insideLegCurveControls(
@@ -469,33 +325,15 @@ export function trouserConstruction(
   const D = body.hipDepth;
   const F = body.waistToFloor;
   const band = sizeBand(body.hip);
-  const crotchMethod = style.crotchCurve ?? "catmull-centripetal";
   const f = trouserFrontPoints(body, style);
   const b = trouserBackPoints(body, style);
   const frontGuide = crotchGuide(f.p5, f.p6, f.p9, FRONT_CROTCH_TOUCH[band]);
 
   const frontInsideLegNarrows = f.p15.x > f.p9.x;
-  const frontInsideLegControlPoint = frontInsideLegNarrows
-    ? insideLegControl(f.p9, f.p15)
-    : null;
   const frontInsideLegCtrl = frontInsideLegNarrows
     ? insideLegCurveControls(f.p9, f.p15, 7.5, "inseamCtrl")
     : { points: [], lines: [] };
-  const frontForkTangent = frontInsideLegControlPoint
-    ? normalize({
-        x: 2 * (f.p9.x - frontInsideLegControlPoint.x),
-        y: 2 * (f.p9.y - frontInsideLegControlPoint.y),
-      })
-    : normalize({ x: f.p9.x - f.p15.x, y: f.p9.y - f.p15.y });
-  const frontCrotchControls = crotchCurveControls(
-    crotchMethod,
-    f.p9,
-    frontGuide,
-    f.p5,
-    f.p6,
-    f.p10,
-    frontForkTangent,
-  );
+  const frontCrotchControls = crotchCurveControls(frontGuide);
 
   const backInsideLegCtrl = insideLegCurveControls(
     b.p24,
@@ -503,20 +341,7 @@ export function trouserConstruction(
     12.5,
     "inseamCtrl",
   );
-  const backInsideLegControlPoint = insideLegControl(b.p24, b.p29, 12.5);
-  const backForkTangent = normalize({
-    x: 2 * (b.p24.x - backInsideLegControlPoint.x),
-    y: 2 * (b.p24.y - backInsideLegControlPoint.y),
-  });
-  const backCrotchControls = crotchCurveControls(
-    crotchMethod,
-    b.p24,
-    b.guide,
-    b.p16,
-    b.p19,
-    b.p21,
-    backForkTangent,
-  );
+  const backCrotchControls = crotchCurveControls(b.guide);
   const backHemCtrl = { x: 0, y: F + 20 };
   const backHemControls = {
     points: [{ id: "hemCtrl", at: backHemCtrl, kind: "curveControl" as const }],
@@ -660,7 +485,6 @@ export function draftTrouserFront(
   const band = sizeBand(H);
   const f = trouserFrontPoints(body, style);
   const { p5, p6, p8, p9, p10, p11, p12, p13, p14, p15 } = f;
-  const crotchMethod = style.crotchCurve ?? "catmull-centripetal";
 
   const frontGuide = crotchGuide(p5, p6, p9, FRONT_CROTCH_TOUCH[band]);
 
@@ -672,9 +496,6 @@ export function draftTrouserFront(
   const insideLegToFork = insideLegNarrows
     ? quadBezier(p15, insideLegCtrl, p9).slice(1)
     : [p9];
-  const forkTangent = insideLegNarrows
-    ? normalize({ x: 2 * (p9.x - insideLegCtrl.x), y: 2 * (p9.y - insideLegCtrl.y) })
-    : normalize({ x: p9.x - p15.x, y: p9.y - p15.y });
 
   const segments: TaggedSegment[] = [
     {
@@ -698,15 +519,7 @@ export function draftTrouserFront(
       role: "inseam",
     },
     {
-      points: crotchCurve(
-        crotchMethod,
-        p9,
-        frontGuide,
-        p5,
-        p6,
-        p10,
-        forkTangent,
-      ),
+      points: catmullRom([p9, frontGuide, p6, p10]),
       edge: "seam",
       role: "crotch",
     },
@@ -743,7 +556,6 @@ export function draftTrouserBack(
   style: TrouserFrontStyle,
 ): PatternPiece {
   const F = body.waistToFloor;
-  const crotchMethod = style.crotchCurve ?? "catmull-centripetal";
   const b = trouserBackPoints(body, style);
   const {
     p16,
@@ -762,19 +574,7 @@ export function draftTrouserBack(
     guide,
   } = b;
   const insideLegCtrl = insideLegControl(p24, p29, 12.5);
-  const forkTangent = normalize({
-    x: 2 * (p24.x - insideLegCtrl.x),
-    y: 2 * (p24.y - insideLegCtrl.y),
-  });
-  const crotch = crotchCurve(
-    crotchMethod,
-    p24,
-    guide,
-    p16,
-    p19,
-    p21,
-    forkTangent,
-  );
+  const crotch = catmullRom([p24, guide, p19, p21]);
 
   const segments: TaggedSegment[] = [
     { points: [p21, p22], edge: "seam", role: "waist" },
@@ -830,7 +630,11 @@ export function draftTrousers(
   style: TrouserFrontStyle,
 ): Pattern {
   return {
-    pieces: [draftTrouserFront(body, style), draftTrouserBack(body, style)],
+    pieces: [
+      draftTrouserFront(body, style),
+      draftTrouserBack(body, style),
+      draftStraightWaistband(body.waist, TROUSER_WAISTBAND),
+    ],
   };
 }
 
@@ -869,6 +673,15 @@ export function validateTrousers(
 export function trouserInstructions(): ConstructionStep[] {
   return [
     {
+      id: "cut",
+      text: "Cut on doubled fabric with each grainline on the straight grain: front and back two each, so each leg comes as a mirrored pair — a left and a right; waistband one. Transfer the darts, notches and the waistband foldline to the fabric.",
+      highlight: [
+        { piece: "Trouser front" },
+        { piece: "Trouser back" },
+        { piece: "Waistband" },
+      ],
+    },
+    {
       id: "work-front-dart",
       text: "Fold and stitch the waist dart on each front; press toward the centre.",
       highlight: [{ piece: "Trouser front", edges: ["waist"] }],
@@ -900,6 +713,15 @@ export function trouserInstructions(): ConstructionStep[] {
       highlight: [
         { piece: "Trouser front", edges: ["crotch"] },
         { piece: "Trouser back", edges: ["crotch"] },
+      ],
+    },
+    {
+      id: "waistband",
+      text: "Ease the trouser waist onto the waistband, matching the side, centre-front and centre-back notches; fold along the foldline and fasten the button through the buttonhole on the underwrap.",
+      highlight: [
+        { piece: "Waistband" },
+        { piece: "Trouser front", edges: ["waist"] },
+        { piece: "Trouser back", edges: ["waist"] },
       ],
     },
     {

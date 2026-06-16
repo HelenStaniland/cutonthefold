@@ -78,6 +78,10 @@ export type PatternPiece = {
   markings: Marking[];
 };
 
+export function cutLabel(piece: PatternPiece): string {
+  return `Cut ${piece.cutCount}${piece.onFold ? " on fold" : ""}`;
+}
+
 export type Pattern = { pieces: PatternPiece[] };
 
 export type StepHighlight = { piece: string; edges?: string[] }; // edges by role; omit = whole piece

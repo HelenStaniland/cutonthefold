@@ -298,7 +298,7 @@
   --draft-pattern: #111827;
   --draft-construction: #2563eb;
   --draft-curve-control: #ea580c;
-  --draft-helper: #94a3b8;
+  --draft-helper: #8b5cf6;
 
   padding: 20px;
   background-color: #cbd5e1;
@@ -323,8 +323,10 @@
 
 .methodStep {
   counter-increment: method-step;
-  position: relative;
-  padding: 12px 12px 12px 2.75rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
   font-size: 0.9375rem;
   line-height: 1.55;
   color: var(--ink);
@@ -353,11 +355,9 @@
 
 .methodStep::before {
   content: counter(method-step);
-  position: absolute;
-  left: 0;
-  top: 0.05em;
+  flex-shrink: 0;
   width: 1.75rem;
-  height: 1.75rem;
+  height: 1.55em;
   display: flex;
   align-items: center;
   justify-content: center;

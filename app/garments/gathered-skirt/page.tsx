@@ -17,6 +17,7 @@ import {
   runToPolyline,
 } from "@/lib/patternHighlight";
 import styles from "@/app/shell.module.css";
+import { cutLabel } from "@/lib/types/measurements";
 import { NumericInput } from "@/app/NumericInput";
 
 const GRID_SPACING_MM = 50;
@@ -431,7 +432,7 @@ export default function GatheredSkirtPage() {
                 textAnchor="middle"
                 dominantBaseline="middle"
               >
-                {piece.name}
+                {piece.name} · {cutLabel(piece)}
               </text>
 
               <polygon
