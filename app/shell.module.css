@@ -426,6 +426,23 @@
   cursor: pointer;
 }
 
+.printAction {
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-family: inherit;
+  color: var(--ink-muted);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.printAction:hover {
+  color: var(--ink);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .cutLine {
   fill: none;
   stroke: var(--pattern-cut);

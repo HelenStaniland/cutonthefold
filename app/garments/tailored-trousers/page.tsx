@@ -10,6 +10,11 @@ import {
   TROUSER_LAYOUT_ANCHOR_Y,
   validateTrousers,
 } from "@/lib/patterns/trouserBlock";
+import {
+  downloadCalibrationSheet,
+  downloadSinglePiece,
+  downloadTiledPiece,
+} from "@/lib/export/pdf";
 import { previewTrousers } from "@/lib/previews/trouserBlock";
 import {
   DEFAULT_SEAM_ALLOWANCE,
@@ -96,6 +101,7 @@ export default function TailoredTrousersPage() {
 
   const validation = validateTrousers(body, style);
   const net = draftTrousers(body, style);
+  const frontPiece = net.pieces.find((p) => p.name === "Trouser front")!;
   const construction = validation.valid ? trouserConstruction(body, style) : [];
   const pattern = withSeamAllowance(net, DEFAULT_SEAM_ALLOWANCE);
   const displayPattern = showSeamAllowance ? pattern : net;
@@ -384,6 +390,31 @@ export default function TailoredTrousersPage() {
                     />
                     Show grid (5 cm)
                   </label>
+                  <button
+                    type="button"
+                    className={styles.printAction}
+                    onClick={downloadCalibrationSheet}
+                  >
+                    Print scale test
+                  </button>
+                  {validation.valid && (
+                    <button
+                      type="button"
+                      className={styles.printAction}
+                      onClick={() => downloadSinglePiece(frontPiece)}
+                    >
+                      Print front (test)
+                    </button>
+                  )}
+                  {validation.valid && (
+                    <button
+                      type="button"
+                      className={styles.printAction}
+                      onClick={() => downloadTiledPiece(frontPiece)}
+                    >
+                      Print front tiled (test)
+                    </button>
+                  )}
                   <span className={styles.cardSubtitle}>Flat layout</span>
                 </div>
               </div>
