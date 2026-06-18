@@ -577,8 +577,9 @@
 }
 
 .notch {
-  fill: var(--pattern-cut);
-  stroke: none;
+  fill: none;
+  stroke: var(--pattern-cut);
+  stroke-width: 1.5;
 }
 
 .patternLabel {

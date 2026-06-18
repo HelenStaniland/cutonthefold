@@ -64,7 +64,7 @@ export type Marking =
   | { kind: "placeOnFold"; line: Line; inward: { x: number; y: number }; label?: string }
   | { kind: "gather"; line: Line }
   | { kind: "constructionLine"; line: Line }
-  | { kind: "notch"; at: Point; label?: string; dir?: { x: number; y: number }; depth?: Millimetres }
+  | { kind: "notch"; at: Point; label?: string; dir?: { x: number; y: number }; depth?: Millimetres; count?: 1 | 2 | 3 }
   | { kind: "button"; at: Point }
   | { kind: "buttonhole"; at: Point }
   | { kind: "dart"; apex: Point; legs: [Point, Point] };

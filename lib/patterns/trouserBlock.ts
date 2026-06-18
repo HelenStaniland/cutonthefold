@@ -24,8 +24,8 @@ import { draftStraightWaistband } from "@/lib/patterns/straightWaistband";
 export const TROUSER_WAISTBAND = { finishedDepth: 35, underwrap: 40 };
 
 export type TrouserFrontStyle = {
-  /** Finished hem width of one leg (front piece, inseam to side seam). */
-  bottomWidth: Millimetres;
+/** Finished hem width of one leg laid flat (= ½ the hem circumference; Aldrich's trouser bottom width). Front piece drafts 10mm narrower, back 10mm wider. */
+bottomWidth: Millimetres;
 };
 
 export type FrontPoints = {
@@ -540,6 +540,8 @@ export function draftTrouserFront(
         { x: 10, y: 0 },
       ],
     },
+    { kind: "notch", at: p8, count: 1 },
+    { kind: "notch", at: p15, count: 1 },
   ];
 
   return {
@@ -614,6 +616,8 @@ export function draftTrouserBack(
     },
     backDart(third(1), 120),
     backDart(third(2), 100),
+    { kind: "notch", at: p25, count: 2 },
+    { kind: "notch", at: p29, count: 2 },
   ];
 
   return {

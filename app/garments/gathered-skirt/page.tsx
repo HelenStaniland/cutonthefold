@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useMeasurements } from "@/app/measurements-context";
 import { draftGatheredSkirt, gatheredSkirtInstructions, GatheredSkirtFit, validateGatheredSkirt } from "@/lib/patterns/gatheredSkirt";
+import { notchSegments } from "@/lib/pattern/markingGeometry";
 import { previewGatheredSkirt } from "@/lib/previews/gatheredSkirt";
 import {
   DEFAULT_SEAM_ALLOWANCE,
@@ -557,47 +558,28 @@ export default function GatheredSkirtPage() {
                     );
                   }
                   case "notch": {
-                    const cx = m.at.x + dx;
-                    const cy = m.at.y + dy;
-                    if (m.dir) {
-                      const depth = m.depth ?? 14;
-                      const halfWidth = 7;
-                      const nx = m.dir.x;
-                      const ny = m.dir.y;
-                      const px = -ny;
-                      const py = nx;
-                      const apexX = cx + nx * depth;
-                      const apexY = cy + ny * depth;
-                      const notchPoints = [
-                        `${apexX},${apexY}`,
-                        `${cx + px * halfWidth},${cy + py * halfWidth}`,
-                        `${cx - px * halfWidth},${cy - py * halfWidth}`,
-                      ].join(" ");
-                      return (
-                        <g key={i}>
-                          <polygon points={notchPoints} className={styles.notch} />
-                          {m.label && (
-                            <text
-                              x={cx + nx * (depth + 12)}
-                              y={cy + ny * (depth + 12)}
-                              className={styles.patternLabel}
-                              textAnchor="middle"
-                            >
-                              {m.label}
-                            </text>
-                          )}
-                        </g>
-                      );
-                    }
+                    const segs = notchSegments(piece, m);
                     return (
                       <g key={i}>
-                        <polygon
-                          points={`${m.at.x + dx - 7},${m.at.y + dy} ${m.at.x + dx + 7},${m.at.y + dy} ${m.at.x + dx},${m.at.y + dy + 14}`}
-                          className={styles.notch} />
+                        {segs.map((s, j) => (
+                          <line
+                            key={j}
+                            x1={s.from.x + dx}
+                            y1={s.from.y + dy}
+                            x2={s.to.x + dx}
+                            y2={s.to.y + dy}
+                            className={styles.notch}
+                          />
+                        ))}
                         {m.label && (
-                          <text x={m.at.x + dx} y={m.at.y + dy - 8}
-                                className={styles.patternLabel}
-                                textAnchor="middle">{m.label}</text>
+                          <text
+                            x={m.at.x + dx}
+                            y={m.at.y + dy - 8}
+                            className={styles.patternLabel}
+                            textAnchor="middle"
+                          >
+                            {m.label}
+                          </text>
                         )}
                       </g>
                     );

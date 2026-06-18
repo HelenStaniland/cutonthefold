@@ -10,11 +10,8 @@ import {
   TROUSER_LAYOUT_ANCHOR_Y,
   validateTrousers,
 } from "@/lib/patterns/trouserBlock";
-import {
-  downloadCalibrationSheet,
-  downloadSinglePiece,
-  downloadTiledPiece,
-} from "@/lib/export/pdf";
+import { downloadPattern } from "@/lib/export/pdf";
+import { notchSegments } from "@/lib/pattern/markingGeometry";
 import { previewTrousers } from "@/lib/previews/trouserBlock";
 import {
   DEFAULT_SEAM_ALLOWANCE,
@@ -101,7 +98,6 @@ export default function TailoredTrousersPage() {
 
   const validation = validateTrousers(body, style);
   const net = draftTrousers(body, style);
-  const frontPiece = net.pieces.find((p) => p.name === "Trouser front")!;
   const construction = validation.valid ? trouserConstruction(body, style) : [];
   const pattern = withSeamAllowance(net, DEFAULT_SEAM_ALLOWANCE);
   const displayPattern = showSeamAllowance ? pattern : net;
@@ -390,29 +386,13 @@ export default function TailoredTrousersPage() {
                     />
                     Show grid (5 cm)
                   </label>
-                  <button
-                    type="button"
-                    className={styles.printAction}
-                    onClick={downloadCalibrationSheet}
-                  >
-                    Print scale test
-                  </button>
                   {validation.valid && (
                     <button
                       type="button"
                       className={styles.printAction}
-                      onClick={() => downloadSinglePiece(frontPiece)}
+                      onClick={() => downloadPattern(pattern)}
                     >
-                      Print front (test)
-                    </button>
-                  )}
-                  {validation.valid && (
-                    <button
-                      type="button"
-                      className={styles.printAction}
-                      onClick={() => downloadTiledPiece(frontPiece)}
-                    >
-                      Print front tiled (test)
+                      Print pattern
                     </button>
                   )}
                   <span className={styles.cardSubtitle}>Flat layout</span>
@@ -641,47 +621,28 @@ export default function TailoredTrousersPage() {
                     );
                   }
                   case "notch": {
-                    const cx = m.at.x + dx;
-                    const cy = m.at.y + dy;
-                    if (m.dir) {
-                      const depth = m.depth ?? 14;
-                      const halfWidth = 7;
-                      const nx = m.dir.x;
-                      const ny = m.dir.y;
-                      const px = -ny;
-                      const py = nx;
-                      const apexX = cx + nx * depth;
-                      const apexY = cy + ny * depth;
-                      const notchPoints = [
-                        `${apexX},${apexY}`,
-                        `${cx + px * halfWidth},${cy + py * halfWidth}`,
-                        `${cx - px * halfWidth},${cy - py * halfWidth}`,
-                      ].join(" ");
-                      return (
-                        <g key={i}>
-                          <polygon points={notchPoints} className={styles.notch} />
-                          {m.label && (
-                            <text
-                              x={cx + nx * (depth + 12)}
-                              y={cy + ny * (depth + 12)}
-                              className={styles.patternLabel}
-                              textAnchor="middle"
-                            >
-                              {m.label}
-                            </text>
-                          )}
-                        </g>
-                      );
-                    }
+                    const segs = notchSegments(piece, m);
                     return (
                       <g key={i}>
-                        <polygon
-                          points={`${m.at.x + dx - 7},${m.at.y + dy} ${m.at.x + dx + 7},${m.at.y + dy} ${m.at.x + dx},${m.at.y + dy + 14}`}
-                          className={styles.notch} />
+                        {segs.map((s, j) => (
+                          <line
+                            key={j}
+                            x1={s.from.x + dx}
+                            y1={s.from.y + dy}
+                            x2={s.to.x + dx}
+                            y2={s.to.y + dy}
+                            className={styles.notch}
+                          />
+                        ))}
                         {m.label && (
-                          <text x={m.at.x + dx} y={m.at.y + dy - 8}
-                                className={styles.patternLabel}
-                                textAnchor="middle">{m.label}</text>
+                          <text
+                            x={m.at.x + dx}
+                            y={m.at.y + dy - 8}
+                            className={styles.patternLabel}
+                            textAnchor="middle"
+                          >
+                            {m.label}
+                          </text>
                         )}
                       </g>
                     );
