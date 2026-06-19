@@ -11,7 +11,14 @@ import {
   validateTrousers,
 } from "@/lib/patterns/trouserBlock";
 import { downloadPattern } from "@/lib/export/pdf";
+import { downloadInstructions } from "@/lib/export/instructions";
 import { notchSegments } from "@/lib/pattern/markingGeometry";
+import {
+  DEFAULT_FIT,
+  easeForFit,
+  fitForEase,
+  FIT_PRESETS,
+} from "@/lib/pattern/fitPresets";
 import { previewTrousers } from "@/lib/previews/trouserBlock";
 import {
   DEFAULT_SEAM_ALLOWANCE,
@@ -27,7 +34,7 @@ import {
 import styles from "@/app/shell.module.css";
 import { NumericInput } from "@/app/NumericInput";
 import type { DraftingLineKind } from "@/lib/types/measurements";
-import { cutLabel } from "@/lib/types/measurements";
+import { applyEase, cutLabel, type Ease } from "@/lib/types/measurements";
 
 const GRID_SPACING_MM = 50;
 
@@ -89,19 +96,22 @@ function referenceGridLines(
 export default function TailoredTrousersPage() {
   const { body } = useMeasurements();
   const [legBottomWidth, setLegBottomWidth] = useState(220);
+  const [ease, setEase] = useState<Ease>(() => easeForFit(DEFAULT_FIT)!);
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [showGrid, setShowGrid] = useState(true);
   const [viewMode, setViewMode] = useState<PatternViewMode>("pattern");
   const [showSeamAllowance, setShowSeamAllowance] = useState(true);
 
   const style = { bottomWidth: legBottomWidth };
+  const activeFit = fitForEase(ease);
+  const draftBody = applyEase(body, ease);
 
-  const validation = validateTrousers(body, style);
-  const net = draftTrousers(body, style);
-  const construction = validation.valid ? trouserConstruction(body, style) : [];
+  const validation = validateTrousers(draftBody, style);
+  const net = draftTrousers(draftBody, style);
+  const construction = validation.valid ? trouserConstruction(draftBody, style) : [];
   const pattern = withSeamAllowance(net, DEFAULT_SEAM_ALLOWANCE);
   const displayPattern = showSeamAllowance ? pattern : net;
-  const preview = previewTrousers(body, style);
+  const preview = previewTrousers(draftBody, style);
   const method = trouserInstructions();
   const selectedStep = method.find((step) => step.id === selectedStepId);
   const activeHighlights = selectedStep?.highlight ?? [];
@@ -241,6 +251,75 @@ export default function TailoredTrousersPage() {
 
       <div className={styles.workspace}>
         <aside className={styles.sidebar}>
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>Fit</h2>
+            <div className={styles.fitPresetList} role="group" aria-label="Fit preset">
+              {FIT_PRESETS.map((preset) => (
+                <button
+                  key={preset.name}
+                  type="button"
+                  className={
+                    activeFit === preset.name
+                      ? styles.fitPresetActive
+                      : styles.fitPreset
+                  }
+                  onClick={() => setEase(easeForFit(preset.name)!)}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+            {activeFit === "custom" && (
+              <p className={styles.fitCustomHint}>Custom ease</p>
+            )}
+            <div className={styles.field}>
+              <label className={styles.fieldLabel} htmlFor="hip-ease">
+                Hip ease
+              </label>
+              <span className={styles.fieldHint}>
+                Added to body hip before drafting.
+              </span>
+              <div className={styles.rangeRow}>
+                <input
+                  id="hip-ease"
+                  type="range"
+                  className={styles.rangeInput}
+                  min={0}
+                  max={150}
+                  step={5}
+                  value={ease.hip}
+                  onChange={(e) =>
+                    setEase({ ...ease, hip: Number(e.target.value) })
+                  }
+                />
+                <span className={styles.rangeValue}>{ease.hip} mm</span>
+              </div>
+            </div>
+            <div className={styles.field}>
+              <label className={styles.fieldLabel} htmlFor="waist-ease">
+                Waist ease
+              </label>
+              <span className={styles.fieldHint}>
+                Added to body waist before drafting.
+              </span>
+              <div className={styles.rangeRow}>
+                <input
+                  id="waist-ease"
+                  type="range"
+                  className={styles.rangeInput}
+                  min={0}
+                  max={40}
+                  step={5}
+                  value={ease.waist}
+                  onChange={(e) =>
+                    setEase({ ...ease, waist: Number(e.target.value) })
+                  }
+                />
+                <span className={styles.rangeValue}>{ease.waist} mm</span>
+              </div>
+            </div>
+          </section>
+
           <section className={styles.section}>
             <h2 className={styles.sectionTitle}>Style</h2>
             <div className={styles.field}>
@@ -835,7 +914,16 @@ export default function TailoredTrousersPage() {
             <article className={styles.card}>
               <div className={styles.cardHeader}>
                 <h2 className={styles.cardTitle}>Method</h2>
-                <span className={styles.cardSubtitle}>Construction order</span>
+                <div className={styles.cardHeaderActions}>
+                  <button
+                    type="button"
+                    className={styles.printAction}
+                    onClick={() => downloadInstructions(pattern, method)}
+                  >
+                    Print instructions
+                  </button>
+                  <span className={styles.cardSubtitle}>Construction order</span>
+                </div>
               </div>
               <div className={styles.methodBody}>
                 <ol className={styles.methodList}>

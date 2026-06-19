@@ -189,6 +189,63 @@
   box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
 }
 
+.fitPresetList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.fitPreset,
+.fitPresetActive {
+  padding: 7px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--paper-elevated);
+  font: inherit;
+  font-size: 0.8125rem;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.fitPreset:hover {
+  border-color: var(--accent);
+}
+
+.fitPresetActive {
+  border-color: var(--accent);
+  background: rgba(13, 148, 136, 0.08);
+  font-weight: 500;
+}
+
+.fitCustomHint {
+  margin: -4px 0 12px;
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+}
+
+.rangeRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rangeInput {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent);
+}
+
+.rangeValue {
+  flex-shrink: 0;
+  min-width: 3.5rem;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  text-align: right;
+}
+
 .inputSuffix {
   display: flex;
   align-items: center;

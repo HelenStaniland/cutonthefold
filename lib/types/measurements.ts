@@ -11,6 +11,18 @@ export type BodyMeasurements = {
   waistToFloor: Millimetres;
 };
 
+// Wearing ease — a design choice, added ON TOP of the block's built-in ease.
+// Applied to the body measurements before drafting so Aldrich's formulas
+// distribute it; the block maths are untouched.
+export type Ease = {
+  waist: Millimetres;
+  hip: Millimetres;
+};
+
+export function applyEase(body: BodyMeasurements, ease: Ease): BodyMeasurements {
+  return { ...body, waist: body.waist + ease.waist, hip: body.hip + ease.hip };
+}
+
 // Design choices for a skirt — decisions, not body facts.
 export type SkirtStyle = {
   length: Millimetres;
