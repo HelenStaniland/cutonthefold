@@ -357,11 +357,11 @@ export default function GatheredSkirtPage() {
           </filter>
           <marker id="grainArrow" viewBox="0 0 10 10" refX="9" refY="5"
                   markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="#2d6a4f" />
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#047857" />
           </marker>
           <marker id="instructionArrow" viewBox="0 0 10 10" refX="9" refY="5"
                   markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="#4a6741" />
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#047857" />
           </marker>
           <clipPath id="paperClip">
             <rect x={sheetX} y={sheetY} width={sheetWidth} height={sheetHeight} />
