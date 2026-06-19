@@ -96,6 +96,46 @@ function normalize(v: Point): Point {
   return { x: v.x / len, y: v.y / len };
 }
 
+/** Inward normal for a crotch notch from two neighbouring curve samples.
+ *  Perpendicular to the local tangent, pointed toward +x (side seam). */
+function crotchNotchDir(neighbourBefore: Point, neighbourAfter: Point): Point {
+  const tangent = normalize({
+    x: neighbourAfter.x - neighbourBefore.x,
+    y: neighbourAfter.y - neighbourBefore.y,
+  });
+  let nrm = { x: -tangent.y, y: tangent.x };
+  if (nrm.x < 0) {
+    nrm = { x: -nrm.x, y: -nrm.y };
+  }
+  return nrm;
+}
+
+/** Point on a polyline at the given y, with chord neighbours for tangent. */
+function pointOnPolylineAtY(
+  points: Point[],
+  y: Millimetres,
+): { at: Point; before: Point; after: Point } {
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i];
+    const b = points[i + 1];
+    const minY = Math.min(a.y, b.y);
+    const maxY = Math.max(a.y, b.y);
+    if (y < minY - 1e-9 || y > maxY + 1e-9) {
+      continue;
+    }
+    if (Math.abs(b.y - a.y) < 1e-9) {
+      continue;
+    }
+    const t = (y - a.y) / (b.y - a.y);
+    return {
+      at: { x: a.x + t * (b.x - a.x), y },
+      before: a,
+      after: b,
+    };
+  }
+  throw new Error(`No polyline segment crosses y=${y}`);
+}
+
 function xOnLineAtY(a: Point, b: Point, y: number): number {
   return a.x + ((b.x - a.x) * (y - a.y)) / (b.y - a.y);
 }
@@ -542,6 +582,18 @@ export function draftTrouserFront(
     },
     { kind: "notch", at: p8, count: 1 },
     { kind: "notch", at: p15, count: 1 },
+    {
+      kind: "notch",
+      at: p9,
+      dir: crotchNotchDir(p9, frontGuide),
+      count: 1,
+    },
+    {
+      kind: "notch",
+      at: p6,
+      dir: crotchNotchDir(frontGuide, p10),
+      count: 1,
+    },
   ];
 
   return {
@@ -558,10 +610,10 @@ export function draftTrouserBack(
   style: TrouserFrontStyle,
 ): PatternPiece {
   const F = body.waistToFloor;
+  const D = body.hipDepth;
   const b = trouserBackPoints(body, style);
   const {
     p16,
-    p17,
     p18,
     p19,
     p21,
@@ -577,6 +629,7 @@ export function draftTrouserBack(
   } = b;
   const insideLegCtrl = insideLegControl(p24, p29, 12.5);
   const crotch = catmullRom([p24, guide, p19, p21]);
+  const hipOnCrotch = pointOnPolylineAtY(crotch, D);
 
   const segments: TaggedSegment[] = [
     { points: [p21, p22], edge: "seam", role: "waist" },
@@ -618,6 +671,18 @@ export function draftTrouserBack(
     backDart(third(2), 100),
     { kind: "notch", at: p25, count: 2 },
     { kind: "notch", at: p29, count: 2 },
+    {
+      kind: "notch",
+      at: crotch[0],
+      dir: crotchNotchDir(crotch[0], crotch[1]),
+      count: 2,
+    },
+    {
+      kind: "notch",
+      at: hipOnCrotch.at,
+      dir: crotchNotchDir(hipOnCrotch.before, hipOnCrotch.after),
+      count: 2,
+    },
   ];
 
   return {

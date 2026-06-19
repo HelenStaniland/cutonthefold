@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Logo from "./Logo";
 import styles from "./shell.module.css";
 
 type NavProps = {
@@ -51,14 +52,13 @@ export default function Nav({ onNavigate }: NavProps) {
 
 export function NavBrand({ compact = false }: { compact?: boolean }) {
   return (
-    <div className={styles.navBrand}>
-      <div className={styles.logo} aria-hidden />
-      <div className={styles.brandText}>
-        <span className={styles.brandTitle}>Cut on the Fold</span>
-        {!compact && (
-          <span className={styles.brandTagline}>Parametric patterns</span>
-        )}
-      </div>
+    <div
+      className={`${styles.navBrand} ${compact ? styles.navBrandCompact : ""}`}
+    >
+      <Logo compact={compact} />
+      {!compact && (
+        <span className={styles.brandTagline}>Parametric patterns</span>
+      )}
     </div>
   );
 }

@@ -177,6 +177,14 @@ function findEdgeOffsetForPoint(
   return null;
 }
 
+function normalizeDir(v: Point): Point {
+  const len = Math.hypot(v.x, v.y);
+  if (len === 0) {
+    return { x: 0, y: 0 };
+  }
+  return { x: v.x / len, y: v.y / len };
+}
+
 function relocateNotchOntoCuttingLine(
   marking: Extract<Marking, { kind: "notch" }>,
   outline: OutlinePoint[],
@@ -187,7 +195,9 @@ function relocateNotchOntoCuttingLine(
     return marking;
   }
 
-  const inward = { x: -edge.normal.x, y: -edge.normal.y };
+  const inward = marking.dir
+    ? normalizeDir(marking.dir)
+    : { x: -edge.normal.x, y: -edge.normal.y };
   return {
     ...marking,
     at: offsetPoint(marking.at, edge.normal, edge.allowance),

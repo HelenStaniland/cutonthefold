@@ -49,6 +49,10 @@
   --nav-active-ink: var(--sidebar-ink);
   --nav-active-bar: #ffffff;
 
+  /* Logo — override --logo-ink and --logo-fold to recolour the mark */
+  --logo-ink: #001b36;
+  --logo-fold: #a67c37;
+
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -75,27 +79,44 @@
 }
 
 .logo {
-  width: 36px;
-  height: 36px;
-  border-radius: 4px;
-  background: linear-gradient(145deg, var(--accent-mid), var(--accent));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
   position: relative;
+  display: block;
   flex-shrink: 0;
+}
+
+.logoFull {
+  width: min(100px, 100%);
+}
+
+.logoMark {
+  width: 28px;
+}
+
+.logoInkLayer,
+.logoFoldLayer {
+  position: absolute;
+  inset: 0;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: left center;
+  mask-position: left center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
+.logoInkLayer {
+  background-color: var(--logo-ink);
+}
+
+.logoFoldLayer {
+  background-color: var(--logo-fold);
 }
 
 .desktopNav .logo,
 .mobileTopBar .logo,
 .mobileDrawer .logo {
-  background: rgba(255, 255, 255, 0.28);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
-}
-
-.logo::before {
-  content: "";
-  position: absolute;
-  inset: 8px 10px;
-  border-left: 2px dashed rgba(255, 255, 255, 0.9);
+  --logo-ink: #ffffff;
+  --logo-fold: #e8d4a8;
 }
 
 .brandText h1 {
@@ -945,9 +966,17 @@
 
 .navBrand {
   display: flex;
-  gap: 12px;
+  flex-direction: column;
   align-items: flex-start;
+  gap: 8px;
   margin-bottom: 28px;
+}
+
+.navBrandCompact {
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 0;
+  gap: 0;
 }
 
 .brandTitle {
