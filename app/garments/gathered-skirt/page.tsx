@@ -69,7 +69,6 @@ export default function GatheredSkirtPage() {
   const [length, setLength] = useState(600); // mm, a style choice
   const [fit, setFit] = useState<GatheredSkirtFit>({ fullness: 150 });
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
-  const [showGrid, setShowGrid] = useState(true);
 
   const style = { length };
 
@@ -332,17 +331,6 @@ export default function GatheredSkirtPage() {
             <article className={styles.card}>
               <div className={styles.cardHeader}>
                 <h2 className={styles.cardTitle}>Pattern pieces</h2>
-                <div className={styles.cardHeaderActions}>
-                  <label className={styles.gridToggle}>
-                    <input
-                      type="checkbox"
-                      checked={showGrid}
-                      onChange={(e) => setShowGrid(e.target.checked)}
-                    />
-                    Show grid (5 cm)
-                  </label>
-                  <span className={styles.cardSubtitle}>Flat layout</span>
-                </div>
               </div>
               <div className={`${styles.cardBody} ${styles.patternCardBody}`}>
                 {validation.valid ? (
@@ -377,27 +365,25 @@ export default function GatheredSkirtPage() {
           filter="url(#paperShadow)"
         />
 
-        {showGrid && (
-          <g
-            className={styles.referenceGrid}
-            clipPath="url(#paperClip)"
-            pointerEvents="none"
-          >
-            {referenceGrid.map((line, i) => (
-              <line
-                key={i}
-                x1={line.x1}
-                y1={line.y1}
-                x2={line.x2}
-                y2={line.y2}
-                className={
-                  line.major ? styles.gridLineMajor : styles.gridLine
-                }
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
-          </g>
-        )}
+        <g
+          className={styles.referenceGrid}
+          clipPath="url(#paperClip)"
+          pointerEvents="none"
+        >
+          {referenceGrid.map((line, i) => (
+            <line
+              key={i}
+              x1={line.x1}
+              y1={line.y1}
+              x2={line.x2}
+              y2={line.y2}
+              className={
+                line.major ? styles.gridLineMajor : styles.gridLine
+              }
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+        </g>
 
         {placed.map(({ piece, dx, dy, top, labelX }) => {
           const boundary = pieceBoundary(piece);
@@ -662,7 +648,6 @@ export default function GatheredSkirtPage() {
             <article className={styles.card}>
               <div className={styles.cardHeader}>
                 <h2 className={styles.cardTitle}>Method</h2>
-                <span className={styles.cardSubtitle}>Construction order</span>
               </div>
               <div className={styles.methodBody}>
                 <ol className={styles.methodList}>

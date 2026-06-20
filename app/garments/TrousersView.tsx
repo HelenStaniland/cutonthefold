@@ -104,7 +104,6 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
   const [legBottomWidth, setLegBottomWidth] = useState(220);
   const [ease, setEase] = useState<Ease>(() => easeForFit(DEFAULT_FIT)!);
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
-  const [showGrid, setShowGrid] = useState(true);
   const [viewMode, setViewMode] = useState<PatternViewMode>("pattern");
   const [showSeamAllowance, setShowSeamAllowance] = useState(true);
 
@@ -116,7 +115,8 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
   const net = draftTrousers(draftBody, style);
   const construction = validation.valid ? trouserConstruction(draftBody, style) : [];
   const pattern = withSeamAllowance(net, DEFAULT_SEAM_ALLOWANCE);
-  const displayPattern = showSeamAllowance ? pattern : net;
+  const displayPattern =
+    viewMode === "pattern" && showSeamAllowance ? pattern : net;
   const preview = previewTrousers(draftBody, style);
   const method = trouserInstructions();
   const selectedStep = method.find((step) => step.id === selectedStepId);
@@ -337,6 +337,23 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                 <span className={styles.rangeValue}>{legBottomWidth} mm</span>
               </div>
             </div>
+            <div className={styles.field}>
+              <label className={styles.inlineToggle} htmlFor="show-seam-allowance">
+                <input
+                  id="show-seam-allowance"
+                  type="checkbox"
+                  checked={showSeamAllowance}
+                  disabled={viewMode === "construction"}
+                  onChange={(e) => setShowSeamAllowance(e.target.checked)}
+                />
+                Seam allowance
+              </label>
+              <span className={styles.fieldHint}>
+                {viewMode === "construction"
+                  ? "Available in Pattern view."
+                  : "Show the outer cut line on the pattern pieces."}
+              </span>
+            </div>
           </section>
 
           {validation.issues.length > 0 && (
@@ -417,56 +434,37 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
               <div className={styles.cardHeader}>
                 <h2 className={styles.cardTitle}>Pattern pieces</h2>
                 <div className={styles.cardHeaderActions}>
-                  <label className={styles.gridToggle}>
-                    <input
-                      type="radio"
-                      name="patternView"
-                      checked={viewMode === "pattern"}
-                      onChange={() => {
-                        setViewMode("pattern");
-                        setShowSeamAllowance(true);
-                      }}
-                    />
-                    Pattern
-                  </label>
-                  <label className={styles.gridToggle}>
-                    <input
-                      type="radio"
-                      name="patternView"
-                      checked={viewMode === "construction"}
-                      onChange={() => {
-                        setViewMode("construction");
-                        setShowSeamAllowance(false);
-                      }}
-                    />
-                    Construction
-                  </label>
-                  <label className={styles.gridToggle}>
-                    <input
-                      type="checkbox"
-                      checked={showSeamAllowance}
-                      onChange={(e) => setShowSeamAllowance(e.target.checked)}
-                    />
-                    Seam allowance
-                  </label>
-                  <label className={styles.gridToggle}>
-                    <input
-                      type="checkbox"
-                      checked={showGrid}
-                      onChange={(e) => setShowGrid(e.target.checked)}
-                    />
-                    Show grid (5 cm)
-                  </label>
+                  <div
+                    className={styles.segmentedControl}
+                    role="group"
+                    aria-label="View mode"
+                  >
+                    <button
+                      type="button"
+                      className={`${styles.segmentButton} ${viewMode === "pattern" ? styles.segmentButtonActive : ""}`}
+                      aria-pressed={viewMode === "pattern"}
+                      onClick={() => setViewMode("pattern")}
+                    >
+                      Pattern
+                    </button>
+                    <button
+                      type="button"
+                      className={`${styles.segmentButton} ${viewMode === "construction" ? styles.segmentButtonActive : ""}`}
+                      aria-pressed={viewMode === "construction"}
+                      onClick={() => setViewMode("construction")}
+                    >
+                      Construction
+                    </button>
+                  </div>
                   {validation.valid && (
                     <button
                       type="button"
                       className={styles.printAction}
                       onClick={() => downloadPattern(pattern)}
                     >
-                      Print pattern
+                      Print
                     </button>
                   )}
-                  <span className={styles.cardSubtitle}>Flat layout</span>
                 </div>
               </div>
               <div className={`${styles.cardBody} ${styles.patternCardBody}`}>
@@ -502,27 +500,25 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
           filter="url(#paperShadow)"
         />
 
-        {showGrid && (
-          <g
-            className={styles.referenceGrid}
-            clipPath="url(#paperClip)"
-            pointerEvents="none"
-          >
-            {referenceGrid.map((line, i) => (
-              <line
-                key={i}
-                x1={line.x1}
-                y1={line.y1}
-                x2={line.x2}
-                y2={line.y2}
-                className={
-                  line.major ? styles.gridLineMajor : styles.gridLine
-                }
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
-          </g>
-        )}
+        <g
+          className={styles.referenceGrid}
+          clipPath="url(#paperClip)"
+          pointerEvents="none"
+        >
+          {referenceGrid.map((line, i) => (
+            <line
+              key={i}
+              x1={line.x1}
+              y1={line.y1}
+              x2={line.x2}
+              y2={line.y2}
+              className={
+                line.major ? styles.gridLineMajor : styles.gridLine
+              }
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+        </g>
 
         {placed.map(({ piece, dx, dy, top, labelX }) => {
           const boundary = pieceBoundary(piece);
@@ -914,7 +910,6 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                   >
                     Print instructions
                   </button>
-                  <span className={styles.cardSubtitle}>Construction order</span>
                 </div>
               </div>
               <div className={styles.methodBody}>
