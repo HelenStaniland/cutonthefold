@@ -44,6 +44,15 @@ export default function Nav({ onNavigate }: NavProps) {
               Classic Trousers
             </Link>
           </li>
+          <li>
+            <Link
+              href="/garments/production-trousers"
+              className={`${styles.navLink} ${pathname === "/garments/production-trousers" ? styles.navLinkActive : ""}`}
+              onClick={onNavigate}
+            >
+              Production Trousers
+            </Link>
+          </li>
         </ul>
       </li>
     </ul>

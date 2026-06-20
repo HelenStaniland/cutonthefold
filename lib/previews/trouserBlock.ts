@@ -1,6 +1,6 @@
 import { BodyMeasurements, Line, Point } from "@/lib/types/measurements";
 import {
-  TROUSER_WAISTBAND,
+  trouserDraftMeasures,
   validateTrousers,
   TrouserFrontStyle,
 } from "@/lib/patterns/trouserBlock";
@@ -10,9 +10,8 @@ import { pchipByY } from "@/lib/geometry/curves";
 const LEG_GAP_MIN = 20;
 
 export type TrouserPreview = {
-  waistband: Point[];
-  outline: Point[]; // closed front-view silhouette (legs only)
-  waistline: Line; // join between waistband and trouser body
+  outline: Point[];
+  waistline: Line;
 };
 
 export function previewTrousers(
@@ -23,38 +22,26 @@ export function previewTrousers(
     return null;
   }
 
-  const W = body.waist;
-  const H = body.hip;
-  const D = body.hipDepth;
-  const R = body.bodyRise;
-  const F = body.waistToFloor;
+  const { W, H, R, D, F } = trouserDraftMeasures(body, style);
   const B = style.bottomWidth;
-  const bandDepth = TROUSER_WAISTBAND.finishedDepth;
 
   const waistHalf = W / 4;
   const hipHalf = H / 4;
   const innerHemX = Math.max(hipHalf - B, LEG_GAP_MIN);
   const outerHemX = innerHemX + B;
 
-  const waistL: Point = { x: -waistHalf, y: bandDepth };
-  const waistR: Point = { x: waistHalf, y: bandDepth };
-  const hipL: Point = { x: -hipHalf, y: bandDepth + D };
-  const hipR: Point = { x: hipHalf, y: bandDepth + D };
-  const crotch: Point = { x: 0, y: bandDepth + R };
-  const outerHemR: Point = { x: outerHemX, y: bandDepth + F };
-  const innerHemR: Point = { x: innerHemX, y: bandDepth + F };
-  const outerHemL: Point = { x: -outerHemX, y: bandDepth + F };
-  const innerHemL: Point = { x: -innerHemX, y: bandDepth + F };
+  const waistL: Point = { x: -waistHalf, y: 0 };
+  const waistR: Point = { x: waistHalf, y: 0 };
+  const hipL: Point = { x: -hipHalf, y: D };
+  const hipR: Point = { x: hipHalf, y: D };
+  const crotch: Point = { x: 0, y: R };
+  const outerHemR: Point = { x: outerHemX, y: F };
+  const innerHemR: Point = { x: innerHemX, y: F };
+  const outerHemL: Point = { x: -outerHemX, y: F };
+  const innerHemL: Point = { x: -innerHemX, y: F };
 
   const outerRight = pchipByY([waistR, hipR, outerHemR]).slice(1);
   const outerLeftUp = pchipByY([waistL, hipL, outerHemL]).slice(1, -1).reverse();
-
-  const waistband: Point[] = [
-    { x: -waistHalf, y: 0 },
-    { x: waistHalf, y: 0 },
-    { x: waistHalf, y: bandDepth },
-    { x: -waistHalf, y: bandDepth },
-  ];
 
   const outline: Point[] = [
     waistL,
@@ -68,7 +55,6 @@ export function previewTrousers(
   ];
 
   return {
-    waistband,
     outline,
     waistline: { from: waistL, to: waistR },
   };

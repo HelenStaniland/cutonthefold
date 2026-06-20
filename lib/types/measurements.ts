@@ -5,6 +5,7 @@ export type Millimetres = number;
 // The wearer's body — measured facts.
 export type BodyMeasurements = {
   waist: Millimetres;
+  lowWaist: Millimetres;
   hip: Millimetres;
   hipDepth: Millimetres;
   bodyRise: Millimetres;
@@ -20,7 +21,12 @@ export type Ease = {
 };
 
 export function applyEase(body: BodyMeasurements, ease: Ease): BodyMeasurements {
-  return { ...body, waist: body.waist + ease.waist, hip: body.hip + ease.hip };
+  return {
+    ...body,
+    waist: body.waist + ease.waist,
+    lowWaist: body.lowWaist + ease.waist,
+    hip: body.hip + ease.hip,
+  };
 }
 
 // Design choices for a skirt — decisions, not body facts.
@@ -117,6 +123,7 @@ export type MeasurementDefinition = {
 
 export const BODY_MEASUREMENTS: MeasurementDefinition[] = [
   { key: "waist",        label: "Waist",          hint: "Around the narrowest part of your waist.",                         min: 500,  max: 1500 },
+  { key: "lowWaist",     label: "Low waist",      hint: "Around the body 5 cm below the natural waist.",                    min: 600,  max: 1600 },
   { key: "hip",          label: "Hip",            hint: "Around the fullest part of your hips and seat.",                   min: 700,  max: 1700 },
   { key: "hipDepth",     label: "Hip depth",      hint: "From waist straight down to the fullest hip.",                     min: 150,  max: 300  },
   { key: "bodyRise",     label: "Body rise",      hint: "Sitting on a flat surface, from waist to the seat.",             min: 200,  max: 400  },
