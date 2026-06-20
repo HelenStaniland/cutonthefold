@@ -165,6 +165,29 @@ export function quadBezier(
   return points;
 }
 
+export function cubicBezier(
+  p0: Point,
+  c1: Point,
+  c2: Point,
+  p3: Point,
+  steps = CURVE_SAMPLES,
+): Point[] {
+  const out: Point[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const u = 1 - t;
+    const w0 = u * u * u;
+    const w1 = 3 * u * u * t;
+    const w2 = 3 * u * t * t;
+    const w3 = t * t * t;
+    out.push({
+      x: w0 * p0.x + w1 * c1.x + w2 * c2.x + w3 * p3.x,
+      y: w0 * p0.y + w1 * c1.y + w2 * c2.y + w3 * p3.y,
+    });
+  }
+  return out;
+}
+
 // Shape-preserving (monotone) cubic through points ordered by ascending y,
 // interpolating x as a function of y. Unlike Catmull-Rom it cannot overshoot:
 // each tangent comes from the neighbouring secant slopes and is forced flat at

@@ -32,7 +32,6 @@ import {
   runToPolyline,
 } from "@/lib/patternHighlight";
 import styles from "@/app/shell.module.css";
-import { NumericInput } from "@/app/NumericInput";
 import type { DraftingLineKind } from "@/lib/types/measurements";
 import { applyEase, cutLabel, type Ease } from "@/lib/types/measurements";
 
@@ -93,7 +92,7 @@ function referenceGridLines(
   return lines;
 }
 
-export default function TailoredTrousersPage() {
+export default function ClassicTrousersPage() {
   const { body } = useMeasurements();
   const [legBottomWidth, setLegBottomWidth] = useState(220);
   const [ease, setEase] = useState<Ease>(() => easeForFit(DEFAULT_FIT)!);
@@ -241,7 +240,7 @@ export default function TailoredTrousersPage() {
   return (
     <div className={styles.pageContentWide}>
       <div className={styles.garmentHeader}>
-        <h1>Tailored trousers</h1>
+        <h1>Classic trousers</h1>
         <p className={styles.headerMeta}>
           {validation.valid
             ? `${pieceCount} pieces · updates as you edit`
@@ -329,15 +328,18 @@ export default function TailoredTrousersPage() {
               <span className={styles.fieldHint}>
                 Finished width at the hem of one leg — inseam to side seam.
               </span>
-              <div className={styles.inputWrap}>
-                <NumericInput
+              <div className={styles.rangeRow}>
+                <input
                   id="leg-bottom-width"
+                  type="range"
+                  className={styles.rangeInput}
                   min={100}
                   max={450}
+                  step={5}
                   value={legBottomWidth}
-                  onChange={setLegBottomWidth}
+                  onChange={(e) => setLegBottomWidth(Number(e.target.value))}
                 />
-                <span className={styles.inputSuffix}>mm</span>
+                <span className={styles.rangeValue}>{legBottomWidth} mm</span>
               </div>
             </div>
           </section>

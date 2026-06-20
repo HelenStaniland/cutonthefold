@@ -37,11 +37,11 @@ export default function Nav({ onNavigate }: NavProps) {
           </li>
           <li>
             <Link
-              href="/garments/tailored-trousers"
-              className={`${styles.navLink} ${pathname === "/garments/tailored-trousers" ? styles.navLinkActive : ""}`}
+              href="/garments/classic-trousers"
+              className={`${styles.navLink} ${pathname === "/garments/classic-trousers" ? styles.navLinkActive : ""}`}
               onClick={onNavigate}
             >
-              Tailored trousers
+              Classic Trousers
             </Link>
           </li>
         </ul>

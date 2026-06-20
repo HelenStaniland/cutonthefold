@@ -35,8 +35,9 @@
   --shadow: 0 1px 3px rgba(30, 58, 138, 0.08);
   --radius: 4px;
   --radius-sm: 3px;
-  --preview-skirt: #d4daf8;
-  --preview-waistband: #bcc8f2;
+  /* Preview garment — saved periwinkle: skirt #d4daf8, waistband #bcc8f2 */
+  --preview-skirt: #fec89a;
+  --preview-waistband: #fee8cc;
   --preview-stroke: var(--pattern-outline);
 
   --nav-bg: var(--sidebar-bg);
@@ -51,7 +52,7 @@
 
   /* Logo — override --logo-ink and --logo-fold to recolour the mark */
   --logo-ink: #001b36;
-  --logo-fold: #a67c37;
+  --logo-fold: #ea580c;
 
   min-height: 100vh;
   display: flex;
@@ -116,7 +117,7 @@
 .mobileTopBar .logo,
 .mobileDrawer .logo {
   --logo-ink: #ffffff;
-  --logo-fold: #e8d4a8;
+  --logo-fold: #fdba74;
 }
 
 .brandText h1 {

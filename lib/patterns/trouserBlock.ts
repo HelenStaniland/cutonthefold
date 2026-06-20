@@ -24,8 +24,8 @@ import { draftStraightWaistband } from "@/lib/patterns/straightWaistband";
 export const TROUSER_WAISTBAND = { finishedDepth: 35, underwrap: 40 };
 
 export type TrouserFrontStyle = {
-/** Finished hem width of one leg laid flat (= ½ the hem circumference; Aldrich's trouser bottom width). Front piece drafts 10mm narrower, back 10mm wider. */
-bottomWidth: Millimetres;
+  /** Finished hem width of one leg laid flat (= ½ the hem circumference; Aldrich's trouser bottom width). Front piece drafts 10mm narrower, back 10mm wider. */
+  bottomWidth: Millimetres;
 };
 
 export type FrontPoints = {
@@ -198,7 +198,7 @@ export function trouserFrontPoints(
   const F = body.waistToFloor;
   const B = style.bottomWidth;
   const band = sizeBand(H);
-  const kneeAdd = KNEE_ADD[ band];
+  const kneeAdd = KNEE_ADD[band];
 
   const kneeY = trouserKneeY(body);
   const fork = H / 12 + 15;
@@ -212,14 +212,10 @@ export function trouserFrontPoints(
   const p12 = { x: B / 2 - 5, y: F };
   const p14 = { x: -(B / 2 - 5), y: F };
 
-  // Classic tailored knee sits kneeAdd wider than the hem. Keep that while the
-  // leg narrows, but never let the knee poke past the straight line from its
-  // upper neighbour (hip on the side, fork inside) down to the hem — otherwise
-  // a wide hem makes the knee the widest point and the leg bulges.
-  const sideKneeClassic = B / 2 - 5 + kneeAdd;
-  const insideKneeClassic = -(B / 2 - 5 + kneeAdd);
-  const p13 = { x: Math.min(sideKneeClassic, xOnLineAtY(p8, p12, kneeY)), y: kneeY };
-  const p15 = { x: Math.max(insideKneeClassic, xOnLineAtY(p9, p14, kneeY)), y: kneeY };
+  const K = B + 2 * kneeAdd;
+
+  const p13 = { x: Math.min(K / 2 - 5, xOnLineAtY(p8, p12, kneeY)), y: kneeY };
+  const p15 = { x: Math.max(-(K / 2 - 5), xOnLineAtY(p9, p14, kneeY)), y: kneeY };
 
   return { p5, p6, p8, p9, p10, p11, p12, p13, p14, p15 };
 }
@@ -247,9 +243,11 @@ export function trouserBackPoints(
   const p24 = { x: p23.x, y: R + 5 };
   const p25 = { x: p17.x + H / 4 + 15, y: D };
   const p26 = { x: f.p12.x + 10, y: body.waistToFloor };
-  const p27 = { x: f.p13.x + 10, y: f.p13.y };
   const p28 = { x: f.p14.x - 10, y: body.waistToFloor };
-  const p29 = { x: f.p15.x - 10, y: f.p15.y };
+  const kneeY = f.p13.y;
+
+  const p27 = { x: f.p13.x + 10, y: kneeY };
+  const p29 = { x: f.p15.x - 10, y: kneeY };
   const guide = crotchGuide(p16, p19, p24, BACK_CROTCH_TOUCH[band]);
 
   return { p16, p17, p18, p19, p21, p22, p23, p24, p25, p26, p27, p28, p29, guide };
@@ -368,19 +366,10 @@ export function trouserConstruction(
   const f = trouserFrontPoints(body, style);
   const b = trouserBackPoints(body, style);
   const frontGuide = crotchGuide(f.p5, f.p6, f.p9, FRONT_CROTCH_TOUCH[band]);
-
-  const frontInsideLegNarrows = f.p15.x > f.p9.x;
-  const frontInsideLegCtrl = frontInsideLegNarrows
-    ? insideLegCurveControls(f.p9, f.p15, 7.5, "inseamCtrl")
-    : { points: [], lines: [] };
+  const frontInsideLegCtrl = insideLegCurveControls(f.p9, f.p15, 7.5, "inseamCtrl");
   const frontCrotchControls = crotchCurveControls(frontGuide);
 
-  const backInsideLegCtrl = insideLegCurveControls(
-    b.p24,
-    b.p29,
-    12.5,
-    "inseamCtrl",
-  );
+  const backInsideLegCtrl = insideLegCurveControls(b.p24, b.p29, 12.5, "inseamCtrl");
   const backCrotchControls = crotchCurveControls(b.guide);
   const backHemCtrl = { x: 0, y: F + 20 };
   const backHemControls = {
@@ -528,14 +517,8 @@ export function draftTrouserFront(
 
   const frontGuide = crotchGuide(p5, p6, p9, FRONT_CROTCH_TOUCH[band]);
 
-  // The inside-leg hollow is a narrowing-leg feature. Only curve while the
-  // knee (15) sits inboard of the fork (9); once the hem flares past the
-  // fork, the inside leg is straight.
-  const insideLegNarrows = p15.x > p9.x;
   const insideLegCtrl = insideLegControl(p9, p15);
-  const insideLegToFork = insideLegNarrows
-    ? quadBezier(p15, insideLegCtrl, p9).slice(1)
-    : [p9];
+  const insideLegToFork = quadBezier(p15, insideLegCtrl, p9).slice(1);
 
   const segments: TaggedSegment[] = [
     {
@@ -628,6 +611,7 @@ export function draftTrouserBack(
     guide,
   } = b;
   const insideLegCtrl = insideLegControl(p24, p29, 12.5);
+  const backInsideToFork = quadBezier(p29, insideLegCtrl, p24).slice(1);
   const crotch = catmullRom([p24, guide, p19, p21]);
   const hipOnCrotch = pointOnPolylineAtY(crotch, D);
 
@@ -640,7 +624,7 @@ export function draftTrouserBack(
       role: "hem",
     },
     {
-      points: [p28, p29, ...quadBezier(p29, insideLegCtrl, p24).slice(1)],
+      points: [p28, p29, ...backInsideToFork],
       edge: "seam",
       role: "inseam",
     },
