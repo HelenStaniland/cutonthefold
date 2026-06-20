@@ -32,6 +32,7 @@ import {
   runToNetPolyline,
   runToPolyline,
 } from "@/lib/patternHighlight";
+import { mirrorConstructionX, mirrorPieceX } from "@/lib/pattern/mirrorPiece";
 import styles from "@/app/shell.module.css";
 import type { DraftingLineKind } from "@/lib/types/measurements";
 import { applyEase, cutLabel, type Ease } from "@/lib/types/measurements";
@@ -150,8 +151,12 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
     };
   }
 
-  const front = displayPattern.pieces.find((p) => p.name === "Trouser front")!;
+  const frontRaw = displayPattern.pieces.find((p) => p.name === "Trouser front")!;
   const back = displayPattern.pieces.find((p) => p.name === "Trouser back")!;
+  const front = mirrorPieceX(frontRaw);
+  const displayConstruction = construction.map((c) =>
+    c.pieceName === "Trouser front" ? mirrorConstructionX(c) : c,
+  );
   const frontBounds = pieceBounds(front);
   const backBounds = pieceBounds(back);
   const layoutMinY = Math.min(
@@ -171,7 +176,7 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
 
   const rowY = labelSpace;
   let rowX = 0;
-  for (const piece of [front, back]) {
+  for (const piece of [back, front]) {
     const { minX, minY, w } = pieceBounds(piece);
     placed.push({
       piece,
@@ -542,7 +547,7 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
             stepSelectionActive &&
             (pieceHighlight === undefined || edgeRuns.length > 0);
           const constructionMode = viewMode === "construction";
-          const pieceConstruction = construction.find(
+          const pieceConstruction = displayConstruction.find(
             (c) => c.pieceName === piece.name,
           );
           const baseOpacity = constructionMode
