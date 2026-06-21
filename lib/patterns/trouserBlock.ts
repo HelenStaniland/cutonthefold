@@ -57,6 +57,20 @@ const TROUSER_BLOCKS: Record<TrouserBlock, TrouserBlockSpec> = {
 // floor length. If the first toile comes up ~5cm long in the leg, also subtract
 // 50 from waistToFloor for the production block (add a waistToFloorDrop here).
 
+export const frontDartLength = (block: TrouserBlock): number =>
+  TROUSER_BLOCKS[block].frontDartLength;
+
+// Distance from centre front to the sewn front dart, along the finished waist.
+// Dart is centred on point 0; centre front is point 10; the 2 cm dart's take-up
+// (10 mm on the CF side) closes up when sewn. Works out to one-twelfth hip.
+export function frontDartFromCentreFront(
+  body: BodyMeasurements,
+  style: TrouserFrontStyle,
+): number {
+  const { p10 } = trouserFrontPoints(body, style);
+  return -p10.x - 10;
+}
+
 function trouserBlockSpec(style: TrouserFrontStyle): TrouserBlockSpec {
   return TROUSER_BLOCKS[style.block ?? "classic"];
 }

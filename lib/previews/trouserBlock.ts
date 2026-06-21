@@ -3,6 +3,8 @@ import {
   trouserDraftMeasures,
   validateTrousers,
   TrouserFrontStyle,
+  frontDartLength,
+  frontDartFromCentreFront,
 } from "@/lib/patterns/trouserBlock";
 import { pchipByY } from "@/lib/geometry/curves";
 
@@ -12,6 +14,7 @@ const LEG_GAP_MIN = 20;
 export type TrouserPreview = {
   outline: Point[];
   waistline: Line;
+  darts: Line[];
 };
 
 export function previewTrousers(
@@ -54,8 +57,19 @@ export function previewTrousers(
     ...outerLeftUp,
   ];
 
+  // Front darts — one per leg. Position from the construction (one-twelfth hip
+  // from centre front); length from the block. Sewn in the finished garment, so
+  // each is a single line from the waist to the dart point.
+  const dartX = frontDartFromCentreFront(body, style);
+  const dartLen = frontDartLength(style.block ?? "classic");
+  const darts: Line[] = [-dartX, dartX].map((cx) => ({
+    from: { x: cx, y: 0 },
+    to: { x: cx, y: dartLen },
+  }));
+
   return {
     outline,
     waistline: { from: waistL, to: waistR },
+    darts,
   };
 }

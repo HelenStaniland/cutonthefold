@@ -429,6 +429,16 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                       y2={preview.waistline.to.y}
                       className={styles.previewLine}
                     />
+                    {preview.darts.map((d, i) => (
+                      <line
+                        key={`dart-${i}`}
+                        x1={d.from.x}
+                        y1={d.from.y}
+                        x2={d.to.x}
+                        y2={d.to.y}
+                        className={styles.previewDart}
+                      />
+                    ))}
                   </svg>
                 ) : (
                   <div className={styles.canvasUnavailable}>
