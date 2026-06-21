@@ -626,12 +626,6 @@ export function draftTrouserFront(
     { kind: "notch", at: p15, count: 1 },
     {
       kind: "notch",
-      at: p9,
-      dir: crotchNotchDir(p9, frontGuide),
-      count: 1,
-    },
-    {
-      kind: "notch",
       at: p6,
       dir: crotchNotchDir(frontGuide, p10),
       count: 1,
@@ -714,12 +708,6 @@ export function draftTrouserBack(
     backDart(third(2), spec.backDartLengths[1]),
     { kind: "notch", at: p25, count: 2 },
     { kind: "notch", at: p29, count: 2 },
-    {
-      kind: "notch",
-      at: crotch[0],
-      dir: crotchNotchDir(crotch[0], crotch[1]),
-      count: 2,
-    },
     {
       kind: "notch",
       at: hipOnCrotch.at,

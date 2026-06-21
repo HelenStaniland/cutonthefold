@@ -20,6 +20,16 @@ export type Ease = {
   hip: Millimetres;
 };
 
+/** Parameters used to cut a pattern — printed on each piece and the cover sheet. */
+export type PatternSpec = {
+  blockName: string;
+  sizeLabel: string;
+  fitName?: string;
+  body: BodyMeasurements;
+  ease: Ease;
+  hemWidth: Millimetres;
+};
+
 export function applyEase(body: BodyMeasurements, ease: Ease): BodyMeasurements {
   return {
     ...body,

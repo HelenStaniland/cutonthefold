@@ -6,6 +6,7 @@ import {
   Point,
   SeamAllowancePolicy,
 } from "@/lib/types/measurements";
+import { inwardNormalAtPolyline } from "@/lib/pattern/markingGeometry";
 
 export const DEFAULT_SEAM_ALLOWANCE: SeamAllowancePolicy = { seam: 15, hem: 50 };
 
@@ -161,46 +162,60 @@ function distanceToSegment(p: Point, a: Point, b: Point): number {
   return Math.hypot(p.x - projX, p.y - projY);
 }
 
+function findVertexIndex(outline: OutlinePoint[], p: Point): number | null {
+  for (let i = 0; i < outline.length; i++) {
+    if (Math.hypot(outline[i].at.x - p.x, outline[i].at.y - p.y) <= NOTCH_EDGE_TOLERANCE) {
+      return i;
+    }
+  }
+  return null;
+}
+
 function findEdgeOffsetForPoint(
   p: Point,
   outline: OutlinePoint[],
   edgeOffsets: EdgeOffset[],
 ): EdgeOffset | null {
   const n = outline.length;
+  let best: { edge: EdgeOffset; dist: number } | null = null;
   for (let i = 0; i < n; i++) {
     const from = outline[i].at;
     const to = outline[(i + 1) % n].at;
-    if (distanceToSegment(p, from, to) <= NOTCH_EDGE_TOLERANCE) {
-      return edgeOffsets[i];
+    const dist = distanceToSegment(p, from, to);
+    if (dist <= NOTCH_EDGE_TOLERANCE && (!best || dist < best.dist)) {
+      best = { edge: edgeOffsets[i], dist };
     }
   }
-  return null;
+  return best?.edge ?? null;
 }
 
-function normalizeDir(v: Point): Point {
-  const len = Math.hypot(v.x, v.y);
-  if (len === 0) {
-    return { x: 0, y: 0 };
-  }
-  return { x: v.x / len, y: v.y / len };
-}
 
 function relocateNotchOntoCuttingLine(
   marking: Extract<Marking, { kind: "notch" }>,
   outline: OutlinePoint[],
   edgeOffsets: EdgeOffset[],
+  cuttingOutline: Point[],
 ): Extract<Marking, { kind: "notch" }> {
-  const edge = findEdgeOffsetForPoint(marking.at, outline, edgeOffsets);
+  const vertexIndex = findVertexIndex(outline, marking.at);
+  const edge =
+    vertexIndex !== null
+      ? edgeOffsets[vertexIndex]
+      : findEdgeOffsetForPoint(marking.at, outline, edgeOffsets);
+
   if (!edge || edge.allowance === 0) {
     return marking;
   }
 
-  const inward = marking.dir
-    ? normalizeDir(marking.dir)
-    : { x: -edge.normal.x, y: -edge.normal.y };
+  const at =
+    vertexIndex !== null
+      ? cuttingOutline[vertexIndex]
+      : offsetPoint(marking.at, edge.normal, edge.allowance);
+
+  const inward = inwardNormalAtPolyline(cuttingOutline, at);
+
   return {
     ...marking,
-    at: offsetPoint(marking.at, edge.normal, edge.allowance),
+    at,
     dir: inward,
     depth: edge.allowance,
   };
@@ -210,10 +225,16 @@ function relocateNotches(
   markings: Marking[],
   outline: OutlinePoint[],
   edgeOffsets: EdgeOffset[],
+  cuttingOutline: Point[],
 ): Marking[] {
   return markings.map((marking) =>
     marking.kind === "notch"
-      ? relocateNotchOntoCuttingLine(marking, outline, edgeOffsets)
+      ? relocateNotchOntoCuttingLine(
+          marking,
+          outline,
+          edgeOffsets,
+          cuttingOutline,
+        )
       : marking,
   );
 }
@@ -301,7 +322,7 @@ export function addSeamAllowance(
   return {
     ...piece,
     cuttingOutline,
-    markings: relocateNotches(piece.markings, outline, edgeOffsets),
+    markings: relocateNotches(piece.markings, outline, edgeOffsets, cuttingOutline),
   };
 }
 

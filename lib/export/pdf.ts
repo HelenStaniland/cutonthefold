@@ -1,7 +1,17 @@
 import { jsPDF } from "jspdf";
 import { notchSegments, unit } from "@/lib/pattern/markingGeometry";
-import { cutLabel } from "@/lib/types/measurements";
-import type { Marking, Pattern, PatternPiece, Point, Millimetres } from "@/lib/types/measurements";
+import {
+  coverSpecLines,
+  patternPanel,
+  patternPdfFilename,
+} from "@/lib/export/patternPanel";
+import type {
+  Pattern,
+  PatternPiece,
+  PatternSpec,
+  Point,
+  Millimetres,
+} from "@/lib/types/measurements";
 
 const SQUARE = 100; // mm
 const MARGIN = 10; // mm — safe inside typical printer non-printable area
@@ -109,31 +119,128 @@ function drawMarkings(
   }
 }
 
-function labelAnchor(piece: PatternPiece): Point {
-  const g = piece.markings.find(
-    (m): m is Extract<Marking, { kind: "grainline" }> => m.kind === "grainline",
-  );
-  if (g) {
-    return {
-      x: (g.line.from.x + g.line.to.x) / 2,
-      y: (g.line.from.y + g.line.to.y) / 2,
-    };
+/** Net-outline left/right edges at height y (pattern coords). */
+function outlineXBoundsAtY(
+  outline: Point[],
+  y: number,
+): { left: number; right: number } | null {
+  const xs: number[] = [];
+  for (let i = 0; i < outline.length; i++) {
+    const a = outline[i];
+    const b = outline[(i + 1) % outline.length];
+    if (a.y === b.y) continue;
+    if ((a.y <= y && b.y >= y) || (b.y <= y && a.y >= y)) {
+      const t = (y - a.y) / (b.y - a.y);
+      xs.push(a.x + t * (b.x - a.x));
+    }
   }
-  const b = bbox(piece.cuttingOutline ?? piece.outline.map((o) => o.at));
-  return { x: (b.minX + b.maxX) / 2, y: (b.minY + b.maxY) / 2 };
+  return xs.length < 2 ? null : { left: Math.min(...xs), right: Math.max(...xs) };
 }
 
-function drawPieceLabel(
-  doc: jsPDF,
+function panelBoxHeight(lineCount: number): number {
+  const lineH = 4.4;
+  const pad = 3;
+  return pad * 2 + lineCount * lineH;
+}
+
+/** Keep the full panel (heading + box) inside this tile's printable area. */
+function clampPanelPage(
+  panel: { title: string; lines: string[] },
+  boxLeftPage: number,
+  boxTopPage: number,
+  boxW: number,
+  printableW: number,
+  printableH: number,
+): { boxLeftPage: number; boxTopPage: number; boxW: number } {
+  const headingGap = 7;
+  const headingH = 5;
+  const boxH = panelBoxHeight(panel.lines.length);
+  const minX = MARGIN;
+  const maxX = MARGIN + printableW;
+  const minY = MARGIN;
+  const maxY = MARGIN + printableH;
+
+  let left = boxLeftPage;
+  let top = boxTopPage;
+  let w = boxW;
+
+  if (left < minX) left = minX;
+  if (left + w > maxX) left = maxX - w;
+  if (left < minX) {
+    left = minX;
+    w = Math.min(w, maxX - minX);
+  }
+
+  let panelTop = top - headingGap - headingH;
+  if (panelTop < minY) top += minY - panelTop;
+  if (top + boxH > maxY) top = maxY - boxH;
+  panelTop = top - headingGap - headingH;
+  if (panelTop < minY) top = minY + headingGap + headingH;
+
+  return { boxLeftPage: left, boxTopPage: top, boxW: w };
+}
+
+function panelPlacement(
   piece: PatternPiece,
-  pageX: number,
-  pageY: number,
+  panel: { title: string; lines: string[] },
+): { boxLeft: number; yTop: number; boxW: number } | null {
+  const INSET = 8;
+  const BOX_W = 92;
+  const boxH = panelBoxHeight(panel.lines.length);
+  const outline = piece.outline.map((o) => o.at);
+
+  const ys = outline.map((p) => p.y);
+  const top = Math.min(...ys);
+  const bottom = Math.max(...ys);
+  const yTop = top + 0.3 * (bottom - top);
+  const yBottom = yTop + boxH;
+
+  const bounds = [yTop, (yTop + yBottom) / 2, yBottom]
+    .map((y) => outlineXBoundsAtY(outline, y))
+    .filter((b): b is { left: number; right: number } => b !== null);
+
+  if (bounds.length === 0) {
+    return null;
+  }
+
+  const left = Math.max(...bounds.map((b) => b.left)) + INSET;
+  const right = Math.min(...bounds.map((b) => b.right)) - INSET;
+  const boxW = Math.min(BOX_W, right - left);
+  let boxLeft = (left + right) / 2 - boxW / 2;
+  boxLeft = Math.max(left, Math.min(boxLeft, right - boxW));
+
+  return { boxLeft, yTop, boxW };
+}
+
+function drawPiecePanel(
+  doc: jsPDF,
+  panel: { title: string; lines: string[] },
+  boxLeftPage: number,
+  boxTopPage: number,
+  boxW: number,
 ): void {
-  doc.setLineDashPattern([], 0);
-  doc.setFontSize(14);
-  doc.text(piece.name, pageX, pageY, { align: "center" });
-  doc.setFontSize(10);
-  doc.text(cutLabel(piece), pageX, pageY + 6, { align: "center" });
+  const lineH = 4.4;
+  const pad = 3;
+  const headingGap = 7;
+  const boxH = panelBoxHeight(panel.lines.length);
+  const cx = boxLeftPage + boxW / 2;
+
+  doc.setFontSize(13);
+  doc.setFont("helvetica", "bold");
+  doc.text(panel.title, cx, boxTopPage - headingGap, { align: "center" });
+  doc.setFont("helvetica", "normal");
+
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(140);
+  doc.setLineWidth(0.2);
+  doc.rect(boxLeftPage, boxTopPage, boxW, boxH, "FD");
+  doc.setFontSize(8);
+  doc.setTextColor(70);
+  panel.lines.forEach((ln, i) =>
+    doc.text(ln, boxLeftPage + pad, boxTopPage + pad + (i + 1) * lineH - 1.2),
+  );
+  doc.setTextColor(0);
+  doc.setDrawColor(0);
 }
 
 export function drawPiece(
@@ -207,6 +314,7 @@ function drawTileLabel(
 function tilePiece(
   doc: jsPDF,
   piece: PatternPiece,
+  spec: PatternSpec | undefined,
   isFirstPieceInDoc: boolean,
   withScaleSquare = false,
 ): void {
@@ -219,15 +327,23 @@ function tilePiece(
   const box = bbox(cutPts);
   const grid = tileGrid(box, printableW, printableH);
 
-  const labelPat = labelAnchor(piece);
-  const ownCol = Math.min(
-    grid.cols - 1,
-    Math.max(0, Math.floor((labelPat.x - box.minX) / grid.stepX)),
-  );
-  const ownRow = Math.min(
-    grid.rows - 1,
-    Math.max(0, Math.floor((labelPat.y - box.minY) / grid.stepY)),
-  );
+  const panelData = spec ? patternPanel(piece, spec) : null;
+  const panelPat = panelData ? panelPlacement(piece, panelData) : null;
+  const ownCol = panelPat
+    ? Math.min(
+        grid.cols - 1,
+        Math.max(
+          0,
+          Math.floor((panelPat.boxLeft + panelPat.boxW / 2 - box.minX) / grid.stepX),
+        ),
+      )
+    : 0;
+  const ownRow = panelPat
+    ? Math.min(
+        grid.rows - 1,
+        Math.max(0, Math.floor((panelPat.yTop - box.minY) / grid.stepY)),
+      )
+    : 0;
 
   for (let row = 0; row < grid.rows; row++) {
     for (let col = 0; col < grid.cols; col++) {
@@ -244,18 +360,22 @@ function tilePiece(
       doc.clip();
       doc.discardPath();
       drawPiece(doc, piece, place);
-      if (col === ownCol && row === ownRow) {
-        const a = patternToPage(labelPat, place);
-        const pad = 20;
-        const x = Math.min(
-          MARGIN + grid.stepX - pad,
-          Math.max(MARGIN + OVERLAP + pad, a.x),
+      if (panelData && panelPat && col === ownCol && row === ownRow) {
+        const pagePanel = clampPanelPage(
+          panelData,
+          panelPat.boxLeft + place.offsetX,
+          panelPat.yTop + place.offsetY,
+          panelPat.boxW,
+          printableW,
+          printableH,
         );
-        const y = Math.min(
-          MARGIN + grid.stepY - pad,
-          Math.max(MARGIN + OVERLAP + pad, a.y),
+        drawPiecePanel(
+          doc,
+          panelData,
+          pagePanel.boxLeftPage,
+          pagePanel.boxTopPage,
+          pagePanel.boxW,
         );
-        drawPieceLabel(doc, piece, x, y);
       }
       doc.restoreGraphicsState();
 
@@ -276,23 +396,24 @@ function tilePiece(
 
 export function downloadPattern(
   pattern: Pattern,
+  spec: PatternSpec,
   sheet: SheetSize = "a4",
 ): void {
   const doc = new jsPDF({ unit: "mm", format: sheet, orientation: "portrait" });
   if (sheet === "a4") {
-    drawCoverSheet(doc, pattern);
-    pattern.pieces.forEach((piece) => tilePiece(doc, piece, false));
+    drawCoverSheet(doc, pattern, spec);
+    pattern.pieces.forEach((piece) => tilePiece(doc, piece, spec, false));
   } else {
     pattern.pieces.forEach((piece, i) =>
-      tilePiece(doc, piece, i === 0, true),
+      tilePiece(doc, piece, spec, i === 0, true),
     );
   }
-  doc.save(`cutonthefold-pattern-${sheet}.pdf`);
+  doc.save(patternPdfFilename(spec));
 }
 
 export function downloadTiledPiece(piece: PatternPiece): void {
   const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
-  tilePiece(doc, piece, true);
+  tilePiece(doc, piece, undefined, true);
   doc.save(
     `cutonthefold-${piece.name.replace(/\s+/g, "-").toLowerCase()}-tiled.pdf`,
   );
@@ -329,14 +450,12 @@ function drawCalibrationSquare(
   });
 }
 
-function drawCoverSheet(doc: jsPDF, pattern: Pattern): void {
+function drawCoverSheet(doc: jsPDF, pattern: Pattern, spec: PatternSpec): void {
   const pageW = doc.internal.pageSize.getWidth();
-  const pageH = doc.internal.pageSize.getHeight();
   const printableW = pageW - 2 * MARGIN;
-  const printableH = pageH - 2 * MARGIN;
 
-  doc.setFontSize(18);
-  doc.text("Cut on the Fold — Trouser block", MARGIN, MARGIN + 8);
+  doc.setFontSize(16);
+  doc.text("cutonthefold.com", MARGIN, MARGIN + 8);
 
   drawCalibrationSquare(doc, MARGIN, MARGIN + 20, 100);
   doc.setFontSize(11);
@@ -347,11 +466,21 @@ function drawCoverSheet(doc: jsPDF, pattern: Pattern): void {
     { maxWidth: printableW },
   );
 
-  let y = MARGIN + 160;
+  let y = MARGIN + 152;
+  doc.setFontSize(9);
+  doc.setTextColor(70);
+  for (const line of coverSpecLines(spec)) {
+    doc.text(line, MARGIN, y);
+    y += 5;
+  }
+  doc.setTextColor(0);
+
+  y += 8;
   doc.setFontSize(12);
   doc.text("Sheets in this pattern:", MARGIN, y);
   y += 7;
   doc.setFontSize(10);
+  const printableH = doc.internal.pageSize.getHeight() - 2 * MARGIN;
   for (const piece of pattern.pieces) {
     const g = tileGrid(
       bbox(piece.cuttingOutline ?? piece.outline.map((o) => o.at)),
@@ -359,7 +488,7 @@ function drawCoverSheet(doc: jsPDF, pattern: Pattern): void {
       printableH,
     );
     doc.text(
-      `${piece.name} (${cutLabel(piece)}) — ${g.cols * g.rows} sheet(s), ${g.cols}×${g.rows} grid`,
+      `${piece.name} — ${g.cols * g.rows} sheet(s), ${g.cols}×${g.rows} grid`,
       MARGIN,
       y,
     );

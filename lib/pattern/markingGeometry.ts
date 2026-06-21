@@ -14,10 +14,49 @@ export function distPointToSeg(p: Point, a: Point, b: Point): number {
   return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
 }
 
+export function inwardNormalAtPolyline(
+  points: Point[],
+  P: Point,
+): { x: number; y: number } {
+  let best = Infinity;
+  let tan = { x: 1, y: 0 };
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i];
+    const b = points[(i + 1) % points.length];
+    const d = distPointToSeg(P, a, b);
+    if (d < best) {
+      best = d;
+      tan = unit(b.x - a.x, b.y - a.y);
+    }
+  }
+  let nrm = { x: -tan.y, y: tan.x };
+  const c = points.reduce((s, p) => ({ x: s.x + p.x, y: s.y + p.y }), {
+    x: 0,
+    y: 0,
+  });
+  c.x /= points.length;
+  c.y /= points.length;
+  if ((c.x - P.x) * nrm.x + (c.y - P.y) * nrm.y < 0) {
+    nrm = { x: -nrm.x, y: -nrm.y };
+  }
+  return nrm;
+}
+
 export function inwardNormalAt(
   piece: PatternPiece,
   P: Point,
 ): { x: number; y: number } {
+  if (piece.cuttingOutline && piece.cuttingOutline.length >= 3) {
+    let nearest = Infinity;
+    for (let i = 0; i < piece.cuttingOutline.length; i++) {
+      const a = piece.cuttingOutline[i];
+      const b = piece.cuttingOutline[(i + 1) % piece.cuttingOutline.length];
+      nearest = Math.min(nearest, distPointToSeg(P, a, b));
+    }
+    if (nearest <= 1) {
+      return inwardNormalAtPolyline(piece.cuttingOutline, P);
+    }
+  }
   const pts = piece.outline.map((o) => o.at);
   let best = Infinity;
   let tan = { x: 1, y: 0 };

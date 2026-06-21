@@ -35,7 +35,7 @@ import {
 import { mirrorConstructionX, mirrorPieceX } from "@/lib/pattern/mirrorPiece";
 import styles from "@/app/shell.module.css";
 import type { DraftingLineKind } from "@/lib/types/measurements";
-import { applyEase, cutLabel, type Ease } from "@/lib/types/measurements";
+import { applyEase, cutLabel, type Ease, type PatternSpec } from "@/lib/types/measurements";
 
 const GRID_SPACING_MM = 50;
 
@@ -100,7 +100,7 @@ type TrousersViewProps = {
 };
 
 export default function TrousersView({ block, title }: TrousersViewProps) {
-  const { body } = useMeasurements();
+  const { body, sizeCode } = useMeasurements();
   const [legBottomWidth, setLegBottomWidth] = useState(220);
   const [ease, setEase] = useState<Ease>(() => easeForFit(DEFAULT_FIT)!);
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
@@ -115,6 +115,18 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
   const net = draftTrousers(draftBody, style);
   const construction = validation.valid ? trouserConstruction(draftBody, style) : [];
   const pattern = withSeamAllowance(net, DEFAULT_SEAM_ALLOWANCE);
+  const patternSpec = useMemo<PatternSpec>(
+    () => ({
+      blockName:
+        block === "production" ? "Production trouser block" : "Classic trouser block",
+      sizeLabel: sizeCode === "custom" ? "Custom" : `Size ${sizeCode}`,
+      fitName: activeFit,
+      body,
+      ease,
+      hemWidth: legBottomWidth,
+    }),
+    [block, sizeCode, activeFit, body, ease, legBottomWidth],
+  );
   const displayPattern =
     viewMode === "pattern" && showSeamAllowance ? pattern : net;
   const preview = previewTrousers(draftBody, style);
@@ -460,7 +472,16 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                     <button
                       type="button"
                       className={styles.printAction}
-                      onClick={() => downloadPattern(pattern)}
+                      onClick={() =>
+                        downloadPattern(
+                          {
+                            pieces: pattern.pieces.map((p) =>
+                              p.name === "Trouser front" ? mirrorPieceX(p) : p,
+                            ),
+                          },
+                          patternSpec,
+                        )
+                      }
                     >
                       Print
                     </button>
