@@ -87,10 +87,14 @@
 
 .logoFull {
   width: min(100px, 100%);
+  height: 86px;
+  aspect-ratio: 742 / 636;
 }
 
 .logoMark {
   width: 28px;
+  height: 52px;
+  aspect-ratio: 340 / 636;
 }
 
 .logoInkLayer,
@@ -1019,6 +1023,7 @@
 .navBrandCompact {
   flex-direction: row;
   align-items: center;
+  flex-shrink: 0;
   margin-bottom: 0;
   gap: 0;
 }

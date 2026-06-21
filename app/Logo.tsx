@@ -9,8 +9,14 @@ type LogoProps = {
 
 function maskStyle(url: string): CSSProperties {
   return {
-    WebkitMaskImage: `url(${url})`,
-    maskImage: `url(${url})`,
+    WebkitMaskImage: `url("${url}")`,
+    maskImage: `url("${url}")`,
+    WebkitMaskRepeat: "no-repeat",
+    maskRepeat: "no-repeat",
+    WebkitMaskPosition: "left center",
+    maskPosition: "left center",
+    WebkitMaskSize: "contain",
+    maskSize: "contain",
   };
 }
 
@@ -20,7 +26,6 @@ export default function Logo({ compact = false }: LogoProps) {
   return (
     <span
       className={`${styles.logo} ${compact ? styles.logoMark : styles.logoFull}`}
-      style={{ aspectRatio: `${mask.width} / ${mask.height}` }}
       role="img"
       aria-label="Cut on the Fold"
     >
