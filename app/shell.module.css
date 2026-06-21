@@ -1025,7 +1025,14 @@
   align-items: center;
   flex-shrink: 0;
   margin-bottom: 0;
-  gap: 0;
+  gap: 10px;
+  min-width: 0;
+}
+
+.navBrandCompact .brandTitle {
+  font-size: 0.95rem;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .brandTitle {

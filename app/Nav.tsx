@@ -65,7 +65,9 @@ export function NavBrand({ compact = false }: { compact?: boolean }) {
       className={`${styles.navBrand} ${compact ? styles.navBrandCompact : ""}`}
     >
       <Logo compact={compact} />
-      {!compact && (
+      {compact ? (
+        <span className={styles.brandTitle}>Cut on the Fold</span>
+      ) : (
         <span className={styles.brandTagline}>Parametric patterns</span>
       )}
     </div>
