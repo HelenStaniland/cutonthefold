@@ -6,11 +6,16 @@ import { useMeasurements } from "@/app/measurements-context";
 import {
   draftTrousers,
   type TrouserBlock,
+  type WaistbandMode,
   trouserConstruction,
   trouserInstructions,
+  trouserWaistEdges,
   TROUSER_LAYOUT_ANCHOR_Y,
   validateTrousers,
+  withWaistband,
 } from "@/lib/patterns/trouserBlock";
+import { draftWaistband } from "@/lib/elements/waistband";
+import { applySideOpening } from "@/lib/elements/sideOpening";
 import { downloadPattern } from "@/lib/export/pdf";
 import { downloadInstructions } from "@/lib/export/instructions";
 import { notchSegments } from "@/lib/pattern/markingGeometry";
@@ -35,7 +40,7 @@ import {
 import { mirrorConstructionX, mirrorPieceX } from "@/lib/pattern/mirrorPiece";
 import styles from "@/app/shell.module.css";
 import type { DraftingLineKind } from "@/lib/types/measurements";
-import { applyEase, cutLabel, type Ease, type PatternSpec } from "@/lib/types/measurements";
+import { applyEase, cutLabel, type ConstructionStep, type Ease, type PatternSpec } from "@/lib/types/measurements";
 
 const GRID_SPACING_MM = 50;
 
@@ -102,18 +107,63 @@ type TrousersViewProps = {
 export default function TrousersView({ block, title }: TrousersViewProps) {
   const { body, sizeCode } = useMeasurements();
   const [legBottomWidth, setLegBottomWidth] = useState(220);
+  const [waistbandDepth, setWaistbandDepth] = useState(40);
+  const [waistbandMode, setWaistbandMode] = useState<WaistbandMode>("contour");
+  const [frontWaistDip, setFrontWaistDip] = useState(0);
+  const [zipLength, setZipLength] = useState(180);
   const [ease, setEase] = useState<Ease>(() => easeForFit(DEFAULT_FIT)!);
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<PatternViewMode>("pattern");
   const [showSeamAllowance, setShowSeamAllowance] = useState(true);
 
-  const style = { bottomWidth: legBottomWidth, block };
+  const style = { bottomWidth: legBottomWidth, block, frontWaistDip };
+  const tstyle =
+    waistbandDepth > 0
+      ? withWaistband(style, waistbandDepth, waistbandMode)
+      : style;
   const activeFit = fitForEase(ease);
   const draftBody = applyEase(body, ease);
 
-  const validation = validateTrousers(draftBody, style);
-  const net = draftTrousers(draftBody, style);
-  const construction = validation.valid ? trouserConstruction(draftBody, style) : [];
+  const validation = validateTrousers(draftBody, tstyle);
+  const baseNet = useMemo(
+    () => draftTrousers(draftBody, tstyle),
+    [draftBody, tstyle],
+  );
+  const { net, elementSteps } = useMemo((): {
+    net: ReturnType<typeof draftTrousers>;
+    elementSteps: ConstructionStep[];
+  } => {
+    if (!validation.valid) {
+      return { net: baseNet, elementSteps: [] };
+    }
+    const opened = applySideOpening(baseNet.pieces, {
+      side: "left",
+      length: zipLength,
+    });
+    if (waistbandDepth <= 0) {
+      return { net: { pieces: opened.pieces }, elementSteps: opened.steps };
+    }
+    const e = trouserWaistEdges(draftBody, tstyle);
+    const fb = draftWaistband({
+      innerLen: e.front.inner,
+      outerLen: e.front.outer,
+      depth: waistbandDepth,
+      foldSide: "CF",
+      label: "Front waistband",
+    });
+    const bb = draftWaistband({
+      innerLen: e.back.inner,
+      outerLen: e.back.outer,
+      depth: waistbandDepth,
+      foldSide: "CB",
+      label: "Back waistband",
+    });
+    return {
+      net: { pieces: [...opened.pieces, fb.piece, bb.piece] },
+      elementSteps: [...opened.steps, ...fb.steps, ...bb.steps],
+    };
+  }, [validation.valid, baseNet, draftBody, tstyle, zipLength, waistbandDepth]);
+  const construction = validation.valid ? trouserConstruction(draftBody, tstyle) : [];
   const pattern = withSeamAllowance(net, DEFAULT_SEAM_ALLOWANCE);
   const patternSpec = useMemo<PatternSpec>(
     () => ({
@@ -129,13 +179,18 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
   );
   const displayPattern =
     viewMode === "pattern" && showSeamAllowance ? pattern : net;
-  const preview = previewTrousers(draftBody, style);
-  const method = trouserInstructions();
+  const preview = previewTrousers(draftBody, tstyle, {
+    waistbandDepth,
+    zipLength,
+    zipSide: "left",
+  });
+  const method = [...trouserInstructions(tstyle), ...elementSteps];
   const selectedStep = method.find((step) => step.id === selectedStepId);
   const activeHighlights = selectedStep?.highlight ?? [];
   const stepSelectionActive = selectedStepId !== null;
 
   const gap = 60;
+  const rowGap = 80;
   const labelSpace = 44;
   const sheetInset = 36;
   const sheetTopMargin = 28;
@@ -165,6 +220,9 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
 
   const frontRaw = displayPattern.pieces.find((p) => p.name === "Trouser front")!;
   const back = displayPattern.pieces.find((p) => p.name === "Trouser back")!;
+  const bandPieces = displayPattern.pieces.filter(
+    (p) => p.name === "Front waistband" || p.name === "Back waistband",
+  );
   const front = mirrorPieceX(frontRaw);
   const displayConstruction = construction.map((c) =>
     c.pieceName === "Trouser front" ? mirrorConstructionX(c) : c,
@@ -186,25 +244,47 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
     labelX: number;
   }[] = [];
 
-  const rowY = labelSpace;
-  let rowX = 0;
+  const row1Y = labelSpace;
+  let row1X = 0;
+  const row1Height = layoutMaxY - TROUSER_LAYOUT_ANCHOR_Y;
   for (const piece of [back, front]) {
     const { minX, minY, w } = pieceBounds(piece);
     placed.push({
       piece,
-      dx: rowX - minX,
-      dy: rowY - TROUSER_LAYOUT_ANCHOR_Y,
-      top: rowY + minY - TROUSER_LAYOUT_ANCHOR_Y,
-      labelX: rowX + w / 2,
+      dx: row1X - minX,
+      dy: row1Y - TROUSER_LAYOUT_ANCHOR_Y,
+      top: row1Y + minY - TROUSER_LAYOUT_ANCHOR_Y,
+      labelX: row1X + w / 2,
     });
-    rowX += w + gap;
+    row1X += w + gap;
   }
 
-  const row1Width = rowX - gap;
-  const layoutWidth = row1Width;
-  const layoutBottom = rowY + layoutMaxY;
+  const row1Width = row1X - gap;
+  let layoutWidth = row1Width;
+  let layoutBottom = row1Y + row1Height;
+
+  if (bandPieces.length > 0) {
+    const row2Y = row1Y + row1Height + rowGap;
+    let bandX = Math.max(0, (row1Width - bandPieces.reduce((w, p) => w + pieceBounds(p).w + gap, -gap)) / 2);
+    let row2Height = 0;
+    for (const piece of bandPieces) {
+      const wb = pieceBounds(piece);
+      placed.push({
+        piece,
+        dx: bandX - wb.minX,
+        dy: row2Y - wb.minY,
+        top: row2Y,
+        labelX: bandX + wb.w / 2,
+      });
+      bandX += wb.w + gap;
+      row2Height = Math.max(row2Height, wb.h);
+    }
+    layoutWidth = Math.max(row1Width, bandX - gap);
+    layoutBottom = row2Y + row2Height;
+  }
+
   const contentBottom = layoutBottom + gap;
-  const topLabelY = rowY + layoutMinY - labelSpace / 2;
+  const topLabelY = row1Y + layoutMinY - labelSpace / 2;
   const sheetY = topLabelY - sheetTopMargin;
   const sheetX = -sheetInset;
   const sheetWidth = layoutWidth + sheetInset * 2;
@@ -229,7 +309,14 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
   );
 
   const previewPad = 40;
-  const previewPoints = preview ? preview.outline : [];
+  const previewPoints = preview
+    ? [
+        ...preview.outline,
+        ...preview.waistband,
+        preview.zipMark.from,
+        preview.zipMark.to,
+      ]
+    : [];
   const previewXs = previewPoints.map((p) => p.x);
   const previewYs = previewPoints.map((p) => p.y);
   const previewMinX = preview && previewPoints.length > 0 ? Math.min(...previewXs) : -200;
@@ -350,6 +437,103 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
               </div>
             </div>
             <div className={styles.field}>
+              <label className={styles.fieldLabel}>Waistband finish</label>
+              <span className={styles.fieldHint}>
+                {waistbandDepth === 0
+                  ? "Add a waistband to choose contour or shaped finish."
+                  : "Contour shapes dart take-up into the side seam; shaped keeps long darts."}
+              </span>
+              <div className={styles.fitPresetList} role="group" aria-label="Waistband finish">
+                <button
+                  type="button"
+                  disabled={waistbandDepth === 0}
+                  className={
+                    waistbandMode === "contour"
+                      ? styles.fitPresetActive
+                      : styles.fitPreset
+                  }
+                  onClick={() => setWaistbandMode("contour")}
+                >
+                  Contour
+                </button>
+                <button
+                  type="button"
+                  disabled={waistbandDepth === 0}
+                  className={
+                    waistbandMode === "shaped"
+                      ? styles.fitPresetActive
+                      : styles.fitPreset
+                  }
+                  onClick={() => setWaistbandMode("shaped")}
+                >
+                  Shaped
+                </button>
+              </div>
+            </div>
+            <div className={styles.field}>
+              <label className={styles.fieldLabel} htmlFor="waistband-depth">
+                Waistband depth
+              </label>
+              <span className={styles.fieldHint}>
+                Finished depth of the shaped waistband. Set to 0 for trousers only.
+              </span>
+              <div className={styles.rangeRow}>
+                <input
+                  id="waistband-depth"
+                  type="range"
+                  className={styles.rangeInput}
+                  min={0}
+                  max={60}
+                  step={5}
+                  value={waistbandDepth}
+                  onChange={(e) => setWaistbandDepth(Number(e.target.value))}
+                />
+                <span className={styles.rangeValue}>{waistbandDepth} mm</span>
+              </div>
+            </div>
+            <div className={styles.field}>
+              <label className={styles.fieldLabel} htmlFor="front-waist-dip">
+                Front waist dip
+              </label>
+              <span className={styles.fieldHint}>
+                Finished drop of the front waist at centre front (Aldrich 1–1.5 cm).
+              </span>
+              <div className={styles.rangeRow}>
+                <input
+                  id="front-waist-dip"
+                  type="range"
+                  className={styles.rangeInput}
+                  min={0}
+                  max={15}
+                  step={1}
+                  value={frontWaistDip}
+                  onChange={(e) => setFrontWaistDip(Number(e.target.value))}
+                />
+                <span className={styles.rangeValue}>{frontWaistDip} mm</span>
+              </div>
+            </div>
+            <div className={styles.field}>
+              <label className={styles.fieldLabel} htmlFor="zip-length">
+                Side zip length
+              </label>
+              <span className={styles.fieldHint}>
+                Opening height on the left side seam.
+              </span>
+              <div className={styles.rangeRow}>
+                <input
+                  id="zip-length"
+                  type="range"
+                  className={styles.rangeInput}
+                  min={120}
+                  max={240}
+                  step={10}
+                  value={zipLength}
+                  onChange={(e) => setZipLength(Number(e.target.value))}
+                />
+                <span className={styles.rangeValue}>{zipLength} mm</span>
+              </div>
+            </div>
+            <div className={styles.field}>
               <label className={styles.inlineToggle} htmlFor="show-seam-allowance">
                 <input
                   id="show-seam-allowance"
@@ -422,6 +606,12 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                       points={polygonPoints(preview.outline)}
                       className={styles.previewSkirt}
                     />
+                    {preview.waistband.length > 0 && (
+                      <polygon
+                        points={polygonPoints(preview.waistband)}
+                        className={styles.previewWaistband}
+                      />
+                    )}
                     <line
                       x1={preview.waistline.from.x}
                       y1={preview.waistline.from.y}
@@ -439,6 +629,13 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                         className={styles.previewDart}
                       />
                     ))}
+                    <line
+                      x1={preview.zipMark.from.x}
+                      y1={preview.zipMark.from.y}
+                      x2={preview.zipMark.to.x}
+                      y2={preview.zipMark.to.y}
+                      className={styles.previewZip}
+                    />
                   </svg>
                 ) : (
                   <div className={styles.canvasUnavailable}>

@@ -1250,6 +1250,12 @@
   stroke-width: 1.5;
 }
 
+.previewZip {
+  stroke: var(--preview-stroke);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
 @media (max-width: 1100px) {
   .workspace {
     grid-template-columns: 1fr;

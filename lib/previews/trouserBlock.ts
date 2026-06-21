@@ -1,4 +1,4 @@
-import { BodyMeasurements, Line, Point } from "@/lib/types/measurements";
+import { BodyMeasurements, Line, Millimetres, Point } from "@/lib/types/measurements";
 import {
   trouserDraftMeasures,
   validateTrousers,
@@ -15,11 +15,20 @@ export type TrouserPreview = {
   outline: Point[];
   waistline: Line;
   darts: Line[];
+  waistband: Point[];
+  zipMark: Line;
+};
+
+export type TrouserPreviewFinishing = {
+  waistbandDepth: Millimetres;
+  zipLength: Millimetres;
+  zipSide: "left" | "right";
 };
 
 export function previewTrousers(
   body: BodyMeasurements,
   style: TrouserFrontStyle,
+  finishing?: TrouserPreviewFinishing,
 ): TrouserPreview | null {
   if (!validateTrousers(body, style).valid) {
     return null;
@@ -67,9 +76,30 @@ export function previewTrousers(
     to: { x: cx, y: dartLen },
   }));
 
+  const bandDepth = finishing?.waistbandDepth ?? 40;
+  const waistband: Point[] =
+    bandDepth > 0
+      ? [
+          { x: waistL.x, y: -bandDepth },
+          { x: waistR.x, y: -bandDepth },
+          { x: waistR.x, y: 0 },
+          { x: waistL.x, y: 0 },
+        ]
+      : [];
+
+  const zipSide = finishing?.zipSide ?? "left";
+  const zipLen = finishing?.zipLength ?? 180;
+  const zipX = zipSide === "left" ? waistL.x : waistR.x;
+  const zipMark: Line = {
+    from: { x: zipX, y: 0 },
+    to: { x: zipX, y: zipLen },
+  };
+
   return {
     outline,
     waistline: { from: waistL, to: waistR },
     darts,
+    waistband,
+    zipMark,
   };
 }

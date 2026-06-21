@@ -57,6 +57,35 @@ const TROUSER_BLOCKS: Record<TrouserBlock, TrouserBlockSpec> = {
 // floor length. If the first toile comes up ~5cm long in the leg, also subtract
 // 50 from waistToFloor for the production block (add a waistToFloorDrop here).
 
+// Minimum retained dart length (mm) worth keeping after the band depth is removed.
+// Shorter darts are shaped into the side seam instead. = 2x the 20mm take-up; toile-tunable.
+const KEEP_DART_MIN = 40;
+
+export type WaistbandMode = "shaped" | "contour";
+const DART_TAKEUP = 20;
+
+export const DEFAULT_WAISTBAND_DEPTH = 40;
+
+function resolveDarts(
+  lengths: number[],
+  r: number,
+  mode: WaistbandMode,
+): { keep: boolean[]; sideShift: number } {
+  if (r === 0) {
+    return { keep: lengths.map(() => true), sideShift: 0 };
+  }
+  if (mode === "contour") {
+    const sideShift = lengths.reduce(
+      (s, L) => s + DART_TAKEUP * Math.max(0, 1 - r / L),
+      0,
+    );
+    return { keep: lengths.map(() => false), sideShift };
+  }
+  const keep = lengths.map((L) => L - r >= KEEP_DART_MIN);
+  const sideShift = keep.reduce((s, k) => (k ? s : s + DART_TAKEUP), 0);
+  return { keep, sideShift };
+}
+
 export const frontDartLength = (block: TrouserBlock): number =>
   TROUSER_BLOCKS[block].frontDartLength;
 
@@ -93,7 +122,23 @@ export type TrouserFrontStyle = {
   /** Finished hem width of one leg laid flat (= ½ the hem circumference; Aldrich's trouser bottom width). Front piece drafts 10mm narrower, back 10mm wider. */
   bottomWidth: Millimetres;
   block?: TrouserBlock;
+  /** Drop the trouser waist by this amount when a shaped waistband is added. */
+  waistReduction?: Millimetres;
+  /** Shaped keeps long darts; contour shapes dart take-up into the side seam. */
+  waistbandMode?: WaistbandMode;
+  /** §2a: finished drop of the front waist at CF, 0..~15 mm (Aldrich 1–1.5 cm). */
+  frontWaistDip?: Millimetres;
 };
+
+export const withWaistband = (
+  style: TrouserFrontStyle,
+  depth: Millimetres = DEFAULT_WAISTBAND_DEPTH,
+  mode: WaistbandMode = "contour",
+): TrouserFrontStyle => ({
+  ...style,
+  waistReduction: depth,
+  waistbandMode: mode,
+});
 
 export type FrontPoints = {
   p5: Point;
@@ -207,6 +252,79 @@ function pointOnPolylineAtY(
 
 function xOnLineAtY(a: Point, b: Point, y: number): number {
   return a.x + ((b.x - a.x) * (y - a.y)) / (b.y - a.y);
+}
+
+type WaistResolved = {
+  cf: Point;
+  side: Point;
+  keep: boolean[];
+  bandTop: Millimetres;
+  bandBottom: Millimetres;
+};
+
+function frontWaistResolved(
+  body: BodyMeasurements,
+  style: TrouserFrontStyle,
+): WaistResolved {
+  const f = trouserFrontPoints(body, style);
+  const spec = trouserBlockSpec(style);
+  const r = style.waistReduction ?? 0;
+  const mode = style.waistbandMode ?? "contour";
+  const { keep, sideShift } = resolveDarts([spec.frontDartLength], r, mode);
+
+  const cf = r > 0 ? { x: xOnLineAtY(f.p10, f.p6, r), y: r } : { ...f.p10 };
+  let side = r > 0 ? { x: xOnLineAtY(f.p11, f.p8, r), y: r } : { ...f.p11 };
+  if (sideShift > 0) {
+    side = { x: side.x - sideShift, y: side.y };
+  }
+
+  const bandTop =
+    Math.hypot(f.p11.x - f.p10.x, f.p11.y - f.p10.y) - DART_TAKEUP;
+  const bandBottom =
+    Math.hypot(side.x - cf.x, side.y - cf.y) - (keep[0] ? DART_TAKEUP : 0);
+  return { cf, side, keep, bandTop, bandBottom };
+}
+
+function backWaistResolved(
+  body: BodyMeasurements,
+  style: TrouserFrontStyle,
+): WaistResolved {
+  const b = trouserBackPoints(body, style);
+  const spec = trouserBlockSpec(style);
+  const r = style.waistReduction ?? 0;
+  const mode = style.waistbandMode ?? "contour";
+  const { keep, sideShift } = resolveDarts(spec.backDartLengths, r, mode);
+
+  const cf =
+    r > 0
+      ? { x: xOnLineAtY(b.p21, b.p19, b.p21.y + r), y: b.p21.y + r }
+      : { ...b.p21 };
+  let side = r > 0 ? { x: xOnLineAtY(b.p22, b.p25, r), y: r } : { ...b.p22 };
+  if (sideShift > 0) {
+    side = { x: side.x - sideShift, y: side.y };
+  }
+
+  const bandTop =
+    Math.hypot(b.p22.x - b.p21.x, b.p22.y - b.p21.y) -
+    DART_TAKEUP * spec.backDartLengths.length;
+  const keptTakeup = keep.reduce((s, k) => (k ? s + DART_TAKEUP : s), 0);
+  const bandBottom = Math.hypot(side.x - cf.x, side.y - cf.y) - keptTakeup;
+  return { cf, side, keep, bandTop, bandBottom };
+}
+
+export function trouserWaistEdges(
+  body: BodyMeasurements,
+  style: TrouserFrontStyle,
+): {
+  front: { inner: Millimetres; outer: Millimetres };
+  back: { inner: Millimetres; outer: Millimetres };
+} {
+  const f = frontWaistResolved(body, style);
+  const b = backWaistResolved(body, style);
+  return {
+    front: { inner: f.bandTop, outer: f.bandBottom },
+    back: { inner: b.bandTop, outer: b.bandBottom },
+  };
 }
 
 function crotchGuide(corner: Point, a: Point, b: Point, touch: Millimetres): Point {
@@ -580,11 +698,27 @@ export function draftTrouserFront(
   body: BodyMeasurements,
   style: TrouserFrontStyle,
 ): PatternPiece {
+  const spec = trouserBlockSpec(style);
   const H = body.hip;
   const F = body.waistToFloor;
   const band = sizeBand(H);
   const f = trouserFrontPoints(body, style);
-  const { p5, p6, p8, p9, p10, p11, p12, p13, p14, p15 } = f;
+  const { p5, p6, p8, p9, p12, p13, p14, p15 } = f;
+  const r = style.waistReduction ?? 0;
+  const wr = frontWaistResolved(body, style);
+
+  const dip = style.frontWaistDip ?? 0;
+  const x0 = wr.cf.x;
+  const x1 = wr.side.x;
+  const waistY = (x: number) => {
+    if (dip <= 0) {
+      return wr.cf.y;
+    }
+    const u = (x - x0) / (x1 - x0);
+    const s = u * u * (3 - 2 * u);
+    return wr.cf.y + dip * (1 - s);
+  };
+  const cfWaist = { x: wr.cf.x, y: waistY(wr.cf.x) };
 
   const frontGuide = crotchGuide(p5, p6, p9, FRONT_CROTCH_TOUCH[band]);
 
@@ -593,12 +727,18 @@ export function draftTrouserFront(
 
   const segments: TaggedSegment[] = [
     {
-      points: [p10, p11],
+      points:
+        dip > 0
+          ? Array.from({ length: 17 }, (_, i) => {
+              const x = x0 + (x1 - x0) * (i / 16);
+              return { x, y: waistY(x) };
+            })
+          : [wr.cf, wr.side],
       edge: "seam",
       role: "waist",
     },
     {
-      points: pchipByY([p11, p8, p13, p12]),
+      points: pchipByY([wr.side, p8, p13, p12]),
       edge: "seam",
       role: "side-seam",
     },
@@ -613,7 +753,7 @@ export function draftTrouserFront(
       role: "inseam",
     },
     {
-      points: catmullRom([p9, frontGuide, p6, p10]),
+      points: catmullRom([p9, frontGuide, p6, cfWaist]),
       edge: "seam",
       role: "crotch",
     },
@@ -621,27 +761,29 @@ export function draftTrouserFront(
 
   const outline = segmentsToOutline(segments);
 
-  const spec = trouserBlockSpec(style);
-
   const markings: Marking[] = [
     {
       kind: "grainline",
-      line: { from: { x: 0, y: 20 }, to: { x: 0, y: F - 20 } },
+      line: { from: { x: 0, y: r + 20 }, to: { x: 0, y: F - 20 } },
     },
-    {
-      kind: "dart",
-      apex: { x: 0, y: spec.frontDartLength },
-      legs: [
-        { x: -10, y: 0 },
-        { x: 10, y: 0 },
-      ],
-    },
+    ...(wr.keep[0]
+      ? [
+          {
+            kind: "dart" as const,
+            apex: { x: 0, y: spec.frontDartLength },
+            legs: [
+              { x: -10, y: waistY(-10) },
+              { x: 10, y: waistY(10) },
+            ] as [Point, Point],
+          },
+        ]
+      : []),
     { kind: "notch", at: p8, count: 1 },
     { kind: "notch", at: p15, count: 1 },
     {
       kind: "notch",
       at: p6,
-      dir: crotchNotchDir(frontGuide, p10),
+      dir: crotchNotchDir(frontGuide, cfWaist),
       count: 1,
     },
   ];
@@ -661,14 +803,8 @@ export function draftTrouserBack(
 ): PatternPiece {
   const F = body.waistToFloor;
   const b = trouserBackPoints(body, style);
-  const spec = trouserBlockSpec(style);
   const {
-    p16,
-    p18,
     p19,
-    p21,
-    p22,
-    p23,
     p24,
     p25,
     p26,
@@ -677,14 +813,22 @@ export function draftTrouserBack(
     p29,
     guide,
   } = b;
+  const spec = trouserBlockSpec(style);
+  const r = style.waistReduction ?? 0;
+  const wr = backWaistResolved(body, style);
+
   const insideLegCtrl = insideLegControl(p24, p29, 12.5);
   const backInsideToFork = quadBezier(p29, insideLegCtrl, p24).slice(1);
-  const crotch = catmullRom([p24, guide, p19, p21]);
+  const crotch = catmullRom([p24, guide, p19, wr.cf]);
   const hipOnCrotch = pointOnPolylineAtY(crotch, b.p17.y);
 
   const segments: TaggedSegment[] = [
-    { points: [p21, p22], edge: "seam", role: "waist" },
-    { points: pchipByY([p22, p25, p27, p26]), edge: "seam", role: "side-seam" },
+    { points: [wr.cf, wr.side], edge: "seam", role: "waist" },
+    {
+      points: pchipByY([wr.side, p25, p27, p26]),
+      edge: "seam",
+      role: "side-seam",
+    },
     {
       points: quadBezier(p26, { x: 0, y: F + 20 }, p28),
       edge: "hem",
@@ -699,10 +843,13 @@ export function draftTrouserBack(
   ];
   const outline = segmentsToOutline(segments);
 
-  const seam = normalize({ x: p22.x - p21.x, y: p22.y - p21.y });
+  const seam = normalize({
+    x: wr.side.x - wr.cf.x,
+    y: wr.side.y - wr.cf.y,
+  });
   const third = (k: number) => ({
-    x: p21.x + (k / 3) * (p22.x - p21.x),
-    y: p21.y + (k / 3) * (p22.y - p21.y),
+    x: wr.cf.x + (k / 3) * (wr.side.x - wr.cf.x),
+    y: wr.cf.y + (k / 3) * (wr.side.y - wr.cf.y),
   });
   const backDart = (c: Point, length: Millimetres): Marking => ({
     kind: "dart",
@@ -713,13 +860,20 @@ export function draftTrouserBack(
     ],
   });
 
+  const dartMarks: Marking[] = [];
+  if (wr.keep[0]) {
+    dartMarks.push(backDart(third(1), spec.backDartLengths[0] - r));
+  }
+  if (wr.keep[1]) {
+    dartMarks.push(backDart(third(2), spec.backDartLengths[1] - r));
+  }
+
   const markings: Marking[] = [
     {
       kind: "grainline",
-      line: { from: { x: 0, y: 20 }, to: { x: 0, y: F - 20 } },
+      line: { from: { x: 0, y: r + 20 }, to: { x: 0, y: F - 20 } },
     },
-    backDart(third(1), spec.backDartLengths[0]),
-    backDart(third(2), spec.backDartLengths[1]),
+    ...dartMarks,
     { kind: "notch", at: p25, count: 2 },
     { kind: "notch", at: p29, count: 2 },
     {
@@ -777,26 +931,56 @@ export function validateTrousers(
     });
   }
 
+  if (
+    (style.waistbandMode ?? "contour") === "shaped" &&
+    (style.waistReduction ?? 0) > 0
+  ) {
+    const spec = trouserBlockSpec(style);
+    const { keep } = resolveDarts(
+      spec.backDartLengths,
+      style.waistReduction ?? 0,
+      "shaped",
+    );
+    if (keep.filter((k) => !k).length === 2) {
+      issues.push({
+        severity: "warning" as const,
+        message:
+          "Both back darts shaped into the side seam — consider the contour waistband.",
+      });
+    }
+  }
+
   return validationResult(issues);
 }
 
-export function trouserInstructions(): ConstructionStep[] {
-  return [
+export function trouserInstructions(
+  style?: TrouserFrontStyle,
+): ConstructionStep[] {
+  const contour = (style?.waistbandMode ?? "contour") === "contour";
+  const steps: ConstructionStep[] = [
     {
       id: "cut",
-      text: "Cut on doubled fabric with each grainline on the straight grain: front and back two each, so each leg comes as a mirrored pair — a left and a right. Transfer the darts and notches to the fabric.",
+      text: contour
+        ? "Cut on doubled fabric with each grainline on the straight grain: front and back two each, so each leg comes as a mirrored pair — a left and a right. Transfer the notches to the fabric."
+        : "Cut on doubled fabric with each grainline on the straight grain: front and back two each, so each leg comes as a mirrored pair — a left and a right. Transfer the darts and notches to the fabric.",
       highlight: [{ piece: "Trouser front" }, { piece: "Trouser back" }],
     },
-    {
-      id: "work-front-dart",
-      text: "Fold and stitch the waist dart on each front; press toward the centre.",
-      highlight: [{ piece: "Trouser front", edges: ["waist"] }],
-    },
-    {
-      id: "work-back-darts",
-      text: "Fold and stitch the two waist darts on each back; press toward the centre.",
-      highlight: [{ piece: "Trouser back", edges: ["waist"] }],
-    },
+  ];
+  if (!contour) {
+    steps.push(
+      {
+        id: "work-front-dart",
+        text: "Fold and stitch the waist dart on each front; press toward the centre.",
+        highlight: [{ piece: "Trouser front", edges: ["waist"] }],
+      },
+      {
+        id: "work-back-darts",
+        text: "Fold and stitch the two waist darts on each back; press toward the centre.",
+        highlight: [{ piece: "Trouser back", edges: ["waist"] }],
+      },
+    );
+  }
+  steps.push(
     {
       id: "side-seam",
       text: "With right sides together, join each front to a back at the side seam.",
@@ -829,5 +1013,6 @@ export function trouserInstructions(): ConstructionStep[] {
         { piece: "Trouser back", edges: ["hem"] },
       ],
     },
-  ];
+  );
+  return steps;
 }
