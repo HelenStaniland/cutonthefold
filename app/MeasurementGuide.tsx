@@ -72,11 +72,30 @@ function bodyParts() {
   return [arm(1), arm(-1), leg(1), leg(-1), torso].map((l) => toPath(l));
 }
 
-// seated profile for body rise (local space, seat surface y≈8)
-const SEAT = toPath([
-  [40, -96], [12, -100], [-4, -62], [0, -12], [-8, 0], [-8, 10],
-  [72, 10], [88, -6], [44, -42],
-]);
+// seated BACK view for body rise — reuses the back silhouette landmarks, sat on a bench
+const SEATY = LM.crotch + 6;
+const SEAT_FLOOR = SEATY + 52;
+const _seatBody = [
+  [CX, LM.neckBase - 4], [CX + 16, LM.neckBase], [CX + 72, LM.shoulderPt], [CX + 67, LM.armscye],
+  [CX + 63, LM.bust], [CX + 47, LM.waist], [CX + 56, LM.lowWaist], [CX + 78, LM.hip],
+  [CX + 82, 446], [CX + 80, SEATY], [CX, SEATY],
+];
+const SEAT = toPath(_seatBody.concat(_seatBody.slice(1, -1).reverse().map((p) => [2 * CX - p[0], p[1]])));
+const seatArm = (s: number) => [
+  [CX + s * 58, LM.armscye + 6], [CX + s * 74, LM.shoulderPt + 10], [CX + s * 92, 250], [CX + s * 92, 330],
+  [CX + s * 84, 420], [CX + s * 78, 442], [CX + s * 66, 444], [CX + s * 62, 420], [CX + s * 70, 330], [CX + s * 70, 250],
+];
+const SEAT_ARMS = [toPath(seatArm(1)), toPath(seatArm(-1))];
+
+const SEAT_SCALE = 0.62;
+const SEAT_TX = 635;
+const SEAT_TY = 210;
+
+/** Counter-scale a label so it renders at 100% inside a scaled figure group. */
+function counterScaleAt(x: number, y: number, parentScale: number) {
+  const inv = 1 / parentScale;
+  return `translate(${x},${y}) scale(${inv}) translate(${-x},${-y})`;
+}
 
 // ---- measurements: every indicator references LM ----
 const M = [
@@ -110,7 +129,7 @@ function markerPos(m: Record<string, any>) {
   if (m.kind === "girth") return [cx + m.side * (m.w + 13), m.y];
   if (m.kind === "vdrop") return [m.x, m.y1 + 14];
   if (m.kind === "seg") return [m.b[0] + (m.b[0] > CX ? 14 : -14), m.b[1]];
-  if (m.kind === "rise") return [-20, -52];
+  if (m.kind === "rise") return [CX + 122, 392];
   return [cx, m.y];
 }
 
@@ -119,11 +138,13 @@ function Indicator({
   active,
   onEnter,
   onLeave,
+  labelParentScale = 1,
 }: {
   m: Record<string, any>;
   active: boolean;
   onEnter: () => void;
   onLeave: () => void;
+  labelParentScale?: number;
 }) {
   const stroke = active ? ACCENT : RULE;
   const sw = active ? 2.4 : 1.6;
@@ -132,6 +153,13 @@ function Indicator({
   const tick = (x: number, y: number, horiz: boolean) =>
     horiz ? <line x1={x} y1={y - 5} x2={x} y2={y + 5} stroke={stroke} strokeWidth={sw} />
           : <line x1={x - 5} y1={y} x2={x + 5} y2={y} stroke={stroke} strokeWidth={sw} />;
+  const badge = (
+    <>
+      <circle cx={mx} cy={my} r={11} fill={active ? ACCENT : PAPER} stroke={active ? ACCENT : INK} strokeWidth={1.4} />
+      <text x={mx} y={my + 0.5} className={styles.svgMarker} textAnchor="middle" dominantBaseline="central"
+            fill={active ? PAPER : INK}>{m.n}</text>
+    </>
+  );
   return (
     <g
       onMouseEnter={onEnter} onMouseLeave={onLeave}
@@ -151,13 +179,15 @@ function Indicator({
         <line x1={m.a[0]} y1={m.a[1]} x2={m.b[0]} y2={m.b[1]} stroke={stroke} strokeWidth={sw + 0.4} strokeLinecap="round" />
       )}
       {m.kind === "rise" && (<>
-        <line x1={-20} y1={-96} x2={-20} y2={8} stroke={stroke} strokeWidth={sw} />
-        {tick(-20, -96, false)}{tick(-20, 8, false)}
+        <line x1={CX + 104} y1={LM.waist} x2={CX + 104} y2={SEATY} stroke={stroke} strokeWidth={sw} />
+        {tick(CX + 104, LM.waist, false)}{tick(CX + 104, SEATY, false)}
+        <line x1={CX + 47} y1={LM.waist} x2={CX + 104} y2={LM.waist} stroke={RULE} strokeWidth={1} />
+        <line x1={CX + 80} y1={SEATY} x2={CX + 104} y2={SEATY} stroke={RULE} strokeWidth={1} />
+        <line x1={CX + 104} y1={392} x2={mx} y2={my} stroke={stroke} strokeWidth={1} />
       </>)}
-      <circle cx={mx} cy={my} r={10} fill={active ? ACCENT : PAPER} stroke={active ? ACCENT : INK} strokeWidth={1.4} />
-      <text x={mx} y={my + 0.5} textAnchor="middle" dominantBaseline="central"
-            fontSize={11} fontWeight={700} fill={active ? PAPER : INK}
-            style={{ fontFamily: "ui-sans-serif, system-ui, sans-serif" }}>{m.n}</text>
+      {labelParentScale !== 1 ? (
+        <g transform={counterScaleAt(mx, my, labelParentScale)}>{badge}</g>
+      ) : badge}
     </g>
   );
 }
@@ -191,8 +221,7 @@ function Figure({
         <Indicator key={m.n} m={m} active={activeId === m.n}
           onEnter={() => set(m.n)} onLeave={() => set(null)} />
       ))}
-      <text x={CX} y={LM.floor + 26} textAnchor="middle" fontSize={15} fill={INK}
-            style={{ fontFamily: "'Fraunces', Georgia, serif", fontStyle: "italic" }}>{caption}</text>
+      <text x={CX} y={LM.floor + 26} className={styles.svgCaption} textAnchor="middle" fill={INK}>{caption}</text>
     </g>
   );
 }
@@ -217,9 +246,6 @@ export default function MeasurementGuide({
 
   return (
     <div className={styles.root}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;1,9..144,400&display=swap');
-      `}</style>
 
       <div className={styles.header}>
         <h1 className={styles.title}>Where to measure</h1>
@@ -249,14 +275,23 @@ export default function MeasurementGuide({
           <rect x="0" y="0" width="850" height="800" fill="url(#mg-grid)" />
           <Figure caption="front" tx={0} ty={6} view="front" activeId={activeId} set={set} centreLine />
           <Figure caption="back" tx={310} ty={6} view="back" activeId={activeId} set={set} />
-          <g transform="translate(700,360)">
-            <rect x={-12} y={10} width={108} height={12} fill={PAPER} stroke={INK} strokeWidth={2} />
+          <g transform={`translate(${SEAT_TX},${SEAT_TY}) scale(${SEAT_SCALE})`}>
+            <line x1={CX - 110} y1={SEAT_FLOOR} x2={CX + 110} y2={SEAT_FLOOR} stroke={INK} strokeWidth={2} />
+            <rect x={CX - 96} y={SEATY} width={192} height={15} fill={PAPER} stroke={INK} strokeWidth={2.4} />
+            <rect x={CX - 78} y={SEATY + 15} width={11} height={SEAT_FLOOR - (SEATY + 15)} fill={PAPER} stroke={INK} strokeWidth={2.4} />
+            <rect x={CX + 67} y={SEATY + 15} width={11} height={SEAT_FLOOR - (SEATY + 15)} fill={PAPER} stroke={INK} strokeWidth={2.4} />
+            {SEAT_ARMS.map((d, i) => <path key={i} d={d} fill={PAPER} stroke={INK} strokeWidth={2.6} strokeLinejoin="round" />)}
             <path d={SEAT} fill={PAPER} stroke={INK} strokeWidth={2.6} strokeLinejoin="round" />
+            <line x1={CX - 15} y1={LM.chin - 2} x2={CX - 16} y2={LM.neckBase + 2} stroke={INK} strokeWidth={2.6} />
+            <line x1={CX + 15} y1={LM.chin - 2} x2={CX + 16} y2={LM.neckBase + 2} stroke={INK} strokeWidth={2.6} />
+            <ellipse cx={CX} cy={(LM.headTop + LM.chin) / 2} rx={31} ry={(LM.chin - LM.headTop) / 2} fill={PAPER} stroke={INK} strokeWidth={2.6} />
             {M.filter((m) => m.view === "seated").map((m) => (
-              <Indicator key={m.n} m={m} active={activeId === m.n} onEnter={() => set(m.n)} onLeave={() => set(null)} />
+              <Indicator key={m.n} m={m} active={activeId === m.n} onEnter={() => set(m.n)} onLeave={() => set(null)}
+                labelParentScale={SEAT_SCALE} />
             ))}
-            <text x={40} y={56} textAnchor="middle" fontSize={15} fill={INK}
-                  style={{ fontFamily: "'Fraunces', Georgia, serif", fontStyle: "italic" }}>taken sitting</text>
+            <g transform={counterScaleAt(CX, SEAT_FLOOR + 26, SEAT_SCALE)}>
+              <text x={CX} y={SEAT_FLOOR + 26} className={styles.svgCaption} textAnchor="middle" fill={INK}>taken sitting</text>
+            </g>
           </g>
         </svg>
         </div>

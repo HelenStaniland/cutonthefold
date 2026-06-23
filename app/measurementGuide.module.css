@@ -74,6 +74,19 @@
   display: block;
   width: 100%;
   height: auto;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+.svgCaption {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.svgMarker {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .groupTitle {
