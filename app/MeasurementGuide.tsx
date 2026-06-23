@@ -31,6 +31,8 @@ const LM = {
   thigh: 470, knee: 566, ankle: 706, floor: 728, elbow: 312,
 };
 
+const NECK = `M${CX - 15} ${LM.chin - 2} L${CX - 16} ${LM.neckBase + 2} L${CX + 16} ${LM.neckBase + 2} L${CX + 15} ${LM.chin - 2} Z`;
+
 function catmull(points: number[][], closed = true, n = 16) {
   const pts = points.slice();
   const p = closed ? [pts[pts.length - 1], ...pts, pts[0], pts[1]] : [pts[0], ...pts, pts[pts.length - 1]];
@@ -51,7 +53,7 @@ function catmull(points: number[][], closed = true, n = 16) {
 const toPath = (loop: number[][], closed = true) =>
   catmull(loop, closed).map((q, i) => `${i ? "L" : "M"}${q[0].toFixed(1)} ${q[1].toFixed(1)}`).join(" ") + (closed ? " Z" : "");
 
-function bodyParts() {
+function bodyParts(_view: string) {
   const R = (dx: number, y: number) => [CX + dx, y];
   const mir = (p: number[]) => [2 * CX - p[0], p[1]];
   let torso = [
@@ -209,13 +211,21 @@ function Figure({
   set: (n: number | null) => void;
   centreLine?: boolean;
 }) {
-  const parts = useMemo(() => bodyParts(), []);
+  const parts = useMemo(() => bodyParts(view), [view]);
   return (
     <g transform={`translate(${tx},${ty})`}>
       <ellipse cx={CX} cy={(LM.headTop + LM.chin) / 2} rx={31} ry={(LM.chin - LM.headTop) / 2} fill={PAPER} stroke={INK} strokeWidth={2.6} />
-      <line x1={CX - 15} y1={LM.chin - 2} x2={CX - 16} y2={LM.neckBase + 2} stroke={INK} strokeWidth={2.6} />
-      <line x1={CX + 15} y1={LM.chin - 2} x2={CX + 16} y2={LM.neckBase + 2} stroke={INK} strokeWidth={2.6} />
+      <path d={NECK} fill={PAPER} stroke={INK} strokeWidth={2.6} strokeLinejoin="round" />
       {parts.map((d, i) => <path key={i} d={d} fill={PAPER} stroke={INK} strokeWidth={2.6} strokeLinejoin="round" />)}
+      {view === "front" && [1, -1].map((s) => (
+        <path key={s}
+          d={toPath([
+            [CX + s * 67, LM.bust - 18], [CX + s * 64, LM.bust], [CX + s * 54, LM.bust + 16],
+            [CX + s * 40, LM.bust + 23], [CX + s * 27, LM.bust + 15],
+          ], false)}
+          fill="none" stroke={INK} strokeWidth={2} strokeLinecap="round"
+        />
+      ))}
       {centreLine && <line x1={CX} y1={LM.neckBase + 6} x2={CX} y2={LM.crotch} stroke={RULE} strokeWidth={1} strokeDasharray="2 5" opacity={0.6} />}
       {M.filter((m) => m.view === view).map((m) => (
         <Indicator key={m.n} m={m} active={activeId === m.n}
@@ -282,9 +292,8 @@ export default function MeasurementGuide({
             <rect x={CX + 67} y={SEATY + 15} width={11} height={SEAT_FLOOR - (SEATY + 15)} fill={PAPER} stroke={INK} strokeWidth={2.4} />
             {SEAT_ARMS.map((d, i) => <path key={i} d={d} fill={PAPER} stroke={INK} strokeWidth={2.6} strokeLinejoin="round" />)}
             <path d={SEAT} fill={PAPER} stroke={INK} strokeWidth={2.6} strokeLinejoin="round" />
-            <line x1={CX - 15} y1={LM.chin - 2} x2={CX - 16} y2={LM.neckBase + 2} stroke={INK} strokeWidth={2.6} />
-            <line x1={CX + 15} y1={LM.chin - 2} x2={CX + 16} y2={LM.neckBase + 2} stroke={INK} strokeWidth={2.6} />
             <ellipse cx={CX} cy={(LM.headTop + LM.chin) / 2} rx={31} ry={(LM.chin - LM.headTop) / 2} fill={PAPER} stroke={INK} strokeWidth={2.6} />
+            <path d={NECK} fill={PAPER} stroke={INK} strokeWidth={2.6} strokeLinejoin="round" />
             {M.filter((m) => m.view === "seated").map((m) => (
               <Indicator key={m.n} m={m} active={activeId === m.n} onEnter={() => set(m.n)} onLeave={() => set(null)}
                 labelParentScale={SEAT_SCALE} />
