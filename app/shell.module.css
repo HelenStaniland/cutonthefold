@@ -1117,6 +1117,10 @@
   max-width: min(100%, 920px);
 }
 
+.measurementGuidePage {
+  max-width: min(100%, 1160px);
+}
+
 .unitHint {
   font-weight: 500;
   letter-spacing: normal;

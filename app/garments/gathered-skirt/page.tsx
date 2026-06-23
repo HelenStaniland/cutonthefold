@@ -270,10 +270,10 @@ export default function GatheredSkirtPage() {
 
         <div className={styles.canvasArea}>
           <div className={styles.summary}>
-            <Link href="/measurements" className={`${styles.chip} ${styles.chipLink}`}>
+            <Link href="/measurements/edit" className={`${styles.chip} ${styles.chipLink}`}>
               Waist <strong>{body.waist}</strong> mm
             </Link>
-            <Link href="/measurements" className={`${styles.chip} ${styles.chipLink}`}>
+            <Link href="/measurements/edit" className={`${styles.chip} ${styles.chipLink}`}>
               Hip <strong>{body.hip}</strong> mm
             </Link>
             <span className={styles.chip}>

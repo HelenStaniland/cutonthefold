@@ -14,14 +14,28 @@ export default function Nav({ onNavigate }: NavProps) {
 
   return (
     <ul className={styles.navList}>
-      <li>
-        <Link
-          href="/measurements"
-          className={`${styles.navLink} ${pathname === "/measurements" ? styles.navLinkActive : ""}`}
-          onClick={onNavigate}
-        >
-          Measurements
-        </Link>
+      <li className={styles.navGroup}>
+        <span className={styles.navGroupLabel}>Reference</span>
+        <ul className={styles.navSubList}>
+          <li>
+            <Link
+              href="/measurements"
+              className={`${styles.navLink} ${pathname === "/measurements" ? styles.navLinkActive : ""}`}
+              onClick={onNavigate}
+            >
+              Measurements
+            </Link>
+          </li>
+          <li>
+            <Link
+              href="/measurements/edit"
+              className={`${styles.navLink} ${pathname === "/measurements/edit" ? styles.navLinkActive : ""}`}
+              onClick={onNavigate}
+            >
+              Your sizes
+            </Link>
+          </li>
+        </ul>
       </li>
       <li className={styles.navGroup}>
         <span className={styles.navGroupLabel}>Garments</span>
