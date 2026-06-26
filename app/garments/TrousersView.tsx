@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMeasurements } from "@/app/measurements-context";
 import {
   draftTrousers,
   type TrouserBlock,
+  type TrouserFrontStyle,
   type WaistbandMode,
   trouserConstruction,
   trouserInstructions,
@@ -13,6 +14,12 @@ import {
   TROUSER_LAYOUT_ANCHOR_Y,
   validateTrousers,
   withWaistband,
+  maxYokeDepth,
+  maxBackShapedWaistDepth,
+  waistbandDepthRange,
+  DARTED_DEPTH_MIN,
+  DARTED_DEPTH_MAX,
+  trouserFacingSteps,
 } from "@/lib/patterns/trouserBlock";
 import { draftWaistband } from "@/lib/elements/waistband";
 import { applySideOpening } from "@/lib/elements/sideOpening";
@@ -58,6 +65,8 @@ const DRAFT_LINE_ORDER: DraftingLineKind[] = [
   "curveControl",
 ];
 
+type DartedWaistFinish = "facing" | "waistband";
+
 type TrousersViewProps = {
   block: TrouserBlock;
   title: string;
@@ -67,21 +76,83 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
   const { body, sizeCode } = useMeasurements();
   const [legBottomWidth, setLegBottomWidth] = useState(220);
   const [waistbandDepth, setWaistbandDepth] = useState(40);
-  const [waistbandMode, setWaistbandMode] = useState<WaistbandMode>("contour");
-  const [frontWaistDip, setFrontWaistDip] = useState(0);
+  const [waistbandMode, setWaistbandMode] = useState<WaistbandMode>("shaped");
+  const [dartedWaistFinish, setDartedWaistFinish] =
+    useState<DartedWaistFinish>("waistband");
+  const [dartedBandDepth, setDartedBandDepth] = useState(25);
   const [zipLength, setZipLength] = useState(180);
   const [ease, setEase] = useState<Ease>(() => easeForFit(DEFAULT_FIT)!);
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<PatternViewMode>("pattern");
   const [showSeamAllowance, setShowSeamAllowance] = useState(true);
 
-  const style = { bottomWidth: legBottomWidth, block, frontWaistDip };
-  const tstyle =
-    waistbandDepth > 0
-      ? withWaistband(style, waistbandDepth, waistbandMode)
-      : style;
+  const style: TrouserFrontStyle = { bottomWidth: legBottomWidth, block };
   const activeFit = fitForEase(ease);
   const draftBody = applyEase(body, ease);
+  const yokeDepthMax = maxYokeDepth(draftBody, block);
+  const backShapedCap = maxBackShapedWaistDepth(draftBody, block, legBottomWidth);
+  const depthRange = waistbandDepthRange(
+    waistbandMode,
+    draftBody,
+    block,
+    legBottomWidth,
+  );
+  const dartedBandRange = waistbandDepthRange(
+    "darted",
+    draftBody,
+    block,
+    legBottomWidth,
+  );
+  const shapedLimitedByBack =
+    waistbandMode === "shaped" && backShapedCap < yokeDepthMax;
+
+  const draftWaistDepth =
+    waistbandMode === "darted"
+      ? dartedWaistFinish === "facing"
+        ? 0
+        : dartedBandDepth
+      : waistbandDepth;
+
+  useEffect(() => {
+    if (waistbandMode !== "shaped") {
+      return;
+    }
+    setWaistbandDepth((depth) =>
+      depth === 0
+        ? 0
+        : Math.max(depthRange.min, Math.min(depthRange.max, depth)),
+    );
+  }, [waistbandMode, depthRange.min, depthRange.max]);
+
+  useEffect(() => {
+    setDartedBandDepth((depth) =>
+      Math.max(dartedBandRange.min, Math.min(dartedBandRange.max, depth)),
+    );
+  }, [dartedBandRange.min, dartedBandRange.max]);
+
+  const setWaistbandModeAndClamp = (mode: WaistbandMode) => {
+    setWaistbandMode(mode);
+    if (mode === "shaped") {
+      const range = waistbandDepthRange(
+        "shaped",
+        draftBody,
+        block,
+        legBottomWidth,
+      );
+      setWaistbandDepth((depth) =>
+        depth === 0
+          ? range.min
+          : Math.max(range.min, Math.min(range.max, depth)),
+      );
+    }
+  };
+
+  const tstyle =
+    waistbandMode === "darted"
+      ? withWaistband(style, draftWaistDepth, "darted", draftBody)
+      : draftWaistDepth > 0
+        ? withWaistband(style, draftWaistDepth, "shaped", draftBody)
+        : style;
 
   const validation = validateTrousers(draftBody, tstyle);
   const baseNet = useMemo(
@@ -99,21 +170,29 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
       side: "left",
       length: zipLength,
     });
-    if (waistbandDepth <= 0) {
+    if (waistbandMode === "darted" && dartedWaistFinish === "facing") {
+      // TODO: draft facing pieces here (depth 0 darted branch) — see trouserFacingSteps.
+      return {
+        net: { pieces: opened.pieces },
+        elementSteps: [...opened.steps, ...trouserFacingSteps()],
+      };
+    }
+    if (draftWaistDepth <= 0) {
       return { net: { pieces: opened.pieces }, elementSteps: opened.steps };
     }
     const e = trouserWaistEdges(draftBody, tstyle);
+    const bandDepth = tstyle.waistReduction ?? draftWaistDepth;
     const fb = draftWaistband({
       innerLen: e.front.inner,
       outerLen: e.front.outer,
-      depth: waistbandDepth,
+      depth: bandDepth,
       foldSide: "CF",
       label: "Front waistband",
     });
     const bb = draftWaistband({
       innerLen: e.back.inner,
       outerLen: e.back.outer,
-      depth: waistbandDepth,
+      depth: bandDepth,
       foldSide: "CB",
       label: "Back waistband",
     });
@@ -121,7 +200,16 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
       net: { pieces: [...opened.pieces, fb.piece, bb.piece] },
       elementSteps: [...opened.steps, ...fb.steps, ...bb.steps],
     };
-  }, [validation.valid, baseNet, draftBody, tstyle, zipLength, waistbandDepth]);
+  }, [
+    validation.valid,
+    baseNet,
+    draftBody,
+    tstyle,
+    zipLength,
+    draftWaistDepth,
+    waistbandMode,
+    dartedWaistFinish,
+  ]);
   const construction = validation.valid ? trouserConstruction(draftBody, tstyle) : [];
   const pattern = withSeamAllowance(net, DEFAULT_SEAM_ALLOWANCE);
   const patternSpec = useMemo<PatternSpec>(
@@ -139,7 +227,7 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
   const displayPattern =
     viewMode === "pattern" && showSeamAllowance ? pattern : net;
   const preview = previewTrousers(draftBody, tstyle, {
-    waistbandDepth,
+    waistbandDepth: draftWaistDepth,
     zipLength,
     zipSide: "left",
   });
@@ -393,81 +481,166 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
               </div>
             </div>
             <div className={styles.field}>
-              <label className={styles.fieldLabel}>Waistband finish</label>
+              <label className={styles.fieldLabel}>Waistband mode</label>
               <span className={styles.fieldHint}>
-                {waistbandDepth === 0
-                  ? "Add a waistband to choose contour or shaped finish."
-                  : "Contour shapes dart take-up into the side seam; shaped keeps long darts."}
+                {waistbandMode === "darted"
+                  ? dartedWaistFinish === "facing"
+                    ? "Darted finish — waist facing, darts kept at drafted length."
+                    : "Darted waistband — straight strip, darts kept at drafted length."
+                  : waistbandDepth === 0
+                    ? "Set waistband depth for a shaped band, or switch to darted for a facing finish."
+                    : "Shaped band following the body; dart remainder eased into the side seam."}
               </span>
-              <div className={styles.fitPresetList} role="group" aria-label="Waistband finish">
+              <div className={styles.fitPresetList} role="group" aria-label="Waistband mode">
                 <button
                   type="button"
-                  disabled={waistbandDepth === 0}
                   className={
-                    waistbandMode === "contour"
+                    waistbandMode === "darted"
                       ? styles.fitPresetActive
                       : styles.fitPreset
                   }
-                  onClick={() => setWaistbandMode("contour")}
+                  onClick={() => setWaistbandModeAndClamp("darted")}
                 >
-                  Contour
+                  Darted
                 </button>
                 <button
                   type="button"
-                  disabled={waistbandDepth === 0}
                   className={
                     waistbandMode === "shaped"
                       ? styles.fitPresetActive
                       : styles.fitPreset
                   }
-                  onClick={() => setWaistbandMode("shaped")}
+                  onClick={() => setWaistbandModeAndClamp("shaped")}
                 >
                   Shaped
                 </button>
               </div>
             </div>
-            <div className={styles.field}>
-              <label className={styles.fieldLabel} htmlFor="waistband-depth">
-                Waistband depth
-              </label>
-              <span className={styles.fieldHint}>
-                Finished depth of the shaped waistband. Set to 0 for trousers only.
-              </span>
-              <div className={styles.rangeRow}>
-                <input
-                  id="waistband-depth"
-                  type="range"
-                  className={styles.rangeInput}
-                  min={0}
-                  max={60}
-                  step={5}
-                  value={waistbandDepth}
-                  onChange={(e) => setWaistbandDepth(Number(e.target.value))}
-                />
-                <span className={styles.rangeValue}>{waistbandDepth} mm</span>
+            {waistbandMode === "darted" ? (
+              <>
+                <div className={styles.field}>
+                  <label className={styles.fieldLabel}>Waist finish</label>
+                  <span className={styles.fieldHint}>
+                    Facing finishes at the trouser waist; waistband adds a
+                    separate straight strip ({DARTED_DEPTH_MIN}–{DARTED_DEPTH_MAX}{" "}
+                    mm).
+                  </span>
+                  <div
+                    className={styles.fitPresetList}
+                    role="group"
+                    aria-label="Darted waist finish"
+                  >
+                    <button
+                      type="button"
+                      className={
+                        dartedWaistFinish === "facing"
+                          ? styles.fitPresetActive
+                          : styles.fitPreset
+                      }
+                      onClick={() => setDartedWaistFinish("facing")}
+                    >
+                      Facing
+                    </button>
+                    <button
+                      type="button"
+                      className={
+                        dartedWaistFinish === "waistband"
+                          ? styles.fitPresetActive
+                          : styles.fitPreset
+                      }
+                      onClick={() => setDartedWaistFinish("waistband")}
+                    >
+                      Waistband
+                    </button>
+                  </div>
+                </div>
+                {dartedWaistFinish === "waistband" && (
+                  <div className={styles.field}>
+                    <label
+                      className={styles.fieldLabel}
+                      htmlFor="darted-band-depth"
+                    >
+                      Waistband depth
+                    </label>
+                    <span className={styles.fieldHint}>
+                      Darted band: {dartedBandRange.min}–{dartedBandRange.max}{" "}
+                      mm.
+                    </span>
+                    <div className={styles.rangeRow}>
+                      <input
+                        id="darted-band-depth"
+                        type="range"
+                        className={styles.rangeInput}
+                        min={dartedBandRange.min}
+                        max={dartedBandRange.max}
+                        step={5}
+                        value={dartedBandDepth}
+                        onChange={(e) => {
+                          const v = Number(e.target.value);
+                          setDartedBandDepth(
+                            Math.max(
+                              dartedBandRange.min,
+                              Math.min(dartedBandRange.max, v),
+                            ),
+                          );
+                        }}
+                      />
+                      <span className={styles.rangeValue}>
+                        {dartedBandDepth} mm
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className={styles.field}>
+                <label className={styles.fieldLabel} htmlFor="waistband-depth">
+                  Waistband depth
+                </label>
+                <span className={styles.fieldHint}>
+                  {waistbandDepth === 0
+                    ? "Set to 0 for trousers only (no band)."
+                    : `Shaped mode: ${depthRange.min}–${depthRange.max} mm.`}
+                </span>
+                <div className={styles.rangeRow}>
+                  <input
+                    id="waistband-depth"
+                    type="range"
+                    className={styles.rangeInput}
+                    min={waistbandDepth === 0 ? 0 : depthRange.min}
+                    max={waistbandDepth > 0 ? depthRange.max : yokeDepthMax}
+                    step={5}
+                    value={waistbandDepth}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      if (v === 0) {
+                        setWaistbandDepth(0);
+                        return;
+                      }
+                      const range = waistbandDepthRange(
+                        "shaped",
+                        draftBody,
+                        block,
+                        legBottomWidth,
+                      );
+                      setWaistbandDepth(
+                        Math.max(range.min, Math.min(range.max, v)),
+                      );
+                    }}
+                  />
+                  <span className={styles.rangeValue}>{waistbandDepth} mm</span>
+                </div>
+                {waistbandDepth > 0 &&
+                  waistbandDepth >= depthRange.max &&
+                  depthRange.max > 0 && (
+                  <span className={styles.fieldHint}>
+                    {shapedLimitedByBack
+                      ? "Limited by back waist geometry (centre-back fold)."
+                      : "Limited by your hip depth."}
+                  </span>
+                )}
               </div>
-            </div>
-            <div className={styles.field}>
-              <label className={styles.fieldLabel} htmlFor="front-waist-dip">
-                Front waist dip
-              </label>
-              <span className={styles.fieldHint}>
-                Finished drop of the front waist at centre front (Aldrich 1–1.5 cm).
-              </span>
-              <div className={styles.rangeRow}>
-                <input
-                  id="front-waist-dip"
-                  type="range"
-                  className={styles.rangeInput}
-                  min={0}
-                  max={15}
-                  step={1}
-                  value={frontWaistDip}
-                  onChange={(e) => setFrontWaistDip(Number(e.target.value))}
-                />
-                <span className={styles.rangeValue}>{frontWaistDip} mm</span>
-              </div>
-            </div>
+            )}
             <div className={styles.field}>
               <label className={styles.fieldLabel} htmlFor="zip-length">
                 Side zip length

@@ -77,9 +77,17 @@ export type PieceConstruction = {
 
 export type EdgeType = "seam" | "fold" | "hem";
 
+/** How the trouser waist edge is finished (darted depth 0 = facing; band when depth > 0). */
+export type WaistFinish = "facing";
+
 // A point on the outline that names the edge LEAVING it
 // (the segment from this point to the next, wrapping at the end).
-export type OutlinePoint = { at: Point; edge: EdgeType; role?: string };
+export type OutlinePoint = {
+  at: Point;
+  edge: EdgeType;
+  role?: string;
+  waistFinish?: WaistFinish;
+};
 
 export type SeamAllowancePolicy = { seam: Millimetres; hem: Millimetres };
 // fold is always 0 — not part of the policy.

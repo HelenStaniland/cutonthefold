@@ -1,4 +1,4 @@
-import { Point } from "@/lib/types/measurements";
+import { Millimetres, Point } from "@/lib/types/measurements";
 
 export const CURVE_SAMPLES = 24;
 
@@ -242,4 +242,63 @@ export function pchipByY(knots: Point[], n = CURVE_SAMPLES): Point[] {
     }
   }
   return out;
+}
+
+/** Total length of a polyline (mm). */
+export function polylineLength(points: Point[]): Millimetres {
+  let len = 0;
+  for (let i = 1; i < points.length; i++) {
+    len += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+  }
+  return len;
+}
+
+/** Walk `distance` mm along a polyline from its first vertex. */
+export function pointAtArcDistanceFromStart(
+  points: Point[],
+  distance: Millimetres,
+): Point {
+  if (points.length === 0) {
+    throw new Error("empty polyline");
+  }
+  if (distance <= 0) {
+    return { ...points[0] };
+  }
+  let traveled = 0;
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1];
+    const b = points[i];
+    const seg = Math.hypot(b.x - a.x, b.y - a.y);
+    if (traveled + seg >= distance) {
+      const t = (distance - traveled) / seg;
+      return { x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) };
+    }
+    traveled += seg;
+  }
+  return { ...points[points.length - 1] };
+}
+
+/** Walk `distance` mm along a polyline from its last vertex toward the start. */
+export function pointAtArcDistanceFromEnd(
+  points: Point[],
+  distance: Millimetres,
+): Point {
+  if (points.length === 0) {
+    throw new Error("empty polyline");
+  }
+  if (distance <= 0) {
+    return { ...points[points.length - 1] };
+  }
+  let traveled = 0;
+  for (let i = points.length - 1; i > 0; i--) {
+    const a = points[i];
+    const b = points[i - 1];
+    const seg = Math.hypot(b.x - a.x, b.y - a.y);
+    if (traveled + seg >= distance) {
+      const t = (distance - traveled) / seg;
+      return { x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) };
+    }
+    traveled += seg;
+  }
+  return { ...points[0] };
 }
