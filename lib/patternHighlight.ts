@@ -4,6 +4,7 @@ import {
   Point,
   StepHighlight,
 } from "@/lib/types/measurements";
+import { svgCoord } from "@/lib/render/svgCoords";
 
 export type EdgeRun = { startIndex: number; endIndex: number; role: string };
 
@@ -61,7 +62,7 @@ export function runToPolyline(
   return runVertexIndices(run, points.length)
     .map((i) => {
       const p = points[i];
-      return `${p.x + dx},${p.y + dy}`;
+      return `${svgCoord(p.x + dx)},${svgCoord(p.y + dy)}`;
     })
     .join(" ");
 }
@@ -75,7 +76,7 @@ export function runToNetPolyline(
   return runVertexIndices(run, piece.outline.length)
     .map((i) => {
       const p = piece.outline[i].at;
-      return `${p.x + dx},${p.y + dy}`;
+      return `${svgCoord(p.x + dx)},${svgCoord(p.y + dy)}`;
     })
     .join(" ");
 }

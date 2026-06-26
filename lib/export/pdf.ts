@@ -212,6 +212,97 @@ function panelPlacement(
   return { boxLeft, yTop, boxW };
 }
 
+function pointInPolygon(pt: Point, poly: Point[]): boolean {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i].x;
+    const yi = poly[i].y;
+    const xj = poly[j].x;
+    const yj = poly[j].y;
+    if (
+      (yi > pt.y) !== (yj > pt.y) &&
+      pt.x < ((xj - xi) * (pt.y - yi)) / (yj - yi) + xi
+    ) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+function distToOutline(pt: Point, poly: Point[]): number {
+  let min = Infinity;
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i];
+    const b = poly[(i + 1) % poly.length];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const l2 = dx * dx + dy * dy || 1;
+    let t = ((pt.x - a.x) * dx + (pt.y - a.y) * dy) / l2;
+    t = Math.max(0, Math.min(1, t));
+    const d = Math.hypot(pt.x - (a.x + t * dx), pt.y - (a.y + t * dy));
+    if (d < min) min = d;
+  }
+  return min;
+}
+
+function interiorAnchor(outline: Point[]): Point {
+  const b = bbox(outline);
+  const NX = 24;
+  const NY = 40;
+  let best: Point = { x: (b.minX + b.maxX) / 2, y: (b.minY + b.maxY) / 2 };
+  let bestClear = -1;
+  for (let iy = 0; iy <= NY; iy++) {
+    for (let ix = 0; ix <= NX; ix++) {
+      const pt = {
+        x: b.minX + ((b.maxX - b.minX) * ix) / NX,
+        y: b.minY + ((b.maxY - b.minY) * iy) / NY,
+      };
+      if (!pointInPolygon(pt, outline)) continue;
+      const c = distToOutline(pt, outline);
+      if (c > bestClear) {
+        bestClear = c;
+        best = pt;
+      }
+    }
+  }
+  return best;
+}
+
+function panelBoxFits(
+  panel: { title: string; lines: string[] },
+  pat: { boxLeft: number; yTop: number; boxW: number },
+  outline: Point[],
+): boolean {
+  if (pat.boxW < 40) return false;
+  const boxH = panelBoxHeight(panel.lines.length);
+  const corners: Point[] = [
+    { x: pat.boxLeft, y: pat.yTop },
+    { x: pat.boxLeft + pat.boxW, y: pat.yTop },
+    { x: pat.boxLeft, y: pat.yTop + boxH },
+    { x: pat.boxLeft + pat.boxW, y: pat.yTop + boxH },
+  ];
+  return corners.every((c) => pointInPolygon(c, outline));
+}
+
+function drawPieceLineLabel(doc: jsPDF, text: string, at: Point): void {
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text(text, at.x, at.y, { align: "center", baseline: "middle" });
+  doc.setFont("helvetica", "normal");
+}
+
+function pieceTileCount(
+  piece: PatternPiece,
+  printableW: number,
+  printableH: number,
+): number {
+  const cutPts = piece.cuttingOutline ?? piece.outline.map((o) => o.at);
+  const grid = tileGrid(bbox(cutPts), printableW, printableH);
+  return grid.cols * grid.rows;
+}
+
+type SheetCounter = { n: number };
+
 function drawPiecePanel(
   doc: jsPDF,
   panel: { title: string; lines: string[] },
@@ -296,19 +387,39 @@ function drawTileFrame(
   doc.setLineDashPattern([], 0);
 }
 
+const TILE_LABEL_FONT = 8;
+const PAGE_BRAND_FONT = 10;
+const PAGE_BRAND_GREY = 100;
+
+function drawPageBrand(doc: jsPDF, x: number, y: number): void {
+  doc.setFontSize(PAGE_BRAND_FONT);
+  doc.setTextColor(PAGE_BRAND_GREY);
+  doc.text("cutonthefold.com", x, y);
+  doc.setTextColor(0);
+}
+
 function drawTileLabel(
   doc: jsPDF,
   name: string,
   grid: Grid,
   col: number,
   row: number,
+  sheetNum?: number,
+  totalSheets?: number,
 ): void {
-  doc.setFontSize(8);
-  const label =
+  const x = MARGIN + 3;
+  const y = MARGIN + 5;
+  doc.setFontSize(TILE_LABEL_FONT);
+  const gridRef =
     grid.cols * grid.rows > 1
-      ? `${name}  C${col + 1}/${grid.cols}  R${row + 1}/${grid.rows}`
-      : name;
-  doc.text(label, MARGIN + 3, MARGIN + 5);
+      ? `  C${col + 1}/${grid.cols}  R${row + 1}/${grid.rows}`
+      : "";
+  const sheetRef =
+    sheetNum !== undefined && totalSheets !== undefined
+      ? `  ·  Sheet ${sheetNum} of ${totalSheets}`
+      : "";
+  doc.text(`${name}${gridRef}${sheetRef}`, x, y);
+  drawPageBrand(doc, x, y + 4);
 }
 
 function tilePiece(
@@ -317,6 +428,8 @@ function tilePiece(
   spec: PatternSpec | undefined,
   isFirstPieceInDoc: boolean,
   withScaleSquare = false,
+  sheetCounter?: SheetCounter,
+  totalSheets?: number,
 ): void {
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -328,22 +441,26 @@ function tilePiece(
   const grid = tileGrid(box, printableW, printableH);
 
   const panelData = spec ? patternPanel(piece, spec) : null;
+  const netOutline = piece.outline.map((o) => o.at);
   const panelPat = panelData ? panelPlacement(piece, panelData) : null;
-  const ownCol = panelPat
-    ? Math.min(
-        grid.cols - 1,
-        Math.max(
-          0,
-          Math.floor((panelPat.boxLeft + panelPat.boxW / 2 - box.minX) / grid.stepX),
-        ),
-      )
-    : 0;
-  const ownRow = panelPat
-    ? Math.min(
-        grid.rows - 1,
-        Math.max(0, Math.floor((panelPat.yTop - box.minY) / grid.stepY)),
-      )
-    : 0;
+  const panelFits = !!(
+    panelData &&
+    panelPat &&
+    panelBoxFits(panelData, panelPat, netOutline)
+  );
+  const anchor = panelData && !panelFits ? interiorAnchor(netOutline) : null;
+  const ownPoint: Point =
+    panelFits && panelPat
+      ? { x: panelPat.boxLeft + panelPat.boxW / 2, y: panelPat.yTop }
+      : (anchor ?? { x: box.minX, y: box.minY });
+  const ownCol = Math.min(
+    grid.cols - 1,
+    Math.max(0, Math.floor((ownPoint.x - box.minX) / grid.stepX)),
+  );
+  const ownRow = Math.min(
+    grid.rows - 1,
+    Math.max(0, Math.floor((ownPoint.y - box.minY) / grid.stepY)),
+  );
 
   for (let row = 0; row < grid.rows; row++) {
     for (let col = 0; col < grid.cols; col++) {
@@ -360,27 +477,47 @@ function tilePiece(
       doc.clip();
       doc.discardPath();
       drawPiece(doc, piece, place);
-      if (panelData && panelPat && col === ownCol && row === ownRow) {
-        const pagePanel = clampPanelPage(
-          panelData,
-          panelPat.boxLeft + place.offsetX,
-          panelPat.yTop + place.offsetY,
-          panelPat.boxW,
-          printableW,
-          printableH,
-        );
-        drawPiecePanel(
-          doc,
-          panelData,
-          pagePanel.boxLeftPage,
-          pagePanel.boxTopPage,
-          pagePanel.boxW,
-        );
+      if (panelData && col === ownCol && row === ownRow) {
+        if (panelFits && panelPat) {
+          const pagePanel = clampPanelPage(
+            panelData,
+            panelPat.boxLeft + place.offsetX,
+            panelPat.yTop + place.offsetY,
+            panelPat.boxW,
+            printableW,
+            printableH,
+          );
+          drawPiecePanel(
+            doc,
+            panelData,
+            pagePanel.boxLeftPage,
+            pagePanel.boxTopPage,
+            pagePanel.boxW,
+          );
+        } else if (anchor) {
+          drawPieceLineLabel(
+            doc,
+            panelData.title,
+            patternToPage(anchor, place),
+          );
+        }
       }
       doc.restoreGraphicsState();
 
       drawTileFrame(doc, printableW, printableH, grid, col, row);
-      drawTileLabel(doc, piece.name, grid, col, row);
+      const sheetNum = sheetCounter?.n;
+      drawTileLabel(
+        doc,
+        piece.name,
+        grid,
+        col,
+        row,
+        sheetNum,
+        totalSheets,
+      );
+      if (sheetCounter) {
+        sheetCounter.n += 1;
+      }
       if (withScaleSquare) {
         drawCalibrationSquare(doc, pageW - MARGIN - 100, MARGIN, 100);
         doc.setFontSize(10);
@@ -400,12 +537,33 @@ export function downloadPattern(
   sheet: SheetSize = "a4",
 ): void {
   const doc = new jsPDF({ unit: "mm", format: sheet, orientation: "portrait" });
+  const printableW = doc.internal.pageSize.getWidth() - 2 * MARGIN;
+  const printableH = doc.internal.pageSize.getHeight() - 2 * MARGIN;
+  const tileCounts = pattern.pieces.map((piece) =>
+    pieceTileCount(piece, printableW, printableH),
+  );
+  const tileTotal = tileCounts.reduce((sum, n) => sum + n, 0);
+
   if (sheet === "a4") {
-    drawCoverSheet(doc, pattern, spec);
-    pattern.pieces.forEach((piece) => tilePiece(doc, piece, spec, false));
+    const totalSheets = 1 + tileTotal;
+    drawCoverSheet(doc, pattern, spec, tileCounts, totalSheets);
+    const sheetCounter: SheetCounter = { n: 2 };
+    pattern.pieces.forEach((piece) =>
+      tilePiece(doc, piece, spec, false, false, sheetCounter, totalSheets),
+    );
   } else {
+    const totalSheets = tileTotal;
+    const sheetCounter: SheetCounter = { n: 1 };
     pattern.pieces.forEach((piece, i) =>
-      tilePiece(doc, piece, spec, i === 0, true),
+      tilePiece(
+        doc,
+        piece,
+        spec,
+        i === 0,
+        true,
+        sheetCounter,
+        totalSheets,
+      ),
     );
   }
   doc.save(patternPdfFilename(spec));
@@ -450,7 +608,13 @@ function drawCalibrationSquare(
   });
 }
 
-function drawCoverSheet(doc: jsPDF, pattern: Pattern, spec: PatternSpec): void {
+function drawCoverSheet(
+  doc: jsPDF,
+  pattern: Pattern,
+  spec: PatternSpec,
+  tileCounts: number[],
+  totalSheets: number,
+): void {
   const pageW = doc.internal.pageSize.getWidth();
   const printableW = pageW - 2 * MARGIN;
 
@@ -480,20 +644,22 @@ function drawCoverSheet(doc: jsPDF, pattern: Pattern, spec: PatternSpec): void {
   doc.text("Sheets in this pattern:", MARGIN, y);
   y += 7;
   doc.setFontSize(10);
-  const printableH = doc.internal.pageSize.getHeight() - 2 * MARGIN;
-  for (const piece of pattern.pieces) {
-    const g = tileGrid(
-      bbox(piece.cuttingOutline ?? piece.outline.map((o) => o.at)),
-      printableW,
-      printableH,
-    );
-    doc.text(
-      `${piece.name} — ${g.cols * g.rows} sheet(s), ${g.cols}×${g.rows} grid`,
-      MARGIN,
-      y,
-    );
+  let sheet = 2;
+  for (let i = 0; i < pattern.pieces.length; i++) {
+    const piece = pattern.pieces[i];
+    const count = tileCounts[i];
+    const first = sheet;
+    const last = sheet + count - 1;
+    sheet = last + 1;
+    const range =
+      first === last ? `sheet ${first}` : `sheets ${first}–${last}`;
+    doc.text(`${piece.name} — ${range}`, MARGIN, y);
     y += 6;
   }
+  doc.setFontSize(9);
+  doc.setTextColor(70);
+  doc.text(`Total: ${totalSheets} sheets (including this cover).`, MARGIN, y);
+  doc.setTextColor(0);
 }
 
 export function downloadCalibrationSheet(): void {

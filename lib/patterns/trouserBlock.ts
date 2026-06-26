@@ -761,6 +761,17 @@ export function draftTrouserFront(
 
   const outline = segmentsToOutline(segments);
 
+  const xMid = (x0 + x1) / 2;
+  const waistMidF = { x: xMid, y: waistY(xMid) };
+  const waistTangentF = normalize({
+    x: wr.side.x - cfWaist.x,
+    y: wr.side.y - cfWaist.y,
+  });
+  let waistInwardF = { x: -waistTangentF.y, y: waistTangentF.x };
+  if (waistInwardF.y < 0) {
+    waistInwardF = { x: -waistInwardF.x, y: -waistInwardF.y };
+  }
+
   const markings: Marking[] = [
     {
       kind: "grainline",
@@ -778,6 +789,7 @@ export function draftTrouserFront(
           },
         ]
       : []),
+    { kind: "notch", at: waistMidF, dir: waistInwardF, count: 1 },
     { kind: "notch", at: p8, count: 1 },
     { kind: "notch", at: p15, count: 1 },
     {
@@ -868,12 +880,22 @@ export function draftTrouserBack(
     dartMarks.push(backDart(third(2), spec.backDartLengths[1] - r));
   }
 
+  const waistMidB = {
+    x: (wr.cf.x + wr.side.x) / 2,
+    y: (wr.cf.y + wr.side.y) / 2,
+  };
+  let waistInwardB = { x: -seam.y, y: seam.x };
+  if (waistInwardB.y < 0) {
+    waistInwardB = { x: -waistInwardB.x, y: -waistInwardB.y };
+  }
+
   const markings: Marking[] = [
     {
       kind: "grainline",
       line: { from: { x: 0, y: r + 20 }, to: { x: 0, y: F - 20 } },
     },
     ...dartMarks,
+    { kind: "notch", at: waistMidB, dir: waistInwardB, count: 2 },
     { kind: "notch", at: p25, count: 2 },
     { kind: "notch", at: p29, count: 2 },
     {

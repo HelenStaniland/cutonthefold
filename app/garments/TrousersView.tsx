@@ -38,11 +38,11 @@ import {
   runToPolyline,
 } from "@/lib/patternHighlight";
 import { mirrorConstructionX, mirrorPieceX } from "@/lib/pattern/mirrorPiece";
+import { referenceGridLines } from "@/lib/render/referenceGrid";
+import { svgCoord, svgLineProps, svgPolygonPoints } from "@/lib/render/svgCoords";
 import styles from "@/app/shell.module.css";
 import type { DraftingLineKind } from "@/lib/types/measurements";
 import { applyEase, cutLabel, type ConstructionStep, type Ease, type PatternSpec } from "@/lib/types/measurements";
-
-const GRID_SPACING_MM = 50;
 
 type PatternViewMode = "pattern" | "construction";
 
@@ -57,47 +57,6 @@ const DRAFT_LINE_ORDER: DraftingLineKind[] = [
   "construction",
   "curveControl",
 ];
-
-type GridLine = {
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
-  major: boolean;
-};
-
-function referenceGridLines(
-  xMin: number,
-  xMax: number,
-  yMin: number,
-  yMax: number,
-): GridLine[] {
-  const lines: GridLine[] = [];
-  const gridXMin = Math.floor(xMin / GRID_SPACING_MM) * GRID_SPACING_MM;
-  const gridXMax = Math.ceil(xMax / GRID_SPACING_MM) * GRID_SPACING_MM;
-  const gridYMin = Math.floor(yMin / GRID_SPACING_MM) * GRID_SPACING_MM;
-  const gridYMax = Math.ceil(yMax / GRID_SPACING_MM) * GRID_SPACING_MM;
-
-  for (let x = gridXMin; x <= gridXMax; x += GRID_SPACING_MM) {
-    lines.push({
-      x1: x,
-      y1: yMin,
-      x2: x,
-      y2: yMax,
-      major: x % 100 === 0,
-    });
-  }
-  for (let y = gridYMin; y <= gridYMax; y += GRID_SPACING_MM) {
-    lines.push({
-      x1: xMin,
-      y1: y,
-      x2: xMax,
-      y2: y,
-      major: y % 100 === 0,
-    });
-  }
-  return lines;
-}
 
 type TrousersViewProps = {
   block: TrouserBlock;
@@ -325,9 +284,6 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
   const previewMaxY = preview && previewPoints.length > 0 ? Math.max(...previewYs) : 640;
   const previewWidth = previewMaxX - previewMinX + previewPad * 2;
   const previewHeight = previewMaxY - previewMinY + previewPad * 2;
-
-  const polygonPoints = (pts: { x: number; y: number }[]) =>
-    pts.map((p) => `${p.x},${p.y}`).join(" ");
 
   const pieceCount = displayPattern.pieces.reduce((n, p) => n + p.cutCount, 0);
 
@@ -600,40 +556,41 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                   <svg
                     width={340}
                     height={460}
-                    viewBox={`${previewMinX - previewPad} ${previewMinY - previewPad} ${previewWidth} ${previewHeight}`}
+                    viewBox={`${svgCoord(previewMinX - previewPad)} ${svgCoord(previewMinY - previewPad)} ${svgCoord(previewWidth)} ${svgCoord(previewHeight)}`}
                   >
                     <polygon
-                      points={polygonPoints(preview.outline)}
+                      points={svgPolygonPoints(preview.outline)}
                       className={styles.previewSkirt}
                     />
                     {preview.waistband.length > 0 && (
                       <polygon
-                        points={polygonPoints(preview.waistband)}
+                        points={svgPolygonPoints(preview.waistband)}
                         className={styles.previewWaistband}
                       />
                     )}
                     <line
-                      x1={preview.waistline.from.x}
-                      y1={preview.waistline.from.y}
-                      x2={preview.waistline.to.x}
-                      y2={preview.waistline.to.y}
+                      {...svgLineProps(
+                        preview.waistline.from.x,
+                        preview.waistline.from.y,
+                        preview.waistline.to.x,
+                        preview.waistline.to.y,
+                      )}
                       className={styles.previewLine}
                     />
                     {preview.darts.map((d, i) => (
                       <line
                         key={`dart-${i}`}
-                        x1={d.from.x}
-                        y1={d.from.y}
-                        x2={d.to.x}
-                        y2={d.to.y}
+                        {...svgLineProps(d.from.x, d.from.y, d.to.x, d.to.y)}
                         className={styles.previewDart}
                       />
                     ))}
                     <line
-                      x1={preview.zipMark.from.x}
-                      y1={preview.zipMark.from.y}
-                      x2={preview.zipMark.to.x}
-                      y2={preview.zipMark.to.y}
+                      {...svgLineProps(
+                        preview.zipMark.from.x,
+                        preview.zipMark.from.y,
+                        preview.zipMark.to.x,
+                        preview.zipMark.to.y,
+                      )}
                       className={styles.previewZip}
                     />
                   </svg>
@@ -700,7 +657,7 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                 <svg
                   width={patternSvgWidth}
                   height={patternSvgHeight}
-                  viewBox={`${-pad} ${viewBoxY} ${patternViewWidth} ${patternViewHeight}`}
+                  viewBox={`${svgCoord(-pad)} ${svgCoord(viewBoxY)} ${svgCoord(patternViewWidth)} ${svgCoord(patternViewHeight)}`}
                 >
         <defs>
           <filter id="paperShadow" x="-8%" y="-8%" width="116%" height="116%">
@@ -715,15 +672,20 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
             <path d="M 0 0 L 10 5 L 0 10 z" fill="#047857" />
           </marker>
           <clipPath id="paperClip">
-            <rect x={sheetX} y={sheetY} width={sheetWidth} height={sheetHeight} />
+            <rect
+              x={svgCoord(sheetX)}
+              y={svgCoord(sheetY)}
+              width={svgCoord(sheetWidth)}
+              height={svgCoord(sheetHeight)}
+            />
           </clipPath>
         </defs>
 
         <rect
-          x={sheetX}
-          y={sheetY}
-          width={sheetWidth}
-          height={sheetHeight}
+          x={svgCoord(sheetX)}
+          y={svgCoord(sheetY)}
+          width={svgCoord(sheetWidth)}
+          height={svgCoord(sheetHeight)}
           className={styles.paperSheet}
           filter="url(#paperShadow)"
         />
@@ -736,10 +698,7 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
           {referenceGrid.map((line, i) => (
             <line
               key={i}
-              x1={line.x1}
-              y1={line.y1}
-              x2={line.x2}
-              y2={line.y2}
+              {...svgLineProps(line.x1, line.y1, line.x2, line.y2)}
               className={
                 line.major ? styles.gridLineMajor : styles.gridLine
               }
@@ -750,12 +709,15 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
 
         {placed.map(({ piece, dx, dy, top, labelX }) => {
           const boundary = pieceBoundary(piece);
-          const cutPoints = boundary
-            .map((p) => `${p.x + dx},${p.y + dy}`)
-            .join(" ");
-          const netPoints = piece.outline
-            .map((p) => `${p.at.x + dx},${p.at.y + dy}`)
-            .join(" ");
+          const cutPoints = svgPolygonPoints(
+            boundary.map((p) => ({ x: p.x + dx, y: p.y + dy })),
+          );
+          const netPoints = svgPolygonPoints(
+            piece.outline.map((p) => ({
+              x: p.at.x + dx,
+              y: p.at.y + dy,
+            })),
+          );
           const hasCuttingLine = piece.cuttingOutline !== undefined;
           const pieceHighlight = findPieceHighlight(piece.name, activeHighlights);
           const wholePieceHighlighted =
@@ -785,8 +747,8 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
               {!constructionMode && (
               <g opacity={baseOpacity}>
               <text
-                x={labelX}
-                y={top - labelSpace / 2}
+                x={svgCoord(labelX)}
+                y={svgCoord(top - labelSpace / 2)}
                 className={styles.pieceTitle}
                 textAnchor="middle"
                 dominantBaseline="middle"
@@ -810,16 +772,24 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                   case "grainline":
                     return (
                       <line key={i}
-                        x1={m.line.from.x + dx} y1={m.line.from.y + dy}
-                        x2={m.line.to.x + dx} y2={m.line.to.y + dy}
+                        {...svgLineProps(
+                          m.line.from.x + dx,
+                          m.line.from.y + dy,
+                          m.line.to.x + dx,
+                          m.line.to.y + dy,
+                        )}
                         className={styles.grainline}
                         markerStart="url(#grainArrow)" markerEnd="url(#grainArrow)" />
                     );
                   case "foldLine":
                     return (
                       <line key={i}
-                        x1={m.line.from.x + dx} y1={m.line.from.y + dy}
-                        x2={m.line.to.x + dx} y2={m.line.to.y + dy}
+                        {...svgLineProps(
+                          m.line.from.x + dx,
+                          m.line.from.y + dy,
+                          m.line.to.x + dx,
+                          m.line.to.y + dy,
+                        )}
                         className={styles.foldLine} />
                     );
                   case "placeOnFold": {
@@ -837,13 +807,16 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                       y: B.y - 30 * u.y + 15 * n.y,
                     };
                     const p4 = { x: B.x - 30 * u.x, y: B.y - 30 * u.y };
-                    const bracket = [p1, p2, p3, p4]
-                      .map((p) => `${p.x + dx},${p.y + dy}`)
-                      .join(" ");
+                    const bracket = svgPolygonPoints(
+                      [p1, p2, p3, p4].map((p) => ({
+                        x: p.x + dx,
+                        y: p.y + dy,
+                      })),
+                    );
                     const midX = (A.x + B.x) / 2 + dx;
                     const midY = (A.y + B.y) / 2 + dy;
-                    const labelX = midX + 25 * n.x;
-                    const labelY = midY + 25 * n.y;
+                    const labelXPos = svgCoord(midX + 25 * n.x);
+                    const labelYPos = svgCoord(midY + 25 * n.y);
                     const labelAngle = (Math.atan2(u.y, u.x) * 180) / Math.PI;
                     return (
                       <g key={i}>
@@ -853,12 +826,12 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                         />
                         {m.label && (
                           <text
-                            x={labelX}
-                            y={labelY}
+                            x={labelXPos}
+                            y={labelYPos}
                             className={styles.patternLabel}
                             textAnchor="middle"
                             dominantBaseline="middle"
-                            transform={`rotate(${labelAngle}, ${labelX}, ${labelY})`}
+                            transform={`rotate(${labelAngle}, ${labelXPos}, ${labelYPos})`}
                           >
                             {m.label}
                           </text>
@@ -887,26 +860,23 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                       x: B.x - endInset * u.x + belowOffset * n.x,
                       y: B.y - endInset * u.y + belowOffset * n.y,
                     };
-                    const x1 = from.x + dx;
-                    const y1 = from.y + dy;
-                    const x2 = to.x + dx;
-                    const y2 = to.y + dy;
-                    const mx = (x1 + x2) / 2;
-                    const my = (y1 + y2) / 2;
+                    const x1 = svgCoord(from.x + dx);
+                    const y1 = svgCoord(from.y + dy);
+                    const x2 = svgCoord(to.x + dx);
+                    const y2 = svgCoord(to.y + dy);
+                    const mx = svgCoord((x1 + x2) / 2);
+                    const my = svgCoord((y1 + y2) / 2);
                     return (
                       <g key={i}>
                         <line
-                          x1={x1}
-                          y1={y1}
-                          x2={x2}
-                          y2={y2}
+                          {...svgLineProps(x1, y1, x2, y2)}
                           className={styles.instructionLine}
                           markerStart="url(#instructionArrow)"
                           markerEnd="url(#instructionArrow)"
                         />
                         <text
-                          x={mx + n.x * 18}
-                          y={my + n.y * 18}
+                          x={svgCoord(mx + n.x * 18)}
+                          y={svgCoord(my + n.y * 18)}
                           className={styles.patternLabel}
                           textAnchor="middle"
                         >
@@ -922,17 +892,19 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                         {segs.map((s, j) => (
                           <line
                             key={j}
-                            x1={s.from.x + dx}
-                            y1={s.from.y + dy}
-                            x2={s.to.x + dx}
-                            y2={s.to.y + dy}
+                            {...svgLineProps(
+                              s.from.x + dx,
+                              s.from.y + dy,
+                              s.to.x + dx,
+                              s.to.y + dy,
+                            )}
                             className={styles.notch}
                           />
                         ))}
                         {m.label && (
                           <text
-                            x={m.at.x + dx}
-                            y={m.at.y + dy - 8}
+                            x={svgCoord(m.at.x + dx)}
+                            y={svgCoord(m.at.y + dy - 8)}
                             className={styles.patternLabel}
                             textAnchor="middle"
                           >
@@ -943,42 +915,59 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                     );
                   }
                   case "button": {
-                    const s = 9, cx = m.at.x + dx, cy = m.at.y + dy;
+                    const s = 9;
+                    const cx = svgCoord(m.at.x + dx);
+                    const cy = svgCoord(m.at.y + dy);
                     return (
                       <g key={i} className={styles.hardwareMark}>
-                        <line x1={cx - s} y1={cy - s} x2={cx + s} y2={cy + s} />
-                        <line x1={cx - s} y1={cy + s} x2={cx + s} y2={cy - s} />
+                        <line {...svgLineProps(cx - s, cy - s, cx + s, cy + s)} />
+                        <line {...svgLineProps(cx - s, cy + s, cx + s, cy - s)} />
                       </g>
                     );
                   }
                   case "buttonhole": {
-                    const s = 9, cx = m.at.x + dx, cy = m.at.y + dy;
-                    return <line key={i} x1={cx - s} y1={cy} x2={cx + s} y2={cy}
-                                 className={styles.hardwareMark} />;
+                    const s = 9;
+                    const cx = svgCoord(m.at.x + dx);
+                    const cy = svgCoord(m.at.y + dy);
+                    return (
+                      <line
+                        key={i}
+                        {...svgLineProps(cx - s, cy, cx + s, cy)}
+                        className={styles.hardwareMark}
+                      />
+                    );
                   }
                   case "constructionLine":
                     return (
                       <line key={i}
-                        x1={m.line.from.x + dx} y1={m.line.from.y + dy}
-                        x2={m.line.to.x + dx} y2={m.line.to.y + dy}
+                        {...svgLineProps(
+                          m.line.from.x + dx,
+                          m.line.from.y + dy,
+                          m.line.to.x + dx,
+                          m.line.to.y + dy,
+                        )}
                         className={styles.constructionLine} />
                     );
                   case "dart": {
-                    const ax = m.apex.x + dx;
-                    const ay = m.apex.y + dy;
+                    const ax = svgCoord(m.apex.x + dx);
+                    const ay = svgCoord(m.apex.y + dy);
                     return (
                       <g key={i} className={styles.dartMark}>
                         <line
-                          x1={m.legs[0].x + dx}
-                          y1={m.legs[0].y + dy}
-                          x2={ax}
-                          y2={ay}
+                          {...svgLineProps(
+                            m.legs[0].x + dx,
+                            m.legs[0].y + dy,
+                            ax,
+                            ay,
+                          )}
                         />
                         <line
-                          x1={m.legs[1].x + dx}
-                          y1={m.legs[1].y + dy}
-                          x2={ax}
-                          y2={ay}
+                          {...svgLineProps(
+                            m.legs[1].x + dx,
+                            m.legs[1].y + dy,
+                            ax,
+                            ay,
+                          )}
                         />
                       </g>
                     );
@@ -993,8 +982,8 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
               {constructionMode && (
                 <>
                   <text
-                    x={labelX}
-                    y={top - labelSpace / 2}
+                    x={svgCoord(labelX)}
+                    y={svgCoord(top - labelSpace / 2)}
                     className={styles.pieceTitle}
                     textAnchor="middle"
                     dominantBaseline="middle"
@@ -1010,10 +999,12 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                           .map(({ line, i }) => (
                             <line
                               key={`c-line-${kind}-${i}`}
-                              x1={line.from.x + dx}
-                              y1={line.from.y + dy}
-                              x2={line.to.x + dx}
-                              y2={line.to.y + dy}
+                              {...svgLineProps(
+                                line.from.x + dx,
+                                line.from.y + dy,
+                                line.to.x + dx,
+                                line.to.y + dy,
+                              )}
                               className={styles[DRAFT_LINE_CLASS[kind]]}
                               vectorEffect="non-scaling-stroke"
                             />
@@ -1041,8 +1032,8 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                   {pieceConstruction && (
                     <g pointerEvents="none">
                       {pieceConstruction.points.map((pt) => {
-                        const cx = pt.at.x + dx;
-                        const cy = pt.at.y + dy;
+                        const cx = svgCoord(pt.at.x + dx);
+                        const cy = svgCoord(pt.at.y + dy);
                         const isCurveControl = pt.kind === "curveControl";
                         const labelOffsetX = isCurveControl ? 10 : 8;
                         const labelOffsetY = isCurveControl ? -10 : -8;
@@ -1059,8 +1050,8 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                               }
                             />
                             <text
-                              x={cx + labelOffsetX}
-                              y={cy + labelOffsetY}
+                              x={svgCoord(cx + labelOffsetX)}
+                              y={svgCoord(cy + labelOffsetY)}
                               className={
                                 isCurveControl
                                   ? styles.draftCurveControlPointLabel

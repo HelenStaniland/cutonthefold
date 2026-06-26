@@ -57,11 +57,24 @@ export function draftWaistband(spec: WaistbandSpec): {
 
   const foldRole = foldSide === "CF" ? "centre-front" : "centre-back";
 
+  const edgeMid = (edge: Point[]): Point =>
+    edge.length <= 2
+      ? {
+          x: (edge[0].x + edge[edge.length - 1].x) / 2,
+          y: (edge[0].y + edge[edge.length - 1].y) / 2,
+        }
+      : edge[Math.floor(edge.length / 2)];
+  const notchAt = edgeMid(bottomEdge);
+  const notchToward = edgeMid(topEdge);
+  const ndx = notchToward.x - notchAt.x;
+  const ndy = notchToward.y - notchAt.y;
+  const nlen = Math.hypot(ndx, ndy) || 1;
+
   const outline: OutlinePoint[] = [];
   topEdge.forEach((p, i) =>
     outline.push({
       at: p,
-      edge: i === 0 ? "fold" : "seam",
+      edge: "seam",
       role: i === 0 ? foldRole : "band-top",
     }),
   );
@@ -90,7 +103,8 @@ export function draftWaistband(spec: WaistbandSpec): {
     { kind: "grainline", line: { from: foldFrom, to: foldTo } },
     {
       kind: "notch",
-      at: topEdge[topEdge.length - 1],
+      at: notchAt,
+      dir: { x: ndx / nlen, y: ndy / nlen },
       count: foldSide === "CB" ? 2 : 1,
     },
   ];
