@@ -1703,7 +1703,7 @@ export function trouserInstructions(
   steps.push(
     {
       id: "side-seam",
-      text: "With right sides together, join each front to a back at the side seam.",
+      text: "With right sides together, join each front to its back at the side seams — sew the right side seam its full length, and the left from the hem up to the opening notch, leaving the seam open above for the zip.",
       highlight: [
         { piece: "Trouser front", edges: ["side-seam"] },
         { piece: "Trouser back", edges: ["side-seam"] },
@@ -1725,14 +1725,17 @@ export function trouserInstructions(
         { piece: "Trouser back", edges: ["crotch"] },
       ],
     },
-    {
-      id: "hem",
-      text: "Neaten and hem both legs to the marked hem line.",
-      highlight: [
-        { piece: "Trouser front", edges: ["hem"] },
-        { piece: "Trouser back", edges: ["hem"] },
-      ],
-    },
   );
   return steps;
+}
+
+export function trouserHemStep(): ConstructionStep {
+  return {
+    id: "hem",
+    text: "Neaten and hem both legs to the marked hem line.",
+    highlight: [
+      { piece: "Trouser front", edges: ["hem"] },
+      { piece: "Trouser back", edges: ["hem"] },
+    ],
+  };
 }

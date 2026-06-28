@@ -112,7 +112,7 @@ export function draftWaistband(spec: WaistbandSpec): {
   const steps: ConstructionStep[] = [
     {
       id: `band-${foldSide}-interface`,
-      text: `Interface one ${label.toLowerCase()} and its facing. With the trouser darts already stitched, pin the band's lower (longer) edge to the trouser waist, matching the side notch and the ${foldSide} fold; ease the slight curve.`,
+      text: `Interface the ${label.toLowerCase()} and its facing. Pin the band's lower (longer) edge to the trouser waist, matching the balance notch and aligning the fold to the centre-${foldSide === "CF" ? "front" : "back"} seam; ease the curve.`,
       highlight: [{ piece: label, edges: ["waist"] }],
     },
     {

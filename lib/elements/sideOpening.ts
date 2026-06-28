@@ -115,14 +115,6 @@ export function applySideOpening(
 
   const steps: ConstructionStep[] = [
     {
-      id: "zip-seam",
-      text: `Stitch the ${style.side} side seam from the hem up to the opening notch; leave the seam open above it for the zip.`,
-      highlight: [
-        { piece: "Trouser front", edges: ["side-seam"] },
-        { piece: "Trouser back", edges: ["side-seam"] },
-      ],
-    },
-    {
       id: "zip-insert",
       text: `Insert a ${style.length / 10} cm zip in the ${style.side} side opening, top of the zip level with the waist seam.`,
     },

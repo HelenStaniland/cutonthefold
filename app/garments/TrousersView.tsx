@@ -10,6 +10,7 @@ import {
   type WaistbandMode,
   trouserConstruction,
   trouserInstructions,
+  trouserHemStep,
   trouserWaistEdges,
   TROUSER_LAYOUT_ANCHOR_Y,
   validateTrousers,
@@ -231,7 +232,7 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
     zipLength,
     zipSide: "left",
   });
-  const method = [...trouserInstructions(tstyle), ...elementSteps];
+  const method = [...trouserInstructions(tstyle), ...elementSteps, trouserHemStep()];
   const selectedStep = method.find((step) => step.id === selectedStepId);
   const activeHighlights = selectedStep?.highlight ?? [];
   const stepSelectionActive = selectedStepId !== null;
