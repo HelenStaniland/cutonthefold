@@ -6,9 +6,11 @@ import {
   patternPdfFilename,
 } from "@/lib/export/patternPanel";
 import type {
+  DraftingLineKind,
   Pattern,
   PatternPiece,
   PatternSpec,
+  PieceConstruction,
   Point,
   Millimetres,
 } from "@/lib/types/measurements";
@@ -18,6 +20,22 @@ const MARGIN = 10; // mm — safe inside typical printer non-printable area
 const OVERLAP = 20; // mm — shared band between adjacent sheets
 
 export type SheetSize = "a4" | "a0";
+
+export type DownloadPatternOptions = {
+  /** Draw trouserConstruction points/lines on the cut pattern at true scale. */
+  includeConstruction?: boolean;
+  construction?: PieceConstruction[];
+};
+
+const CONSTRUCTION_LINE_RGB: [number, number, number] = [70, 90, 130];
+const SUBORDINATE_LINE_RGB: [number, number, number] = [155, 155, 155];
+const CONSTRUCTION_POINT_RGB: [number, number, number] = [70, 90, 130];
+
+const PDF_CONSTRUCTION_LINE_ORDER: DraftingLineKind[] = [
+  "helper",
+  "curveControl",
+  "construction",
+];
 
 // page coordinate = pattern coordinate + offset (pure translation, no scale)
 type Placement = { offsetX: Millimetres; offsetY: Millimetres };
@@ -63,6 +81,75 @@ function linePP(doc: jsPDF, a: Point, b: Point, place: Placement): void {
   const p = patternToPage(a, place);
   const q = patternToPage(b, place);
   doc.line(p.x, p.y, q.x, q.y);
+}
+
+/** Match on-screen construction labels: p5 → "5", guide → "guide". */
+function constructionPointLabel(id: string): string {
+  const m = /^p(\d+)$/.exec(id);
+  return m ? m[1]! : id;
+}
+
+function pointOnPrintableTile(
+  pagePt: Point,
+  printableW: number,
+  printableH: number,
+): boolean {
+  return (
+    pagePt.x >= MARGIN - 0.5 &&
+    pagePt.x <= MARGIN + printableW + 0.5 &&
+    pagePt.y >= MARGIN - 0.5 &&
+    pagePt.y <= MARGIN + printableH + 0.5
+  );
+}
+
+export function drawConstructionOverlay(
+  doc: jsPDF,
+  construction: PieceConstruction,
+  place: Placement,
+  printableW: number,
+  printableH: number,
+): void {
+  for (const kind of PDF_CONSTRUCTION_LINE_ORDER) {
+    const isMain = kind === "construction";
+    doc.setDrawColor(...(isMain ? CONSTRUCTION_LINE_RGB : SUBORDINATE_LINE_RGB));
+    doc.setLineWidth(isMain ? 0.3 : 0.2);
+    doc.setLineDashPattern(isMain ? [] : [2, 2], 0);
+    for (const line of construction.lines) {
+      if (line.kind !== kind) continue;
+      linePP(doc, line.from, line.to, place);
+    }
+  }
+  doc.setLineDashPattern([], 0);
+
+  for (const pt of construction.points) {
+    const pagePt = patternToPage(pt.at, place);
+    if (!pointOnPrintableTile(pagePt, printableW, printableH)) {
+      continue;
+    }
+    const isCurveControl = pt.kind === "curveControl";
+    doc.setFillColor(...CONSTRUCTION_POINT_RGB);
+    doc.circle(pagePt.x, pagePt.y, 0.5, "F");
+    const labelOffsetX = isCurveControl ? 2.5 : 2;
+    const labelOffsetY = isCurveControl ? -2.5 : -2;
+    doc.setFontSize(isCurveControl ? 6 : 7);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...CONSTRUCTION_POINT_RGB);
+    doc.text(
+      constructionPointLabel(pt.id),
+      pagePt.x + labelOffsetX,
+      pagePt.y + labelOffsetY,
+    );
+  }
+  doc.setTextColor(0);
+  doc.setDrawColor(0);
+  doc.setFillColor(0, 0, 0);
+}
+
+function constructionForPiece(
+  pieceName: string,
+  overlays?: PieceConstruction[],
+): PieceConstruction | undefined {
+  return overlays?.find((c) => c.pieceName === pieceName);
 }
 
 function drawArrowhead(
@@ -430,6 +517,7 @@ function tilePiece(
   withScaleSquare = false,
   sheetCounter?: SheetCounter,
   totalSheets?: number,
+  pdfOptions?: DownloadPatternOptions,
 ): void {
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -477,6 +565,21 @@ function tilePiece(
       doc.clip();
       doc.discardPath();
       drawPiece(doc, piece, place);
+      if (pdfOptions?.includeConstruction) {
+        const overlay = constructionForPiece(
+          piece.name,
+          pdfOptions.construction,
+        );
+        if (overlay) {
+          drawConstructionOverlay(
+            doc,
+            overlay,
+            place,
+            printableW,
+            printableH,
+          );
+        }
+      }
       if (panelData && col === ownCol && row === ownRow) {
         if (panelFits && panelPat) {
           const pagePanel = clampPanelPage(
@@ -535,6 +638,7 @@ export function downloadPattern(
   pattern: Pattern,
   spec: PatternSpec,
   sheet: SheetSize = "a4",
+  pdfOptions?: DownloadPatternOptions,
 ): void {
   const doc = new jsPDF({ unit: "mm", format: sheet, orientation: "portrait" });
   const printableW = doc.internal.pageSize.getWidth() - 2 * MARGIN;
@@ -546,10 +650,26 @@ export function downloadPattern(
 
   if (sheet === "a4") {
     const totalSheets = 1 + tileTotal;
-    drawCoverSheet(doc, pattern, spec, tileCounts, totalSheets);
+    drawCoverSheet(
+      doc,
+      pattern,
+      spec,
+      tileCounts,
+      totalSheets,
+      pdfOptions?.includeConstruction,
+    );
     const sheetCounter: SheetCounter = { n: 2 };
     pattern.pieces.forEach((piece) =>
-      tilePiece(doc, piece, spec, false, false, sheetCounter, totalSheets),
+      tilePiece(
+        doc,
+        piece,
+        spec,
+        false,
+        false,
+        sheetCounter,
+        totalSheets,
+        pdfOptions,
+      ),
     );
   } else {
     const totalSheets = tileTotal;
@@ -563,6 +683,7 @@ export function downloadPattern(
         true,
         sheetCounter,
         totalSheets,
+        pdfOptions,
       ),
     );
   }
@@ -614,6 +735,7 @@ function drawCoverSheet(
   spec: PatternSpec,
   tileCounts: number[],
   totalSheets: number,
+  includeConstruction = false,
 ): void {
   const pageW = doc.internal.pageSize.getWidth();
   const printableW = pageW - 2 * MARGIN;
@@ -636,6 +758,15 @@ function drawCoverSheet(
   for (const line of coverSpecLines(spec)) {
     doc.text(line, MARGIN, y);
     y += 5;
+  }
+  if (includeConstruction) {
+    doc.text(
+      "Construction overlay: drafting points and lines printed at true scale on the pattern sheets.",
+      MARGIN,
+      y,
+      { maxWidth: printableW },
+    );
+    y += 8;
   }
   doc.setTextColor(0);
 

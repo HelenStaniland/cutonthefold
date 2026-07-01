@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "verify:aldrich": "npx tsx scripts/verify-aldrich-production-depth0.ts"
   },
   "dependencies": {
     "jspdf": "^4.2.1",

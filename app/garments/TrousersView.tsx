@@ -86,6 +86,8 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<PatternViewMode>("pattern");
   const [showSeamAllowance, setShowSeamAllowance] = useState(true);
+  const [includeConstructionOverlay, setIncludeConstructionOverlay] =
+    useState(false);
 
   const style: TrouserFrontStyle = { bottomWidth: legBottomWidth, block };
   const activeFit = fitForEase(ease);
@@ -275,6 +277,7 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
   const displayConstruction = construction.map((c) =>
     c.pieceName === "Trouser front" ? mirrorConstructionX(c) : c,
   );
+  const pdfConstruction = displayConstruction;
   const frontBounds = pieceBounds(front);
   const backBounds = pieceBounds(back);
   const layoutMinY = Math.min(
@@ -807,22 +810,45 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                     </button>
                   </div>
                   {validation.valid && (
-                    <button
-                      type="button"
-                      className={styles.printAction}
-                      onClick={() =>
-                        downloadPattern(
-                          {
-                            pieces: pattern.pieces.map((p) =>
-                              p.name === "Trouser front" ? mirrorPieceX(p) : p,
-                            ),
-                          },
-                          patternSpec,
-                        )
-                      }
-                    >
-                      Print
-                    </button>
+                    <>
+                      <label
+                        className={styles.inlineToggle}
+                        htmlFor="pdf-construction-overlay"
+                      >
+                        <input
+                          id="pdf-construction-overlay"
+                          type="checkbox"
+                          checked={includeConstructionOverlay}
+                          onChange={(e) =>
+                            setIncludeConstructionOverlay(e.target.checked)
+                          }
+                        />
+                        Construction overlay
+                      </label>
+                      <button
+                        type="button"
+                        className={styles.printAction}
+                        onClick={() =>
+                          downloadPattern(
+                            {
+                              pieces: pattern.pieces.map((p) =>
+                                p.name === "Trouser front"
+                                  ? mirrorPieceX(p)
+                                  : p,
+                              ),
+                            },
+                            patternSpec,
+                            "a4",
+                            {
+                              includeConstruction: includeConstructionOverlay,
+                              construction: pdfConstruction,
+                            },
+                          )
+                        }
+                      >
+                        Print
+                      </button>
+                    </>
                   )}
                 </div>
               </div>

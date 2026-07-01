@@ -63,9 +63,11 @@ const TROUSER_BLOCKS: Record<TrouserBlock, TrouserBlockSpec> = {
 export type WaistbandMode = "darted" | "shaped";
 const DART_TAKEUP = 20;
 
+/** Aldrich back CB step 20→21 — 2 cm up from point 20 (mm). */
+const BACK_CB_WAIST_RISE: Millimetres = 20;
 /** Aldrich p.48 §2a — fixed waistline scoop depth (mm), not user-adjustable. */
 export const WAISTLINE_CURVE_FRONT = 12;
-export const WAISTLINE_CURVE_BACK = 5;
+export const WAISTLINE_CURVE_BACK = 0;
 
 /** Darted faced band depth range (mm): sewable minimum through shaped handover. */
 export const DARTED_DEPTH_MIN = 20;
@@ -458,6 +460,8 @@ type WaistCurveSpec = {
   depth: Millimetres;
   /** Aldrich §2a fixed scoop depth for this piece (mm). */
   scoopDepth: Millimetres;
+  /** +1 dips CF at centre (front); −1 raises CB at centre (back). */
+  centreScoopSign?: 1 | -1;
   /** Side-seam dart easing (mm); 0 in darted mode. Baked into t = 1, ramped on side leg. */
   sideShift: Millimetres;
 };
@@ -479,11 +483,8 @@ function waistArcWalk(
  * Composition order (read in sequence — this is the whole curve):
  *
  * 1. ENDPOINTS (exact; early return, no post-hoc pin)
- *    • t = 0 (CF/CB): arc-walk cfEdge by full depth r from cfWaist.
- *      §2a scoop at t = 0: y = sideY + scoopDepth (centre scoopDepth below side).
- *    • t = 1 (side): arc-walk sideEdge by full depth r from sideWaist.
- *      Apply full sideShift to x only: x = sideRaw.x − sideShift.
- *      No scoop at the side (waistlineScoopFactor(1) = 0).
+ *    • t = 0 (CF/CB): arc-walk cfEdge by full depth r from cfWaist; y from cfEnd + §2a scoop.
+ *    • t = 1 (side): arc-walk sideEdge by full depth r from sideWaist; y from sideEased (no scoop).
  *
  * 2. INTERIOR (body-following; not a chord between the two endpoints)
  *    Partial arc-walks on the real body edges, distances tied to t:
@@ -497,8 +498,9 @@ function waistArcWalk(
  *    At t = 0 this collapses to cfEnd; at t = 1 to sideEased.
  *
  * 3. §2a SCOOP (fixed shallow term, centre-heavy)
- *    y = sideY + scoopDepth · waistlineScoopFactor(t)
- *    y-down: centre finished scoopDepth below sideY; cos²(πt/2) peaks at CF/CB.
+ *    y blends arc-walked body heights, plus centreScoopSign · scoopDepth · waistlineScoopFactor(t).
+ *    Front (+1): CF dips scoopDepth below the body chord; back (−1): CB rises scoopDepth above it.
+ *    Envelope is zero at the side seam (t = 1).
  *
  * r = 0 short-circuit: flat drafted waist span + §2a scoop only (darted regression).
  *
@@ -517,23 +519,24 @@ function waistPoint(spec: WaistCurveSpec, t: number): Point {
     scoopDepth,
     sideShift,
   } = spec;
+  const scoopSign = spec.centreScoopSign ?? 1;
   const u = Math.max(0, Math.min(1, t));
+  const scoopTerm = scoopSign * scoopDepth * waistlineScoopFactor(u);
 
   const cfEnd = waistArcWalk(cfEdge, cfWaist, r);
   const sideRaw = waistArcWalk(sideEdge, sideWaist, r);
   const sideEased: Point = { x: sideRaw.x - sideShift, y: sideRaw.y };
-  const sideY = sideEased.y;
-  const y = sideY + scoopDepth * waistlineScoopFactor(u);
 
   if (u <= 0) {
-    return { x: cfEnd.x, y };
+    return { x: cfEnd.x, y: cfEnd.y + scoopTerm };
   }
   if (u >= 1) {
-    return { x: sideEased.x, y };
+    return { x: sideEased.x, y: sideEased.y };
   }
 
   if (r <= 0) {
     const x = cfWaist.x + u * (sideWaist.x - cfWaist.x);
+    const y = (1 - u) * cfWaist.y + u * sideWaist.y + scoopTerm;
     return { x, y };
   }
 
@@ -547,7 +550,7 @@ function waistPoint(spec: WaistCurveSpec, t: number): Point {
   };
 
   const x = (1 - u) * cfPt.x + u * sidePt.x;
-
+  const y = (1 - u) * cfPt.y + u * sidePt.y + scoopTerm;
   return { x, y };
 }
 
@@ -738,10 +741,11 @@ function buildBackWaistCurveSpec(
   return {
     cfWaist: b.p21,
     sideWaist: b.p22,
-    cfEdge: catmullRom([b.p24, b.guide, b.p19, b.p21]),
+    // Straight CB join (p21→p19), not the crotch curve — mirrors front cfEdge [p10, p6].
+    cfEdge: [b.p21, b.p19],
     sideEdge: pchipByY([b.p22, b.p25, b.p27, b.p26]),
     depth,
-    scoopDepth: WAISTLINE_CURVE_BACK,
+    scoopDepth: 0,
     sideShift,
   };
 }
@@ -799,8 +803,25 @@ function cbInteriorAngle(
   return (Math.acos(Math.max(-1, Math.min(1, dot))) * 180) / Math.PI;
 }
 
-function backCrotchSeam(b: BackPoints, cb: Point): Point[] {
-  return catmullRom([b.p24, b.guide, b.p19, cb]);
+function backCrotchCurve(b: BackPoints): Point[] {
+  return catmullRom([b.p24, b.guide, b.p19, b.p21]);
+}
+
+/** Crotch body for CB clearance — stops at hipline p19; p19→p21 is the straight CB join leg. */
+function backCrotchBelowHip(b: BackPoints): Point[] {
+  const full = backCrotchCurve(b);
+  let hipIdx = full.length - 1;
+  for (let i = 0; i < full.length; i++) {
+    if (Math.hypot(full[i].x - b.p19.x, full[i].y - b.p19.y) < 0.5) {
+      hipIdx = i;
+      break;
+    }
+  }
+  return full.slice(0, hipIdx + 1);
+}
+
+function frontCrotchCurve(p9: Point, guide: Point, p6: Point): Point[] {
+  return catmullRom([p9, guide, p6]);
 }
 
 function resolveBackWaistSeamAtDepth(
@@ -842,8 +863,17 @@ function isBackCbClearOfCrotch(
   waistSeam: Point[],
   strict = false,
 ): boolean {
+  return backCbClearOfCrotchReason(body, style, waistSeam, strict) === null;
+}
+
+function backCbClearOfCrotchReason(
+  body: BodyMeasurements,
+  style: TrouserFrontStyle,
+  waistSeam: Point[],
+  strict: boolean,
+): string | null {
   if (waistSeam.length < 2) {
-    return false;
+    return "waist too short";
   }
   const b = trouserBackPoints(body, style);
   const cb = waistSeam[0];
@@ -851,37 +881,37 @@ function isBackCbClearOfCrotch(
   const departEps = strict ? 1e-9 : X_MONOTONE_EPS;
 
   if (waistNext.x <= cb.x + departEps) {
-    return false;
+    return `waistNext.x ${waistNext.x.toFixed(2)} <= cb.x ${cb.x.toFixed(2)}`;
   }
 
-  const crotch = backCrotchSeam(b, cb);
+  const crotchCheck = backCrotchBelowHip(b);
+  const joinStart = backCrotchCurve(b).at(-1)!;
   const nearCount = strict
     ? Math.min(CB_WAIST_NEAR_DENSE, waistSeam.length)
     : Math.min(12, waistSeam.length);
   const waistNear = waistSeam.slice(0, nearCount);
   const crossEps = strict ? 0.005 : 0.02;
-  if (polylinesCrossInterior(waistNear, crotch.slice(0, -1), crossEps)) {
-    return false;
+  if (polylinesCrossInterior(waistNear, crotchCheck, crossEps)) {
+    return "waist crosses crotch interior";
   }
 
-  if (strict && waistCrossesCrotchAtY(waistSeam, crotch, nearCount)) {
-    return false;
+  if (strict && waistCrossesCrotchAtY(waistSeam, crotchCheck, nearCount)) {
+    return "waist inboard of crotch at matched y";
   }
 
-  const approach = crotch[crotch.length - 2];
-  const interior = cbInteriorAngle(approach, cb, waistNext);
+  const interior = cbInteriorAngle(joinStart, cb, waistNext);
   if (interior > CB_MAX_INTERIOR_ANGLE_DEG) {
-    return false;
+    return `interior ${interior.toFixed(1)}° > max ${CB_MAX_INTERIOR_ANGLE_DEG}°`;
   }
 
-  const approachVec = { x: cb.x - approach.x, y: cb.y - approach.y };
+  const approachVec = { x: cb.x - joinStart.x, y: cb.y - joinStart.y };
   const departVec = { x: waistNext.x - cb.x, y: waistNext.y - cb.y };
   const refSide = cross2(approachVec, departVec);
   if (!strict && Math.abs(refSide) < 1) {
-    return false;
+    return "degenerate corner turn";
   }
   if (strict && interior > CB_FOLD_INTERIOR_DEG) {
-    return false;
+    return `fold interior ${interior.toFixed(1)}° > ${CB_FOLD_INTERIOR_DEG}°`;
   }
   for (let i = 2; i < waistNear.length; i++) {
     const side = cross2(approachVec, {
@@ -889,11 +919,11 @@ function isBackCbClearOfCrotch(
       y: waistSeam[i].y - cb.y,
     });
     if (side * refSide < 0) {
-      return false;
+      return `waist folds back at sample ${i}`;
     }
   }
 
-  return true;
+  return null;
 }
 
 function assertBackCbClearOfCrotch(
@@ -903,19 +933,18 @@ function assertBackCbClearOfCrotch(
   context: WaistMonotoneContext,
 ): void {
   const dense = sampleWaistSeam(curveSpec, WAIST_CAP_SAMPLE_COUNT);
-  if (isBackCbClearOfCrotch(body, style, dense, true)) {
+  const failReason = backCbClearOfCrotchReason(body, style, dense, true);
+  if (failReason === null) {
     return;
   }
   const b = trouserBackPoints(body, style);
   const cb = dense[0];
-  const crotch = backCrotchSeam(b, cb);
+  const joinStart = backCrotchCurve(b).at(-1)!;
   const interior =
-    dense.length >= 2
-      ? cbInteriorAngle(crotch[crotch.length - 2], cb, dense[1])
-      : 0;
+    dense.length >= 2 ? cbInteriorAngle(joinStart, cb, dense[1]) : 0;
   throw new Error(
     `Back waist/crotch corner incoherent on ${context.piece} at depth ` +
-      `${context.depth.toFixed(1)} mm (interior angle ${interior.toFixed(1)}°, ` +
+      `${context.depth.toFixed(1)} mm (${failReason}; interior angle ${interior.toFixed(1)}°, ` +
       `max ${CB_MAX_INTERIOR_ANGLE_DEG}°)`,
   );
 }
@@ -1075,9 +1104,18 @@ export function trouserWaistEdges(
 }
 
 function crotchGuide(corner: Point, a: Point, b: Point, touch: Millimetres): Point {
-  const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-  const u = normalize({ x: mid.x - corner.x, y: mid.y - corner.y });
-  return { x: corner.x + touch * u.x, y: corner.y + touch * u.y };
+  const chord = normalize({ x: b.x - a.x, y: b.y - a.y });
+  let perp = { x: -chord.y, y: chord.x };
+  if (perp.x > 0) {
+    perp = { x: -perp.x, y: -perp.y };
+  }
+  return { x: corner.x + touch * perp.x, y: corner.y + touch * perp.y };
+}
+
+/** Aldrich p47 — 45° bisector at p16 (up-leg 16→19, fork-leg toward −x). */
+function backCrotchGuide(corner: Point, touch: Millimetres): Point {
+  const c = Math.SQRT1_2;
+  return { x: corner.x - touch * c, y: corner.y - touch * c };
 }
 
 function insideLegControl(a: Point, b: Point, bulge: Millimetres = 7.5): Point {
@@ -1179,7 +1217,8 @@ export function trouserBackPoints(
   const p17 = { x: p16.x, y: D };
   const p18 = { x: p16.x, y: 0 };
   const p19 = { x: p16.x, y: R / 2 };
-  const p21 = { x: p18.x + 20, y: -spec.backWaistStep };
+  const p20x = p18.x + spec.backWaistStep;
+  const p21 = { x: p20x, y: -BACK_CB_WAIST_RISE };
   const L = W / 4 + 40;
   const p22 = { x: p21.x + Math.sqrt(L * L - p21.y * p21.y), y: 0 };
   const p23 = { x: f.p9.x - ((H / 16 + 10) / 2 + spec.backCrotchAdd), y: R };
@@ -1191,7 +1230,7 @@ export function trouserBackPoints(
 
   const p27 = { x: f.p13.x + 10, y: kneeY };
   const p29 = { x: f.p15.x - 10, y: kneeY };
-  const guide = crotchGuide(p16, p19, p24, BACK_CROTCH_TOUCH[band]);
+  const guide = backCrotchGuide(p16, BACK_CROTCH_TOUCH[band]);
 
   return { p16, p17, p18, p19, p21, p22, p23, p24, p25, p26, p27, p28, p29, guide };
 }
@@ -1259,9 +1298,13 @@ function trouserKneeY(body: BodyMeasurements): Millimetres {
   return R + (F - R) / 2 - 50;
 }
 
-export function trouserFramePoints(body: BodyMeasurements): FramePoints {
-  const R = body.bodyRise;
-  const D = body.hipDepth;
+export function trouserFramePoints(
+  body: BodyMeasurements,
+  block: TrouserBlock = "classic",
+): FramePoints {
+  const spec = TROUSER_BLOCKS[block];
+  const R = body.bodyRise - spec.riseDrop;
+  const D = body.hipDepth - spec.hipDepthDrop;
   const F = body.waistToFloor;
   const p0 = { x: 0, y: TROUSER_LAYOUT_ANCHOR_Y };
   const p1 = { x: 0, y: R };
@@ -1302,8 +1345,10 @@ export function trouserConstruction(
   body: BodyMeasurements,
   style: TrouserFrontStyle,
 ): PieceConstruction[] {
-  const R = body.bodyRise;
-  const D = body.hipDepth;
+  const spec = trouserBlockSpec(style);
+  const block = style.block ?? "classic";
+  const R = body.bodyRise - spec.riseDrop;
+  const D = body.hipDepth - spec.hipDepthDrop;
   const F = body.waistToFloor;
   const band = sizeBand(body.hip);
   const f = trouserFrontPoints(body, style);
@@ -1322,8 +1367,9 @@ export function trouserConstruction(
       draftLine(backHemCtrl, b.p28, "curveControl"),
     ],
   };
-  const frame = frameConstruction(trouserFramePoints(body));
-  const framePts = Object.values(trouserFramePoints(body));
+  const framePoints = trouserFramePoints(body, block);
+  const frame = frameConstruction(framePoints);
+  const framePts = Object.values(framePoints);
 
   const frontPts = [
     ...framePts,
@@ -1462,6 +1508,7 @@ export function draftTrouserFront(
   const wr = frontWaistResolved(body, style);
 
   const frontGuide = crotchGuide(p5, p6, p9, FRONT_CROTCH_TOUCH[band]);
+  const crotchCurve = frontCrotchCurve(p9, frontGuide, p6);
 
   const insideLegCtrl = insideLegControl(p9, p15);
   const insideLegToFork = quadBezier(p15, insideLegCtrl, p9).slice(1);
@@ -1491,9 +1538,14 @@ export function draftTrouserFront(
       role: "inseam",
     },
     {
-      points: catmullRom([p9, frontGuide, p6, wr.cf]),
+      points: crotchCurve,
       edge: "seam",
       role: "crotch",
+    },
+    {
+      points: [p6, wr.cf],
+      edge: "seam",
+      role: "centre-front",
     },
   ];
 
@@ -1520,7 +1572,7 @@ export function draftTrouserFront(
     {
       kind: "notch",
       at: p6,
-      dir: crotchNotchDir(frontGuide, wr.cf),
+      dir: crotchNotchDir(frontGuide, p6),
       count: 1,
     },
   ];
@@ -1542,6 +1594,7 @@ export function draftTrouserBack(
   const b = trouserBackPoints(body, style);
   const {
     p19,
+    p21,
     p24,
     p25,
     p26,
@@ -1556,7 +1609,7 @@ export function draftTrouserBack(
 
   const insideLegCtrl = insideLegControl(p24, p29, 12.5);
   const backInsideToFork = quadBezier(p29, insideLegCtrl, p24).slice(1);
-  const crotch = catmullRom([p24, guide, p19, wr.cf]);
+  const crotch = backCrotchCurve(b);
   const hipOnCrotch = pointOnPolylineAtY(crotch, b.p17.y);
 
   const facingFinish = isDartedFacingFinish(style);
@@ -1584,6 +1637,7 @@ export function draftTrouserBack(
       role: "inseam",
     },
     { points: crotch, edge: "seam", role: "crotch" },
+    { points: [p21, wr.cf], edge: "seam", role: "centre-back" },
   ];
   const outline = segmentsToOutline(segments);
 
@@ -1739,3 +1793,11 @@ export function trouserHemStep(): ConstructionStep {
     ],
   };
 }
+
+export {
+  verifyAldrichProductionDepth0,
+  formatAldrichReport,
+  ALDRICH_P46_SIZE_12_BODY,
+  ALDRICH_P46_DEPTH0_STYLE,
+} from "@/lib/patterns/aldrichProductionVerify";
+export type { AldrichCheck } from "@/lib/patterns/aldrichProductionVerify";
