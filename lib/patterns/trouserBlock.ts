@@ -25,8 +25,10 @@ import {
 
 export type TrouserBlock = "classic" | "production";
 
+/** Maximum waist drop (mm) — production endpoint; classic is 0. */
+export const WAIST_DROP_MAX: Millimetres = 50;
+
 type TrouserBlockSpec = {
-  waist: "natural" | "low";
   riseDrop: Millimetres;
   hipDepthDrop: Millimetres;
   frontDartLength: Millimetres;
@@ -35,30 +37,32 @@ type TrouserBlockSpec = {
   backDartLengths: [Millimetres, Millimetres];
 };
 
+/**
+ * Block constants interpolated between classic (d=0) and production (d=50).
+ *
+ * Endpoints reproduce Aldrich's classic and production blocks exactly.
+ * Intermediate drops are an interpolation with no external reference — validated
+ * only by toile, not by Aldrich or a hand-draft.
+ */
+function blockSpecForDrop(d: Millimetres): TrouserBlockSpec {
+  const clamped = Math.max(0, Math.min(WAIST_DROP_MAX, d));
+  const s = clamped / WAIST_DROP_MAX;
+  return {
+    riseDrop: clamped,
+    hipDepthDrop: clamped,
+    frontDartLength: 100 - 40 * s,
+    backDartLengths: [120 - 40 * s, 100 - 40 * s],
+    backWaistStep: 20 - 2.5 * s,
+    backCrotchAdd: 8 - 3 * s,
+  };
+}
+
 const TROUSER_BLOCKS: Record<TrouserBlock, TrouserBlockSpec> = {
-  classic: {
-    waist: "natural",
-    riseDrop: 0,
-    hipDepthDrop: 0,
-    frontDartLength: 100,
-    backWaistStep: 20,
-    backCrotchAdd: 8,
-    backDartLengths: [120, 100],
-  },
-  production: {
-    waist: "low",
-    riseDrop: 50,
-    hipDepthDrop: 50,
-    frontDartLength: 60,
-    backWaistStep: 17.5,
-    backCrotchAdd: 5,
-    backDartLengths: [80, 60],
-  },
+  classic: blockSpecForDrop(0),
+  production: blockSpecForDrop(WAIST_DROP_MAX),
 };
-// NOTE: Aldrich p.46 lowers rise and waist-to-hip by 5cm but leaves 0–3 (waist
-// to floor) at the FULL measurement, so the production leg runs to the same
-// floor length. If the first toile comes up ~5cm long in the leg, also subtract
-// 50 from waistToFloor for the production block (add a waistToFloorDrop here).
+// Low-waist vertical origin: R, D, and F all subtract waistDrop (spec.riseDrop).
+// Leg length F−R = waistToFloor−bodyRise is drop-invariant; knee follows from dropped R/F.
 
 export type WaistbandMode = "darted" | "shaped";
 const DART_TAKEUP = 20;
@@ -99,8 +103,10 @@ export function normalizeWaistbandMode(mode?: string): WaistbandMode {
 export function maxYokeDepth(
   body: BodyMeasurements,
   block: TrouserBlock = "classic",
+  waistDrop?: Millimetres,
 ): Millimetres {
-  const hipLine = body.hipDepth - TROUSER_BLOCKS[block].hipDepthDrop;
+  const drop = waistDrop ?? TROUSER_BLOCKS[block].hipDepthDrop;
+  const hipLine = body.hipDepth - drop;
   return Math.max(0, hipLine - YOKE_HIP_MARGIN);
 }
 
@@ -120,13 +126,15 @@ export function maxBackShapedWaistDepth(
   body: BodyMeasurements,
   block: TrouserBlock = "classic",
   bottomWidth: Millimetres = DEFAULT_HEM_WIDTH,
+  waistDrop?: Millimetres,
 ): Millimetres {
   const style: TrouserFrontStyle = {
     bottomWidth,
     block,
     waistbandMode: "shaped",
+    waistDrop,
   };
-  const hipCap = maxYokeDepth(body, block);
+  const hipCap = maxYokeDepth(body, block, waistDrop);
   if (hipCap <= SHAPED_DEPTH_MIN) {
     return SHAPED_DEPTH_MIN;
   }
@@ -153,13 +161,19 @@ export function waistbandDepthRange(
   body: BodyMeasurements,
   block: TrouserBlock = "classic",
   bottomWidth: Millimetres = DEFAULT_HEM_WIDTH,
+  waistDrop?: Millimetres,
 ): { min: Millimetres; max: Millimetres } {
   switch (mode) {
     case "darted":
       return { min: DARTED_DEPTH_MIN, max: DARTED_DEPTH_MAX };
     case "shaped": {
-      const hipCap = maxYokeDepth(body, block);
-      const backCap = maxBackShapedWaistDepth(body, block, bottomWidth);
+      const hipCap = maxYokeDepth(body, block, waistDrop);
+      const backCap = maxBackShapedWaistDepth(
+        body,
+        block,
+        bottomWidth,
+        waistDrop,
+      );
       return { min: SHAPED_DEPTH_MIN, max: Math.min(hipCap, backCap) };
     }
   }
@@ -224,6 +238,46 @@ function resolveDarts(
 export const frontDartLength = (block: TrouserBlock): number =>
   TROUSER_BLOCKS[block].frontDartLength;
 
+/** Resolved waist drop for a style (mm), clamped to [0, WAIST_DROP_MAX]. */
+export function resolveWaistDrop(style: TrouserFrontStyle): Millimetres {
+  const d =
+    style.waistDrop ??
+    (style.block === "production" ? WAIST_DROP_MAX : 0);
+  return Math.max(0, Math.min(WAIST_DROP_MAX, d));
+}
+
+/**
+ * Waist girth W — linear taper from natural waist (d=0) to low waist (d=50).
+ * Assumes a linear waist→low-waist taper over the 5 cm drop (estimate from two girths).
+ */
+function trouserWaistGirth(
+  body: BodyMeasurements,
+  spec: TrouserBlockSpec,
+): Millimetres {
+  return (
+    body.waist +
+    (spec.riseDrop / WAIST_DROP_MAX) * (body.lowWaist - body.waist)
+  );
+}
+
+function trouserBlockSpec(style: TrouserFrontStyle): TrouserBlockSpec {
+  return blockSpecForDrop(resolveWaistDrop(style));
+}
+
+export function trouserDraftMeasures(
+  body: BodyMeasurements,
+  style: TrouserFrontStyle,
+): { W: Millimetres; H: Millimetres; R: Millimetres; D: Millimetres; F: Millimetres } {
+  const spec = trouserBlockSpec(style);
+  return {
+    W: trouserWaistGirth(body, spec),
+    H: body.hip,
+    R: body.bodyRise - spec.riseDrop,
+    D: body.hipDepth - spec.hipDepthDrop,
+    F: body.waistToFloor - spec.riseDrop,
+  };
+}
+
 // Distance from centre front to the sewn front dart, along the finished waist.
 // Dart is centred on point 0; centre front is point 10; the 2 cm dart's take-up
 // (10 mm on the CF side) closes up when sewn. Works out to one-twelfth hip.
@@ -235,28 +289,12 @@ export function frontDartFromCentreFront(
   return -p10.x - 10;
 }
 
-function trouserBlockSpec(style: TrouserFrontStyle): TrouserBlockSpec {
-  return TROUSER_BLOCKS[style.block ?? "classic"];
-}
-
-export function trouserDraftMeasures(
-  body: BodyMeasurements,
-  style: TrouserFrontStyle,
-): { W: Millimetres; H: Millimetres; R: Millimetres; D: Millimetres; F: Millimetres } {
-  const spec = trouserBlockSpec(style);
-  return {
-    W: spec.waist === "low" ? body.lowWaist : body.waist,
-    H: body.hip,
-    R: body.bodyRise - spec.riseDrop,
-    D: body.hipDepth - spec.hipDepthDrop,
-    F: body.waistToFloor,
-  };
-}
-
 export type TrouserFrontStyle = {
   /** Finished hem width of one leg laid flat (= ½ the hem circumference; Aldrich's trouser bottom width). Front piece drafts 10mm narrower, back 10mm wider. */
   bottomWidth: Millimetres;
   block?: TrouserBlock;
+  /** Waist height drop (mm), 0 = classic / natural waist, 50 = production / low waist. */
+  waistDrop?: Millimetres;
   /** Drop the trouser waist by this amount when a waistband is added. */
   waistReduction?: Millimetres;
   /** darted | shaped — shallow faced band vs deep shaped band / yoke. */
@@ -1221,16 +1259,16 @@ export function trouserFrontPoints(
   style: TrouserFrontStyle,
 ): FrontPoints {
   const spec = trouserBlockSpec(style);
-  const W = spec.waist === "low" ? body.lowWaist : body.waist;
+  const W = trouserWaistGirth(body, spec);
   const H = body.hip;
   const R = body.bodyRise - spec.riseDrop;
   const D = body.hipDepth - spec.hipDepthDrop;
-  const F = body.waistToFloor;
+  const F = body.waistToFloor - spec.riseDrop;
   const B = style.bottomWidth;
   const band = sizeBand(H);
   const kneeAdd = KNEE_ADD[band];
 
-  const kneeY = trouserKneeY(body);
+  const kneeY = trouserKneeY(body, spec.riseDrop);
   const fork = forkWidth(H);
 
   const p5 = { x: -fork, y: R };
@@ -1255,10 +1293,11 @@ export function trouserBackPoints(
   style: TrouserFrontStyle,
 ): BackPoints {
   const spec = trouserBlockSpec(style);
-  const W = spec.waist === "low" ? body.lowWaist : body.waist;
+  const W = trouserWaistGirth(body, spec);
   const H = body.hip;
   const R = body.bodyRise - spec.riseDrop;
   const D = body.hipDepth - spec.hipDepthDrop;
+  const F = body.waistToFloor - spec.riseDrop;
   const fork = forkWidth(H);
   const f = trouserFrontPoints(body, style);
 
@@ -1273,8 +1312,8 @@ export function trouserBackPoints(
   const p23 = { x: f.p9.x - ((H / 16 + 10) / 2 + spec.backCrotchAdd), y: R };
   const p24 = { x: p23.x, y: R + 5 };
   const p25 = { x: p17.x + H / 4 + 15, y: D };
-  const p26 = { x: f.p12.x + 10, y: body.waistToFloor };
-  const p28 = { x: f.p14.x - 10, y: body.waistToFloor };
+  const p26 = { x: f.p12.x + 10, y: F };
+  const p28 = { x: f.p14.x - 10, y: F };
   const kneeY = f.p13.y;
 
   const p27 = { x: f.p13.x + 10, y: kneeY };
@@ -1341,25 +1380,26 @@ export type FramePoints = {
 /** Waistline y used to align front and back in the flat layout. */
 export const TROUSER_LAYOUT_ANCHOR_Y = 0;
 
-function trouserKneeY(body: BodyMeasurements): Millimetres {
-  const R = body.bodyRise;
-  const F = body.waistToFloor;
+function trouserKneeY(body: BodyMeasurements, drop: Millimetres = 0): Millimetres {
+  const R = body.bodyRise - drop;
+  const F = body.waistToFloor - drop;
   return R + (F - R) / 2 - 50;
 }
 
 export function trouserFramePoints(
   body: BodyMeasurements,
-  block: TrouserBlock = "classic",
+  style: TrouserFrontStyle,
 ): FramePoints {
-  const spec = TROUSER_BLOCKS[block];
-  const R = body.bodyRise - spec.riseDrop;
+  const spec = trouserBlockSpec(style);
+  const drop = spec.riseDrop;
+  const R = body.bodyRise - drop;
   const D = body.hipDepth - spec.hipDepthDrop;
-  const F = body.waistToFloor;
+  const F = body.waistToFloor - drop;
   const p0 = { x: 0, y: TROUSER_LAYOUT_ANCHOR_Y };
   const p1 = { x: 0, y: R };
   const p2 = { x: 0, y: D };
   const p3 = { x: 0, y: F };
-  const p4 = { x: 0, y: trouserKneeY(body) };
+  const p4 = { x: 0, y: trouserKneeY(body, drop) };
   return { p0, p1, p2, p3, p4 };
 }
 
@@ -1395,10 +1435,10 @@ export function trouserConstruction(
   style: TrouserFrontStyle,
 ): PieceConstruction[] {
   const spec = trouserBlockSpec(style);
-  const block = style.block ?? "classic";
-  const R = body.bodyRise - spec.riseDrop;
+  const drop = spec.riseDrop;
+  const R = body.bodyRise - drop;
   const D = body.hipDepth - spec.hipDepthDrop;
-  const F = body.waistToFloor;
+  const F = body.waistToFloor - drop;
   const f = trouserFrontPoints(body, style);
   const b = trouserBackPoints(body, style);
   const frontGuide = crotchGuide(f.p5, f.p6, f.p9, frontCrotchTouch(body.hip));
@@ -1415,7 +1455,7 @@ export function trouserConstruction(
       draftLine(backHemCtrl, b.p28, "curveControl"),
     ],
   };
-  const framePoints = trouserFramePoints(body, block);
+  const framePoints = trouserFramePoints(body, style);
   const frame = frameConstruction(framePoints);
   const framePts = Object.values(framePoints);
 
@@ -1548,7 +1588,7 @@ export function draftTrouserFront(
 ): PatternPiece {
   const spec = trouserBlockSpec(style);
   const H = body.hip;
-  const F = body.waistToFloor;
+  const F = body.waistToFloor - spec.riseDrop;
   const f = trouserFrontPoints(body, style);
   const { p5, p6, p8, p9, p12, p13, p14, p15 } = f;
   const r = style.waistReduction ?? 0;
@@ -1637,26 +1677,18 @@ export function draftTrouserBack(
   body: BodyMeasurements,
   style: TrouserFrontStyle,
 ): PatternPiece {
-  const F = body.waistToFloor;
-  const b = trouserBackPoints(body, style);
-  const {
-    p19,
-    p21,
-    p24,
-    p25,
-    p26,
-    p27,
-    p28,
-    p29,
-    guide,
-  } = b;
   const spec = trouserBlockSpec(style);
+  const F = body.waistToFloor - spec.riseDrop;
+  const b = trouserBackPoints(body, style);
+  const { p24, p25, p26, p27, p28, p29 } = b;
   const r = style.waistReduction ?? 0;
   const wr = backWaistResolved(body, style);
 
   const insideLegCtrl = insideLegControl(p24, p29, 12.5);
   const backInsideToFork = quadBezier(p29, insideLegCtrl, p24).slice(1);
-  const crotch = backCrotchCurve(b);
+  // Crotch body stops at the hipline join (p19); CB leg runs to the lowered waist.
+  const crotch = backCrotchBelowHip(b);
+  const cbTop = crotch[crotch.length - 1]!;
   const hipOnCrotch = pointOnPolylineAtY(crotch, b.p17.y);
 
   const facingFinish = isDartedFacingFinish(style);
@@ -1684,7 +1716,7 @@ export function draftTrouserBack(
       role: "inseam",
     },
     { points: crotch, edge: "seam", role: "crotch" },
-    { points: [p21, wr.cf], edge: "seam", role: "centre-back" },
+    { points: [cbTop, wr.cf], edge: "seam", role: "centre-back" },
   ];
   const outline = segmentsToOutline(segments);
 

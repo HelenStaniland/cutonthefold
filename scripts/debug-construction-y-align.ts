@@ -27,7 +27,7 @@ const style = withWaistband(
 );
 
 const construction = trouserConstruction(draftBody, style);
-const frame = trouserFramePoints(draftBody, "production");
+const frame = trouserFramePoints(draftBody, style);
 
 const frontConstr = mirrorConstructionX(
   construction.find((c) => c.pieceName === "Trouser front")!,

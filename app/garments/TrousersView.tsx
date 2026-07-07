@@ -18,6 +18,7 @@ import {
   maxYokeDepth,
   maxBackShapedWaistDepth,
   waistbandDepthRange,
+  WAIST_DROP_MAX,
   DARTED_DEPTH_MIN,
   DARTED_DEPTH_MAX,
   trouserFacingSteps,
@@ -83,28 +84,42 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
   const [dartedBandDepth, setDartedBandDepth] = useState(25);
   const [zipLength, setZipLength] = useState(180);
   const [ease, setEase] = useState<Ease>(() => easeForFit(DEFAULT_FIT)!);
+  const [waistDrop, setWaistDrop] = useState(
+    block === "production" ? WAIST_DROP_MAX : 0,
+  );
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<PatternViewMode>("pattern");
   const [showSeamAllowance, setShowSeamAllowance] = useState(true);
   const [includeConstructionOverlay, setIncludeConstructionOverlay] =
     useState(false);
 
-  const style: TrouserFrontStyle = { bottomWidth: legBottomWidth, block };
+  const style: TrouserFrontStyle = {
+    bottomWidth: legBottomWidth,
+    block,
+    waistDrop,
+  };
   const activeFit = fitForEase(ease);
   const draftBody = applyEase(body, ease);
-  const yokeDepthMax = maxYokeDepth(draftBody, block);
-  const backShapedCap = maxBackShapedWaistDepth(draftBody, block, legBottomWidth);
+  const yokeDepthMax = maxYokeDepth(draftBody, block, waistDrop);
+  const backShapedCap = maxBackShapedWaistDepth(
+    draftBody,
+    block,
+    legBottomWidth,
+    waistDrop,
+  );
   const depthRange = waistbandDepthRange(
     waistbandMode,
     draftBody,
     block,
     legBottomWidth,
+    waistDrop,
   );
   const dartedBandRange = waistbandDepthRange(
     "darted",
     draftBody,
     block,
     legBottomWidth,
+    waistDrop,
   );
   const shapedLimitedByBack =
     waistbandMode === "shaped" && backShapedCap < yokeDepthMax;
@@ -141,6 +156,7 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
         draftBody,
         block,
         legBottomWidth,
+        waistDrop,
       );
       setWaistbandDepth((depth) =>
         depth === 0
@@ -216,16 +232,25 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
   const construction = validation.valid ? trouserConstruction(draftBody, tstyle) : [];
   const pattern = withSeamAllowance(net, DEFAULT_SEAM_ALLOWANCE);
   const patternSpec = useMemo<PatternSpec>(
-    () => ({
-      blockName:
-        block === "production" ? "Production trouser block" : "Classic trouser block",
-      sizeLabel: sizeCode === "custom" ? "Custom" : `Size ${sizeCode}`,
-      fitName: activeFit,
-      body,
-      ease,
-      hemWidth: legBottomWidth,
-    }),
-    [block, sizeCode, activeFit, body, ease, legBottomWidth],
+    () => {
+      const baseLabel =
+        block === "production"
+          ? "Production trouser block"
+          : "Classic trouser block";
+      const blockDefaultDrop = block === "production" ? WAIST_DROP_MAX : 0;
+      return {
+        blockName:
+          waistDrop !== blockDefaultDrop
+            ? `${baseLabel} (waist drop ${waistDrop} mm)`
+            : baseLabel,
+        sizeLabel: sizeCode === "custom" ? "Custom" : `Size ${sizeCode}`,
+        fitName: activeFit,
+        body,
+        ease,
+        hemWidth: legBottomWidth,
+      };
+    },
+    [block, sizeCode, activeFit, body, ease, legBottomWidth, waistDrop],
   );
   const displayPattern =
     viewMode === "pattern" && showSeamAllowance ? pattern : net;
@@ -459,6 +484,28 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                 <span className={styles.rangeValue}>{ease.waist} mm</span>
               </div>
             </div>
+            <div className={styles.field}>
+              <label className={styles.fieldLabel} htmlFor="waist-drop">
+                Waist drop
+              </label>
+              <span className={styles.fieldHint}>
+                Lowers the finished waist from the natural waistline (0) to the
+                low waistline (50 mm). Rise, girth and darts follow.
+              </span>
+              <div className={styles.rangeRow}>
+                <input
+                  id="waist-drop"
+                  type="range"
+                  className={styles.rangeInput}
+                  min={0}
+                  max={WAIST_DROP_MAX}
+                  step={5}
+                  value={waistDrop}
+                  onChange={(e) => setWaistDrop(Number(e.target.value))}
+                />
+                <span className={styles.rangeValue}>{waistDrop} mm</span>
+              </div>
+            </div>
           </section>
 
           <section className={styles.section}>
@@ -626,6 +673,7 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                         draftBody,
                         block,
                         legBottomWidth,
+                        waistDrop,
                       );
                       setWaistbandDepth(
                         Math.max(range.min, Math.min(range.max, v)),

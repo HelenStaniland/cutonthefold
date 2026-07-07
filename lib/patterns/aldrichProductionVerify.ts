@@ -106,51 +106,38 @@ export function verifyAldrichProductionDepth0(options?: {
 }): AldrichCheck[] {
   const body = ALDRICH_P46_SIZE_12_BODY;
   const style = ALDRICH_P46_DEPTH0_STYLE;
+  const drop = 50;
   const H = body.hip;
   const W = body.lowWaist;
-  const R = body.bodyRise - 50;
-  const D = body.hipDepth - 50;
-  const F = body.waistToFloor;
+  const R = body.bodyRise - drop;
+  const D = body.hipDepth - drop;
+  const F = body.waistToFloor - drop;
   const fork = H / 12 + 20;
   const kneeAdd = 13;
 
-  const frame = trouserFramePoints(body, "production");
+  const frame = trouserFramePoints(body, style);
   const f = trouserFrontPoints(body, style);
   const b = trouserBackPoints(body, style);
   const front = draftTrouserFront(body, style);
   const back = draftTrouserBack(body, style);
   draftTrousers(body, style);
 
-  const kneeYCode =
-    body.bodyRise + (body.waistToFloor - body.bodyRise) / 2 - 50;
-  const kneeYAldrichDropped =
-    R + (F - R) / 2 - 50; // point 1 + half(1–3) − 50
+  const kneeYExpected = R + (F - R) / 2 - 50;
 
   const p20x = b.p18.x + 17.5;
   const L = W / 4 + 40;
 
   const checks: AldrichCheck[] = [];
 
-  // --- Frame (production drops on 0–1 and 0–2 only) ---
+  // --- Frame (production drops R, D, F from low-waist origin) ---
   checks.push(check("0–1 crutch depth y (p1)", frame.p1.y, R));
   checks.push(check("0–2 hipline y (p2)", frame.p2.y, D));
   checks.push(check("0–3 floor y (p3)", frame.p3.y, F));
   checks.push(
     check(
-      "1–4 knee y (code: full bodyRise)",
+      "1–4 knee y (half(1–3)−50 on dropped frame)",
       frame.p4.y,
-      kneeYCode,
-      false,
-      "Uses full bodyRise 280, not dropped 230",
-    ),
-  );
-  checks.push(
-    check(
-      "1–4 knee y (Aldrich: half(1–3)−50 on dropped frame)",
-      frame.p4.y,
-      kneeYAldrichDropped,
-      false,
-      "Intentional? frame p1 uses dropped R; knee formula uses full rise",
+      kneeYExpected,
     ),
   );
 
@@ -178,8 +165,8 @@ export function verifyAldrichProductionDepth0(options?: {
       kneeAdd,
     ),
   );
-  checks.push(check("4–13 knee line y", f.p13.y, kneeYCode));
-  checks.push(check("4–15 knee line y", f.p15.y, kneeYCode));
+  checks.push(check("4–13 knee line y", f.p13.y, kneeYExpected));
+  checks.push(check("4–15 knee line y", f.p15.y, kneeYExpected));
 
   const frontTouch = frontCrotchTouch(H);
   const frontGuide = (() => {

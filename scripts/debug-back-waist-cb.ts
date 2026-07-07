@@ -99,7 +99,7 @@ function report(block: "classic" | "production", depth: number) {
   const constr = trouserConstruction(body, style).find(
     (c) => c.pieceName === "Trouser back",
   )!;
-  const frame = trouserFramePoints(body, block);
+  const frame = trouserFramePoints(body, style);
   const nearCb = constr.lines.filter((line) => {
     const pts = [line.from, line.to];
     return pts.some(
