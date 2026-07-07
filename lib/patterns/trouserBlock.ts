@@ -324,26 +324,89 @@ export function sizeBand(hip: Millimetres): SizeBand {
   return "22-26";
 }
 
-const FRONT_CROTCH_TOUCH: Record<SizeBand, Millimetres> = {
-  "6-8": 27.5,
-  "10-14": 30,
-  "16-20": 32.5,
-  "22-26": 35,
-};
-
-const BACK_CROTCH_TOUCH: Record<SizeBand, Millimetres> = {
-  "6-8": 40,
-  "10-14": 42.5,
-  "16-20": 45,
-  "22-26": 47.5,
-};
-
 const KNEE_ADD: Record<SizeBand, Millimetres> = {
   "6-8": 13,
   "10-14": 13,
   "16-20": 15,
   "22-26": 17,
 };
+
+/**
+ * Fashion-garment chart (book p.10) hips by size, cm — the chart Aldrich drafts
+ * the production block from (p.46: "A size 12 from the size chart on page 10").
+ * Sizes 6–16 are tabulated; 18–26 continue the chart's own +4 cm-per-size pattern.
+ */
+const FASHION_CHART_HIP_CM: Record<number, number> = {
+  6: 82,
+  8: 86,
+  10: 90,
+  12: 94,
+  14: 98,
+  16: 102,
+  18: 106,
+  20: 110,
+  22: 114,
+  24: 118,
+  26: 122,
+};
+
+/**
+ * Aldrich p.46 crotch-touch bands. Front is measured from point 5, back from
+ * point 16. Back − front is exactly 12.5 mm at every band, so back is derived
+ * from the front fit (see BACK_FRONT_TOUCH_OFFSET_MM), not fitted separately.
+ */
+const CROTCH_TOUCH_BANDS: { sizes: number[]; frontCm: number }[] = [
+  { sizes: [6, 8], frontCm: 2.75 },
+  { sizes: [10, 12, 14], frontCm: 3.0 },
+  { sizes: [16, 18, 20], frontCm: 3.25 },
+  { sizes: [22, 24, 26], frontCm: 3.5 },
+];
+
+/** Back touch = front touch + this. Exact at all four Aldrich bands. */
+const BACK_FRONT_TOUCH_OFFSET_MM: Millimetres = 12.5;
+
+function linearFit(points: { x: number; y: number }[]): {
+  slope: number;
+  intercept: number;
+} {
+  const n = points.length;
+  const xMean = points.reduce((s, p) => s + p.x, 0) / n;
+  const yMean = points.reduce((s, p) => s + p.y, 0) / n;
+  const num = points.reduce((s, p) => s + (p.x - xMean) * (p.y - yMean), 0);
+  const den = points.reduce((s, p) => s + (p.x - xMean) ** 2, 0);
+  const slope = num / den;
+  return { slope, intercept: yMean - slope * xMean };
+}
+
+/**
+ * Least-squares line through 11 (fashion-chart hip, Aldrich band touch) points.
+ *
+ * The four Aldrich front bands step +2.5 mm each (27.5 / 30 / 32.5 / 35 mm) but are
+ * not collinear in hip: the 6–8 band spans two sizes while the other three span three,
+ * so band centres step 10 / 12 / 12 cm against a constant +2.5 mm. No straight line
+ * can sit on all four bands. This fit is centre-anchored: it reproduces the textbook
+ * size-12 example almost exactly (hip 940 → ≈30.0 mm) but reads high at band tops
+ * (+0.727 mm at hip 1100) and low at band bottoms. That skew is intended, not drift.
+ * Do not re-anchor to hit a band top — that would move the textbook point off 30.0.
+ */
+const FRONT_TOUCH_FIT = linearFit(
+  CROTCH_TOUCH_BANDS.flatMap((b) =>
+    b.sizes.map((s) => ({
+      x: FASHION_CHART_HIP_CM[s] * 10,
+      y: b.frontCm * 10,
+    })),
+  ),
+);
+
+/** Front crotch-curve touch distance from point 5, continuous in hip (Aldrich p.46). */
+export function frontCrotchTouch(hip: Millimetres): Millimetres {
+  return FRONT_TOUCH_FIT.slope * hip + FRONT_TOUCH_FIT.intercept;
+}
+
+/** Back crotch-curve touch distance from point 16, continuous in hip (Aldrich p.46). */
+export function backCrotchTouch(hip: Millimetres): Millimetres {
+  return frontCrotchTouch(hip) + BACK_FRONT_TOUCH_OFFSET_MM;
+}
 
 const forkWidth = (H: number) => H / 12 + 20;
 
@@ -486,16 +549,11 @@ function waistArcWalk(
  *    • t = 0 (CF/CB): arc-walk cfEdge by full depth r from cfWaist; y from cfEnd + §2a scoop.
  *    • t = 1 (side): arc-walk sideEdge by full depth r from sideWaist; y from sideEased (no scoop).
  *
- * 2. INTERIOR (body-following; not a chord between the two endpoints)
- *    Partial arc-walks on the real body edges, distances tied to t:
- *      cfDist(t)   = r · (1 − t)   → r at CF, 0 at side
- *      sideDist(t) = r · t         → 0 at CF, r at side
- *    cfPt(t)   = arc-walk(cfEdge,   cfWaist,   cfDist)
- *    sidePt(t) = arc-walk(sideEdge, sideWaist, sideDist)
- *                 with sideShift ramped: x − sideShift · t  (full ease only at t = 1)
- *    Coons blend between the two body legs:
- *      base(t) = (1 − t) · cfPt(t) + t · sidePt(t)
- *    At t = 0 this collapses to cfEnd; at t = 1 to sideEased.
+ * 2. INTERIOR (chord between full-depth corners plus §2a scoop)
+ *    No body edge runs CF→side on the waist; the interior is the straight chord
+ *    between cfEnd and sideEased (the r = 0 construction lowered by r), plus scoop.
+ *    sideEased already includes full sideShift at the side seam; blending u · sideEased
+ *    ramps ease linearly 0 → full as u: 0 → 1.
  *
  * 3. §2a SCOOP (fixed shallow term, centre-heavy)
  *    y blends arc-walked body heights, plus centreScoopSign · scoopDepth · waistlineScoopFactor(t).
@@ -540,17 +598,9 @@ function waistPoint(spec: WaistCurveSpec, t: number): Point {
     return { x, y };
   }
 
-  const cfDist = r * (1 - u);
-  const sideDist = r * u;
-  const cfPt = waistArcWalk(cfEdge, cfWaist, cfDist);
-  const sidePtRaw = waistArcWalk(sideEdge, sideWaist, sideDist);
-  const sidePt: Point = {
-    x: sidePtRaw.x - sideShift * u,
-    y: sidePtRaw.y,
-  };
-
-  const x = (1 - u) * cfPt.x + u * sidePt.x;
-  const y = (1 - u) * cfPt.y + u * sidePt.y + scoopTerm;
+  // Interior chord between full-depth corners — see doc above.
+  const x = (1 - u) * cfEnd.x + u * sideEased.x;
+  const y = (1 - u) * cfEnd.y + u * sideEased.y + scoopTerm;
   return { x, y };
 }
 
@@ -1210,7 +1260,6 @@ export function trouserBackPoints(
   const R = body.bodyRise - spec.riseDrop;
   const D = body.hipDepth - spec.hipDepthDrop;
   const fork = forkWidth(H);
-  const band = sizeBand(H);
   const f = trouserFrontPoints(body, style);
 
   const p16 = { x: -fork + fork / 4, y: R };
@@ -1230,7 +1279,7 @@ export function trouserBackPoints(
 
   const p27 = { x: f.p13.x + 10, y: kneeY };
   const p29 = { x: f.p15.x - 10, y: kneeY };
-  const guide = backCrotchGuide(p16, BACK_CROTCH_TOUCH[band]);
+  const guide = backCrotchGuide(p16, backCrotchTouch(H));
 
   return { p16, p17, p18, p19, p21, p22, p23, p24, p25, p26, p27, p28, p29, guide };
 }
@@ -1350,10 +1399,9 @@ export function trouserConstruction(
   const R = body.bodyRise - spec.riseDrop;
   const D = body.hipDepth - spec.hipDepthDrop;
   const F = body.waistToFloor;
-  const band = sizeBand(body.hip);
   const f = trouserFrontPoints(body, style);
   const b = trouserBackPoints(body, style);
-  const frontGuide = crotchGuide(f.p5, f.p6, f.p9, FRONT_CROTCH_TOUCH[band]);
+  const frontGuide = crotchGuide(f.p5, f.p6, f.p9, frontCrotchTouch(body.hip));
   const frontInsideLegCtrl = insideLegCurveControls(f.p9, f.p15, 7.5, "inseamCtrl");
   const frontCrotchControls = crotchCurveControls(frontGuide);
 
@@ -1501,13 +1549,12 @@ export function draftTrouserFront(
   const spec = trouserBlockSpec(style);
   const H = body.hip;
   const F = body.waistToFloor;
-  const band = sizeBand(H);
   const f = trouserFrontPoints(body, style);
   const { p5, p6, p8, p9, p12, p13, p14, p15 } = f;
   const r = style.waistReduction ?? 0;
   const wr = frontWaistResolved(body, style);
 
-  const frontGuide = crotchGuide(p5, p6, p9, FRONT_CROTCH_TOUCH[band]);
+  const frontGuide = crotchGuide(p5, p6, p9, frontCrotchTouch(H));
   const crotchCurve = frontCrotchCurve(p9, frontGuide, p6);
 
   const insideLegCtrl = insideLegControl(p9, p15);
@@ -1796,6 +1843,8 @@ export function trouserHemStep(): ConstructionStep {
 
 export {
   verifyAldrichProductionDepth0,
+  verifyCrotchTouchFormula,
+  verifyFrontWaistSeamBow,
   formatAldrichReport,
   ALDRICH_P46_SIZE_12_BODY,
   ALDRICH_P46_DEPTH0_STYLE,

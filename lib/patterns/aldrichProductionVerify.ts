@@ -2,16 +2,20 @@
  * Aldrich p46–47 point-by-point checks for production block, depth 0 (darted).
  * Run: npx tsx scripts/verify-aldrich-production-depth0.ts
  */
-import type { BodyMeasurements, Point } from "@/lib/types/measurements";
+import type { BodyMeasurements, Millimetres, Point } from "@/lib/types/measurements";
 import { catmullRom } from "@/lib/geometry/curves";
 import {
+  backCrotchTouch,
   draftTrouserBack,
   draftTrouserFront,
   draftTrousers,
+  frontCrotchTouch,
   isDartedFacingFinish,
   trouserBackPoints,
   trouserFramePoints,
   trouserFrontPoints,
+  withWaistband,
+  WAISTLINE_CURVE_FRONT,
   type TrouserFrontStyle,
 } from "@/lib/patterns/trouserBlock";
 
@@ -61,12 +65,13 @@ function check(
   expected: number,
   critical = true,
   note?: string,
+  eps = EPS,
 ): AldrichCheck {
   return {
     id,
     computed: fmt(computed),
     expected: fmt(expected),
-    pass: close(computed, expected),
+    pass: close(computed, expected, eps),
     critical,
     note,
   };
@@ -176,16 +181,17 @@ export function verifyAldrichProductionDepth0(options?: {
   checks.push(check("4–13 knee line y", f.p13.y, kneeYCode));
   checks.push(check("4–15 knee line y", f.p15.y, kneeYCode));
 
+  const frontTouch = frontCrotchTouch(H);
   const frontGuide = (() => {
     const chord = { x: f.p9.x - f.p6.x, y: f.p9.y - f.p6.y };
     const len = Math.hypot(chord.x, chord.y);
     const u = { x: chord.x / len, y: chord.y / len };
     let perp = { x: -u.y, y: u.x };
     if (perp.x > 0) perp = { x: -perp.x, y: -perp.y };
-    return { x: f.p5.x + 30 * perp.x, y: f.p5.y + 30 * perp.y };
+    return { x: f.p5.x + frontTouch * perp.x, y: f.p5.y + frontTouch * perp.y };
   })();
   checks.push(
-    check("front crotch touch from 5", dist(f.p5, frontGuide), 30),
+    check("front crotch touch from 5", dist(f.p5, frontGuide), frontTouch),
   );
 
   // --- Back ---
@@ -216,7 +222,7 @@ export function verifyAldrichProductionDepth0(options?: {
   );
   checks.push(check("23–24 down", b.p24.y - b.p23.y, 5));
   checks.push(
-    check("back crotch touch from 16", dist(b.p16, b.guide), 42.5),
+    check("back crotch touch from 16", dist(b.p16, b.guide), backCrotchTouch(H)),
   );
   {
     const gv = { x: b.guide.x - b.p16.x, y: b.guide.y - b.p16.y };
@@ -390,6 +396,235 @@ export function verifyAldrichProductionDepth0(options?: {
       );
       throw new Error(
         `Aldrich production depth-0 verification failed (${failed.length} critical):\n${lines.join("\n")}`,
+      );
+    }
+  }
+
+  return checks;
+}
+
+/** Regression checks for continuous crotch-touch formula (Aldrich p.46 + fashion chart p.10). */
+export function verifyCrotchTouchFormula(options?: {
+  assert?: boolean;
+}): AldrichCheck[] {
+  /** Textbook size-12 anchor (hip 940 mm) — fit must stay on Aldrich's 30.0 mm example. */
+  const CROTCH_TOUCH_TEXTBOOK_ANCHOR_EPS_MM = 0.1;
+  /** Max |residual| at any named size — catches whole-band or chart errors. */
+  const CROTCH_TOUCH_BAND_RESIDUAL_MAX_MM = 1.2;
+
+  const FASHION_CHART_HIP_CM: Record<number, number> = {
+    6: 82,
+    8: 86,
+    10: 90,
+    12: 94,
+    14: 98,
+    16: 102,
+    18: 106,
+    20: 110,
+    22: 114,
+    24: 118,
+    26: 122,
+  };
+  const CROTCH_TOUCH_BANDS: { sizes: number[]; frontCm: number }[] = [
+    { sizes: [6, 8], frontCm: 2.75 },
+    { sizes: [10, 12, 14], frontCm: 3.0 },
+    { sizes: [16, 18, 20], frontCm: 3.25 },
+    { sizes: [22, 24, 26], frontCm: 3.5 },
+  ];
+
+  const checks: AldrichCheck[] = [];
+
+  checks.push(
+    check(
+      "textbook anchor frontTouch(940)",
+      frontCrotchTouch(940),
+      30.0,
+      true,
+      "size-12 reference",
+      CROTCH_TOUCH_TEXTBOOK_ANCHOR_EPS_MM,
+    ),
+  );
+
+  for (const band of CROTCH_TOUCH_BANDS) {
+    const aldrichFront = band.frontCm * 10;
+    const aldrichBack = aldrichFront + 12.5;
+    for (const size of band.sizes) {
+      const hip = FASHION_CHART_HIP_CM[size] * 10;
+      const front = frontCrotchTouch(hip);
+      const back = backCrotchTouch(hip);
+      checks.push(
+        checkBool(
+          `touch size ${size} front`,
+          Math.abs(front - aldrichFront) <= CROTCH_TOUCH_BAND_RESIDUAL_MAX_MM,
+          fmt(front),
+          `${fmt(aldrichFront)} ±${CROTCH_TOUCH_BAND_RESIDUAL_MAX_MM}`,
+        ),
+      );
+      checks.push(
+        checkBool(
+          `touch size ${size} back`,
+          Math.abs(back - aldrichBack) <= CROTCH_TOUCH_BAND_RESIDUAL_MAX_MM,
+          fmt(back),
+          `${fmt(aldrichBack)} ±${CROTCH_TOUCH_BAND_RESIDUAL_MAX_MM}`,
+        ),
+      );
+    }
+  }
+
+  checks.push(
+    check(
+      "frontTouch(1020)",
+      frontCrotchTouch(1020),
+      31.591,
+      true,
+      "slope/intercept pin",
+      0.01,
+    ),
+  );
+  checks.push(
+    check(
+      "frontTouch(820)",
+      frontCrotchTouch(820),
+      27.5,
+      true,
+      "slope/intercept pin",
+      0.01,
+    ),
+  );
+
+  for (const h of [820, 900, 940, 1100, 1220]) {
+    const delta = backCrotchTouch(h) - frontCrotchTouch(h);
+    checks.push(
+      checkBool(
+        `back−front offset at ${h}`,
+        Math.abs(delta - 12.5) < 0.001,
+        fmt(delta),
+        "12.5",
+      ),
+    );
+  }
+
+  let monotonic = true;
+  for (let h = 820; h < 1220; h += 10) {
+    if (frontCrotchTouch(h + 10) <= frontCrotchTouch(h) + 1e-9) {
+      monotonic = false;
+      break;
+    }
+  }
+  checks.push(
+    checkBool("frontTouch monotonic in hip", monotonic, String(monotonic), "true"),
+  );
+
+  checks.push(
+    check(
+      "frontTouch(1100)",
+      frontCrotchTouch(1100),
+      33.227,
+      true,
+      "owner hip (band-top residual +0.727 mm)",
+      0.01,
+    ),
+  );
+  checks.push(
+    check(
+      "backTouch(1100)",
+      backCrotchTouch(1100),
+      45.727,
+      true,
+      "owner hip",
+      0.01,
+    ),
+  );
+
+  if (options?.assert) {
+    const failed = checks.filter((c) => c.critical && !c.pass);
+    if (failed.length > 0) {
+      const lines = failed.map(
+        (c) =>
+          `  ${c.id}: got ${c.computed}, expected ${c.expected}${c.note ? ` (${c.note})` : ""}`,
+      );
+      throw new Error(
+        `Crotch-touch formula verification failed (${failed.length} critical):\n${lines.join("\n")}`,
+      );
+    }
+  }
+
+  return checks;
+}
+
+function waistlineScoopFactor(t: number): number {
+  const c = Math.cos((t * Math.PI) / 2);
+  return c * c;
+}
+
+/** Max upward bow of the body chord (§2a scoop stripped) above CF–side endpoints. */
+function maxFrontWaistUpwardBowMm(
+  waistPts: Point[],
+  scoopDepth: Millimetres,
+): number {
+  const unscoopedY = (y: number, u: number) =>
+    y - scoopDepth * waistlineScoopFactor(u);
+  const cfY = unscoopedY(waistPts[0]!.y, 0);
+  const sideY = waistPts[waistPts.length - 1]!.y;
+  let maxBow = 0;
+  for (let i = 1; i < waistPts.length - 1; i++) {
+    const u = i / (waistPts.length - 1);
+    const p = waistPts[i]!;
+    const chordY = (1 - u) * cfY + u * sideY;
+    maxBow = Math.max(maxBow, chordY - unscoopedY(p.y, u));
+  }
+  return maxBow;
+}
+
+/** Front waist seam must not arch convex above the endpoint chord at shaped depth. */
+export function verifyFrontWaistSeamBow(options?: {
+  assert?: boolean;
+}): AldrichCheck[] {
+  /** Convex-upward bow tolerance vs CF–side chord (mm). */
+  const FRONT_WAIST_MAX_UPWARD_BOW_MM = 1.0;
+
+  const body = ALDRICH_P46_SIZE_12_BODY;
+  const checks: AldrichCheck[] = [];
+
+  for (const requested of [0, 30, 60, 90] as const) {
+    const mode = requested === 0 ? "darted" : "shaped";
+    const style = withWaistband(
+      {
+        block: "production",
+        bottomWidth: 220,
+        waistbandMode: mode,
+      },
+      requested,
+      mode,
+      body,
+    );
+    const r = style.waistReduction ?? 0;
+    const piece = draftTrouserFront(body, style);
+    const waist = piece.outline
+      .filter((o) => o.role === "waist")
+      .map((o) => o.at);
+    const maxBow = maxFrontWaistUpwardBowMm(waist, WAISTLINE_CURVE_FRONT);
+    checks.push(
+      checkBool(
+        `front waist upward bow r=${r}`,
+        maxBow <= FRONT_WAIST_MAX_UPWARD_BOW_MM,
+        fmt(maxBow),
+        `≤${FRONT_WAIST_MAX_UPWARD_BOW_MM}`,
+        true,
+        "interior chord between full-depth corners",
+      ),
+    );
+  }
+
+  if (options?.assert) {
+    const failed = checks.filter((c) => c.critical && !c.pass);
+    if (failed.length > 0) {
+      const lines = failed.map(
+        (c) =>
+          `  ${c.id}: got ${c.computed}, expected ${c.expected}${c.note ? ` (${c.note})` : ""}`,
+      );
+      throw new Error(
+        `Front waist seam bow verification failed (${failed.length} critical):\n${lines.join("\n")}`,
       );
     }
   }
