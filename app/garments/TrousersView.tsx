@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useMeasurements } from "@/app/measurements-context";
+import { useStyle } from "@/app/style-context";
 import {
   draftTrousers,
   type TrouserBlock,
@@ -21,6 +22,14 @@ import {
   WAIST_DROP_MAX,
   DARTED_DEPTH_MIN,
   DARTED_DEPTH_MAX,
+  CROTCH_EXTENSION_SCALE_MIN,
+  CROTCH_EXTENSION_SCALE_MAX,
+  CROTCH_ARRIVAL_ANGLE_MIN,
+  CROTCH_ARRIVAL_ANGLE_MAX,
+  CROTCH_STRAIGHT_RUN_MIN,
+  resolveCrotchStraightRun,
+  WAISTLINE_CURVE_FRONT_MIN,
+  WAISTLINE_CURVE_FRONT_MAX,
   trouserFacingSteps,
 } from "@/lib/patterns/trouserBlock";
 import { draftWaistband } from "@/lib/elements/waistband";
@@ -29,7 +38,6 @@ import { downloadPattern } from "@/lib/export/pdf";
 import { downloadInstructions } from "@/lib/export/instructions";
 import { notchSegments } from "@/lib/pattern/markingGeometry";
 import {
-  DEFAULT_FIT,
   easeForFit,
   fitForEase,
   FIT_PRESETS,
@@ -51,7 +59,7 @@ import { referenceGridLines } from "@/lib/render/referenceGrid";
 import { svgCoord, svgLineProps, svgPolygonPoints } from "@/lib/render/svgCoords";
 import styles from "@/app/shell.module.css";
 import type { DraftingLineKind } from "@/lib/types/measurements";
-import { applyEase, cutLabel, type ConstructionStep, type Ease, type PatternSpec } from "@/lib/types/measurements";
+import { applyEase, cutLabel, type ConstructionStep, type PatternSpec } from "@/lib/types/measurements";
 
 type PatternViewMode = "pattern" | "construction";
 
@@ -67,8 +75,6 @@ const DRAFT_LINE_ORDER: DraftingLineKind[] = [
   "curveControl",
 ];
 
-type DartedWaistFinish = "facing" | "waistband";
-
 type TrousersViewProps = {
   block: TrouserBlock;
   title: string;
@@ -76,14 +82,31 @@ type TrousersViewProps = {
 
 export default function TrousersView({ block, title }: TrousersViewProps) {
   const { body, sizeCode } = useMeasurements();
-  const [legBottomWidth, setLegBottomWidth] = useState(220);
-  const [waistbandDepth, setWaistbandDepth] = useState(40);
-  const [waistbandMode, setWaistbandMode] = useState<WaistbandMode>("shaped");
-  const [dartedWaistFinish, setDartedWaistFinish] =
-    useState<DartedWaistFinish>("waistband");
-  const [dartedBandDepth, setDartedBandDepth] = useState(25);
-  const [zipLength, setZipLength] = useState(180);
-  const [ease, setEase] = useState<Ease>(() => easeForFit(DEFAULT_FIT)!);
+  const {
+    legBottomWidth,
+    setLegBottomWidth,
+    waistbandDepth,
+    setWaistbandDepth,
+    waistbandMode,
+    setWaistbandMode,
+    dartedWaistFinish,
+    setDartedWaistFinish,
+    dartedBandDepth,
+    setDartedBandDepth,
+    zipLength,
+    setZipLength,
+    ease,
+    setEase,
+    crotchExtensionScale,
+    setCrotchExtensionScale,
+    crotchStraightRun,
+    setCrotchStraightRun,
+    crotchArrivalAngle,
+    setCrotchArrivalAngle,
+    waistlineCurveFront,
+    setWaistlineCurveFront,
+  } = useStyle();
+  // Per-block default — resets on classic ↔ production switch (intentional).
   const [waistDrop, setWaistDrop] = useState(
     block === "production" ? WAIST_DROP_MAX : 0,
   );
@@ -97,9 +120,26 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
     bottomWidth: legBottomWidth,
     block,
     waistDrop,
+    crotchExtensionScale,
+    crotchStraightRun: crotchStraightRun ?? undefined,
+    crotchArrivalAngle,
+    waistlineCurveFront,
   };
   const activeFit = fitForEase(ease);
   const draftBody = applyEase(body, ease);
+  // Match trouserBlockSpec: riseDrop = hipDepthDrop = waistDrop (clamped).
+  const riseDrop = Math.max(0, Math.min(WAIST_DROP_MAX, waistDrop));
+  const draftR = draftBody.bodyRise - riseDrop;
+  const draftD = draftBody.hipDepth - riseDrop;
+  // p10.y is the CF top construction line (always 0 in the block frame).
+  const p10y = 0;
+  const straightRun = resolveCrotchStraightRun(
+    style,
+    draftR,
+    draftD,
+    p10y,
+  );
+  const straightRunMax = Math.max(CROTCH_STRAIGHT_RUN_MIN, draftR - p10y - 20);
   const yokeDepthMax = maxYokeDepth(draftBody, block, waistDrop);
   const backShapedCap = maxBackShapedWaistDepth(
     draftBody,
@@ -504,6 +544,108 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                   onChange={(e) => setWaistDrop(Number(e.target.value))}
                 />
                 <span className={styles.rangeValue}>{waistDrop} mm</span>
+              </div>
+            </div>
+            <div className={styles.field}>
+              <label className={styles.fieldLabel} htmlFor="crotch-extension">
+                Crotch extension
+              </label>
+              <span className={styles.fieldHint}>
+                Aldrich (1.0) to a narrower, Izzy-like crotch (0.5). Lower = less
+                fabric between the legs.
+              </span>
+              <div className={styles.rangeRow}>
+                <input
+                  id="crotch-extension"
+                  type="range"
+                  className={styles.rangeInput}
+                  min={CROTCH_EXTENSION_SCALE_MIN}
+                  max={CROTCH_EXTENSION_SCALE_MAX}
+                  step={0.05}
+                  value={crotchExtensionScale}
+                  onChange={(e) =>
+                    setCrotchExtensionScale(Number(e.target.value))
+                  }
+                />
+                <span className={styles.rangeValue}>
+                  {crotchExtensionScale.toFixed(2)}
+                </span>
+              </div>
+            </div>
+            <div className={styles.field}>
+              <label className={styles.fieldLabel} htmlFor="crotch-straight-run">
+                Straight CF before curve
+              </label>
+              <span className={styles.fieldHint}>
+                How much of the centre front is straight before the crotch curve
+                begins. 0 = curved all the way from the waist.
+              </span>
+              <div className={styles.rangeRow}>
+                <input
+                  id="crotch-straight-run"
+                  type="range"
+                  className={styles.rangeInput}
+                  min={CROTCH_STRAIGHT_RUN_MIN}
+                  max={straightRunMax}
+                  step={5}
+                  value={straightRun}
+                  onChange={(e) =>
+                    setCrotchStraightRun(Number(e.target.value))
+                  }
+                />
+                <span className={styles.rangeValue}>{straightRun} mm</span>
+              </div>
+            </div>
+            <div className={styles.field}>
+              <label className={styles.fieldLabel} htmlFor="crotch-arrival">
+                Crotch arrival angle
+              </label>
+              <span className={styles.fieldHint}>
+                How steeply the curve meets the crotch point. Higher = smoother
+                sweep, less hook.
+              </span>
+              <div className={styles.rangeRow}>
+                <input
+                  id="crotch-arrival"
+                  type="range"
+                  className={styles.rangeInput}
+                  min={CROTCH_ARRIVAL_ANGLE_MIN}
+                  max={CROTCH_ARRIVAL_ANGLE_MAX}
+                  step={1}
+                  value={crotchArrivalAngle}
+                  onChange={(e) =>
+                    setCrotchArrivalAngle(Number(e.target.value))
+                  }
+                />
+                <span className={styles.rangeValue}>
+                  {crotchArrivalAngle}°
+                </span>
+              </div>
+            </div>
+            <div className={styles.field}>
+              <label className={styles.fieldLabel} htmlFor="waistline-curve-front">
+                Front waist curve
+              </label>
+              <span className={styles.fieldHint}>
+                Aldrich §2a: how far the waistline dips at centre front. 0 =
+                straight waist.
+              </span>
+              <div className={styles.rangeRow}>
+                <input
+                  id="waistline-curve-front"
+                  type="range"
+                  className={styles.rangeInput}
+                  min={WAISTLINE_CURVE_FRONT_MIN}
+                  max={WAISTLINE_CURVE_FRONT_MAX}
+                  step={1}
+                  value={waistlineCurveFront}
+                  onChange={(e) =>
+                    setWaistlineCurveFront(Number(e.target.value))
+                  }
+                />
+                <span className={styles.rangeValue}>
+                  {waistlineCurveFront} mm
+                </span>
               </div>
             </div>
           </section>

@@ -15,7 +15,8 @@ import {
 } from "@/lib/types/measurements";
 import { validationResult, ValidationResult } from "@/lib/types/validation";
 import {
-  catmullRom,
+  catmullRomCentripetal,
+  cubicBezier,
   pchipByY,
   pointAtArcDistanceFromEnd,
   pointAtArcDistanceFromStart,
@@ -69,9 +70,24 @@ const DART_TAKEUP = 20;
 
 /** Aldrich back CB step 20→21 — 2 cm up from point 20 (mm). */
 const BACK_CB_WAIST_RISE: Millimetres = 20;
-/** Aldrich p.48 §2a — fixed waistline scoop depth (mm), not user-adjustable. */
+/**
+ * Aldrich p.48 §2a — default front waistline scoop depth (mm).
+ * Overridable via TrouserFrontStyle.waistlineCurveFront (0 = §2a off).
+ */
 export const WAISTLINE_CURVE_FRONT = 12;
+export const WAISTLINE_CURVE_FRONT_MIN = 0;
+export const WAISTLINE_CURVE_FRONT_MAX = 30;
 export const WAISTLINE_CURVE_BACK = 0;
+
+export function resolveWaistlineCurveFront(
+  style: Pick<TrouserFrontStyle, "waistlineCurveFront">,
+): Millimetres {
+  const raw = style.waistlineCurveFront ?? WAISTLINE_CURVE_FRONT;
+  return Math.max(
+    WAISTLINE_CURVE_FRONT_MIN,
+    Math.min(WAISTLINE_CURVE_FRONT_MAX, raw),
+  );
+}
 
 /** Darted faced band depth range (mm): sewable minimum through shaped handover. */
 export const DARTED_DEPTH_MIN = 20;
@@ -299,6 +315,28 @@ export type TrouserFrontStyle = {
   waistReduction?: Millimetres;
   /** darted | shaped — shallow faced band vs deep shaped band / yoke. */
   waistbandMode?: WaistbandMode;
+  /**
+   * Scale on Aldrich's front crotch extension (H/16+10). 1.0 = Aldrich;
+   * ~0.5 ≈ Izzy (half the extension at the same drafted hip). Clamped [0.4, 1.0].
+   * Intermediate values have no external authority — toile is the verdict.
+   */
+  crotchExtensionScale?: number;
+  /**
+   * Straight centre-front run (mm), measured down from p10 before the crotch
+   * curve begins. Default = hipline depth (D − p10.y) — Aldrich's point 6.
+   * 0 = curve leaves at the waist (no straight CF section).
+   */
+  crotchStraightRun?: Millimetres;
+  /**
+   * Arrival angle at p9, degrees below horizontal (curve travelling down-and-out).
+   * Default ≈ 14° (previous effective arrival). Izzy ≈ 32°.
+   */
+  crotchArrivalAngle?: number;
+  /**
+   * Aldrich §2a front waistline scoop depth (mm). Default = WAISTLINE_CURVE_FRONT (12).
+   * 0 = straight front waist (§2a off). Clamped [0, 30].
+   */
+  waistlineCurveFront?: Millimetres;
 };
 
 export const withWaistband = (
@@ -446,6 +484,69 @@ export function backCrotchTouch(hip: Millimetres): Millimetres {
   return frontCrotchTouch(hip) + BACK_FRONT_TOUCH_OFFSET_MM;
 }
 
+/**
+ * Aldrich p.46: 5–9 = one sixteenth hip plus 1 cm. Expressed as a fraction of the
+ * drafted hip so it grades correctly across bodies. crotchExtensionScale = 1.0 is
+ * Aldrich; 0.5 approximates the Izzy pattern (measured: half Aldrich's front extension
+ * at the same drafted hip). Validated only by toile — no external authority for
+ * intermediate values.
+ */
+const ALDRICH_FRONT_EXTENSION = (H: Millimetres): Millimetres => H / 16 + 10;
+
+export const CROTCH_EXTENSION_SCALE_MIN = 0.4;
+export const CROTCH_EXTENSION_SCALE_MAX = 1.0;
+export const DEFAULT_CROTCH_EXTENSION_SCALE = 1.0;
+
+/** Default arrival ≈ previous Catmull leave angle at p9 (degrees below horizontal). */
+export const DEFAULT_CROTCH_ARRIVAL_ANGLE = 14;
+export const CROTCH_ARRIVAL_ANGLE_MIN = 5;
+export const CROTCH_ARRIVAL_ANGLE_MAX = 45;
+/** Straight CF run: 0 = curve from the waist; max is just above the crotch. */
+export const CROTCH_STRAIGHT_RUN_MIN = 0;
+
+export function resolveCrotchExtensionScale(
+  style: Pick<TrouserFrontStyle, "crotchExtensionScale">,
+): number {
+  const raw = style.crotchExtensionScale ?? DEFAULT_CROTCH_EXTENSION_SCALE;
+  return Math.max(
+    CROTCH_EXTENSION_SCALE_MIN,
+    Math.min(CROTCH_EXTENSION_SCALE_MAX, raw),
+  );
+}
+
+export function resolveCrotchArrivalAngle(
+  style: Pick<TrouserFrontStyle, "crotchArrivalAngle">,
+): number {
+  const raw = style.crotchArrivalAngle ?? DEFAULT_CROTCH_ARRIVAL_ANGLE;
+  return Math.max(
+    CROTCH_ARRIVAL_ANGLE_MIN,
+    Math.min(CROTCH_ARRIVAL_ANGLE_MAX, raw),
+  );
+}
+
+/**
+ * Straight CF length down from p10 before the crotch curve.
+ * Default = hipline (D − p10.y), matching Aldrich point 6 / previous departure-at-hipline.
+ */
+export function resolveCrotchStraightRun(
+  style: Pick<TrouserFrontStyle, "crotchStraightRun">,
+  R: Millimetres,
+  D: Millimetres,
+  p10y: Millimetres,
+): Millimetres {
+  const hiplineFromTop = Math.max(0, D - p10y);
+  const raw = style.crotchStraightRun ?? hiplineFromTop;
+  const max = Math.max(CROTCH_STRAIGHT_RUN_MIN, R - p10y - 20);
+  return Math.max(CROTCH_STRAIGHT_RUN_MIN, Math.min(max, raw));
+}
+
+export function frontCrotchExtension(
+  H: Millimetres,
+  scale: number,
+): Millimetres {
+  return ALDRICH_FRONT_EXTENSION(H) * scale;
+}
+
 const forkWidth = (H: number) => H / 12 + 20;
 
 function normalize(v: Point): Point {
@@ -494,6 +595,112 @@ function pointOnPolylineAtY(
     };
   }
   throw new Error(`No polyline segment crosses y=${y}`);
+}
+
+/**
+ * Keep the portion of a tip→CF-top polyline at or below `yCut` (y ≥ yCut), ending
+ * exactly at `top` (the lowered waist CF). Interpolates the crossing; does not
+ * snap to the nearest sample. `crossGap` is |naturalCrossing − top|.
+ */
+function clipPolylineBelowY(
+  poly: Point[],
+  yCut: Millimetres,
+  top: Point,
+): { points: Point[]; crossGap: Millimetres } {
+  if (poly.length === 0) {
+    return { points: [{ ...top }], crossGap: 0 };
+  }
+
+  const kept: Point[] = [];
+  let natural: Point | null = null;
+
+  for (let i = 0; i < poly.length; i++) {
+    const p = poly[i]!;
+    if (p.y >= yCut - 1e-9) {
+      kept.push({ ...p });
+      continue;
+    }
+    // p is above the cut (smaller y) — crossed on the previous segment.
+    if (kept.length === 0) {
+      break;
+    }
+    const a = kept[kept.length - 1]!;
+    if (Math.abs(p.y - a.y) < 1e-12) {
+      natural = { x: a.x, y: yCut };
+    } else {
+      const t = (yCut - a.y) / (p.y - a.y);
+      natural = { x: a.x + t * (p.x - a.x), y: yCut };
+    }
+    break;
+  }
+
+  if (kept.length === 0) {
+    return { points: [{ ...top }], crossGap: 0 };
+  }
+
+  if (!natural) {
+    natural = kept[kept.length - 1]!;
+  }
+  const crossGap = Math.hypot(natural.x - top.x, natural.y - top.y);
+
+  // End exactly at the waist CF — drop a trailing sample already on the cut line.
+  if (Math.abs(kept[kept.length - 1]!.y - yCut) < 1e-6) {
+    kept[kept.length - 1] = { ...top };
+  } else if (natural !== kept[kept.length - 1]) {
+    kept.push({ ...top });
+  } else {
+    kept[kept.length - 1] = { ...top };
+  }
+
+  const points: Point[] = [];
+  for (const p of kept) {
+    const prev = points[points.length - 1];
+    if (!prev || Math.hypot(prev.x - p.x, prev.y - p.y) > 1e-6) {
+      points.push(p);
+    }
+  }
+  return { points, crossGap };
+}
+
+/**
+ * Split a tip→waist polyline at `y` into lower (tip→y) and upper (y→waist).
+ * Continuous: both halves share the split point.
+ */
+function splitPolylineAtY(
+  poly: Point[],
+  y: Millimetres,
+): { lower: Point[]; upper: Point[] } {
+  if (poly.length < 2) {
+    return { lower: poly.map((p) => ({ ...p })), upper: [] };
+  }
+  for (let i = 0; i < poly.length - 1; i++) {
+    const a = poly[i]!;
+    const b = poly[i + 1]!;
+    const minY = Math.min(a.y, b.y);
+    const maxY = Math.max(a.y, b.y);
+    if (y < minY - 1e-9 || y > maxY + 1e-9) {
+      continue;
+    }
+    if (Math.abs(b.y - a.y) < 1e-9) {
+      continue;
+    }
+    const t = (y - a.y) / (b.y - a.y);
+    const at = { x: a.x + t * (b.x - a.x), y };
+    const lower = [...poly.slice(0, i + 1).map((p) => ({ ...p })), { ...at }];
+    const upper = [{ ...at }, ...poly.slice(i + 1).map((p) => ({ ...p }))];
+    const dedupe = (pts: Point[]) => {
+      const out: Point[] = [];
+      for (const p of pts) {
+        const prev = out[out.length - 1];
+        if (!prev || Math.hypot(prev.x - p.x, prev.y - p.y) > 1e-6) {
+          out.push(p);
+        }
+      }
+      return out;
+    };
+    return { lower: dedupe(lower), upper: dedupe(upper) };
+  }
+  return { lower: poly.map((p) => ({ ...p })), upper: [] };
 }
 
 function xOnLineAtY(a: Point, b: Point, y: number): number {
@@ -892,7 +1099,7 @@ function cbInteriorAngle(
 }
 
 function backCrotchCurve(b: BackPoints): Point[] {
-  return catmullRom([b.p24, b.guide, b.p19, b.p21]);
+  return catmullRomCentripetal([b.p24, b.guide, b.p19, b.p21]);
 }
 
 /** Crotch body for CB clearance — stops at hipline p19; p19→p21 is the straight CB join leg. */
@@ -908,8 +1115,94 @@ function backCrotchBelowHip(b: BackPoints): Point[] {
   return full.slice(0, hipIdx + 1);
 }
 
-function frontCrotchCurve(p9: Point, guide: Point, p6: Point): Point[] {
-  return catmullRom([p9, guide, p6]);
+/**
+ * Front crotch as a cubic Bézier with vertical CF departure and angled arrival at p9.
+ * Handle lengths d1 = k·(drop to crotch), d2 = k·extension; k is solved so the curve
+ * passes through the 45° touch landmark (crotchGuide45 is overlay-only, not a knot).
+ *
+ * P0 is on the CF, `straightRun` mm below p10. Returns samples ordered p9 → P0.
+ */
+export function frontCrotchCurve(args: {
+  p5: Point;
+  p9: Point;
+  p10: Point;
+  fork: Millimetres;
+  R: Millimetres;
+  straightRun: Millimetres;
+  extension: Millimetres;
+  arrivalAngleDeg: number;
+  touch: Millimetres;
+}): { points: Point[]; P0: Point; k: number; touchMiss: Millimetres } {
+  const {
+    p5,
+    p9,
+    p10,
+    fork,
+    R,
+    straightRun,
+    extension,
+    arrivalAngleDeg,
+    touch,
+  } = args;
+  const P0: Point = { x: -fork, y: p10.y + straightRun };
+  const P3 = p9;
+  // Drop from P0 down to the crotch line — same role as the old "departure" length.
+  const dropToCrotch = Math.max(20, R - P0.y);
+  // Arrival travelling down-and-out (−x, +y), θ below horizontal.
+  const theta = (arrivalAngleDeg * Math.PI) / 180;
+  const dir = { x: -Math.cos(theta), y: Math.sin(theta) };
+  const touchPt = crotchGuide45(p5, touch);
+
+  const curveForK = (k: number): Point[] => {
+    const d1 = k * dropToCrotch;
+    const d2 = k * extension;
+    const P1: Point = { x: P0.x, y: P0.y + d1 };
+    const P2: Point = {
+      x: P3.x - d2 * dir.x,
+      y: P3.y - d2 * dir.y,
+    };
+    return cubicBezier(P0, P1, P2, P3, 48);
+  };
+
+  const miss = (k: number): Millimetres => {
+    const curve = curveForK(k);
+    let best = Infinity;
+    for (const p of curve) {
+      const d = Math.hypot(p.x - touchPt.x, p.y - touchPt.y);
+      if (d < best) best = d;
+    }
+    return best;
+  };
+
+  // Scan then refine: find k minimising distance to the 45° touch point.
+  let bestK = 0.55;
+  let bestMiss = miss(bestK);
+  for (let i = 0; i <= 40; i++) {
+    const k = 0.15 + (i / 40) * 1.85;
+    const m = miss(k);
+    if (m < bestMiss) {
+      bestMiss = m;
+      bestK = k;
+    }
+  }
+  let lo = Math.max(0.05, bestK - 0.08);
+  let hi = bestK + 0.08;
+  for (let iter = 0; iter < 24; iter++) {
+    const mid = (lo + hi) / 2;
+    const m1 = miss(mid - 1e-3);
+    const m2 = miss(mid + 1e-3);
+    if (m1 < m2) {
+      hi = mid;
+    } else {
+      lo = mid;
+    }
+  }
+  const k = (lo + hi) / 2;
+  const touchMiss = miss(k);
+  const forward = curveForK(k);
+  // Outline: crotch runs crotch-tip → CF join.
+  const points = forward.slice().reverse();
+  return { points, P0, k, touchMiss };
 }
 
 function resolveBackWaistSeamAtDepth(
@@ -1087,7 +1380,7 @@ function frontWaistResolved(
     cfEdge: [f.p10, f.p6],
     sideEdge: pchipByY([f.p11, f.p8, f.p13, f.p12]),
     depth: r,
-    scoopDepth: WAISTLINE_CURVE_FRONT,
+    scoopDepth: resolveWaistlineCurveFront(style),
     sideShift,
   };
   const { seam: waistSeam, spec: curveSpec } = resolveWaistSeam(curveInput, {
@@ -1191,17 +1484,8 @@ export function trouserWaistEdges(
   };
 }
 
-function crotchGuide(corner: Point, a: Point, b: Point, touch: Millimetres): Point {
-  const chord = normalize({ x: b.x - a.x, y: b.y - a.y });
-  let perp = { x: -chord.y, y: chord.x };
-  if (perp.x > 0) {
-    perp = { x: -perp.x, y: -perp.y };
-  }
-  return { x: corner.x + touch * perp.x, y: corner.y + touch * perp.y };
-}
-
-/** Aldrich p47 — 45° bisector at p16 (up-leg 16→19, fork-leg toward −x). */
-function backCrotchGuide(corner: Point, touch: Millimetres): Point {
+/** Aldrich p.46–47 — 45° bisector into the crotch corner (−x, −y). Used at p5 (front) and p16 (back). */
+function crotchGuide45(corner: Point, touch: Millimetres): Point {
   const c = Math.SQRT1_2;
   return { x: corner.x - touch * c, y: corner.y - touch * c };
 }
@@ -1270,11 +1554,13 @@ export function trouserFrontPoints(
 
   const kneeY = trouserKneeY(body, spec.riseDrop);
   const fork = forkWidth(H);
+  const scale = resolveCrotchExtensionScale(style);
+  const ext = frontCrotchExtension(H, scale);
 
   const p5 = { x: -fork, y: R };
   const p6 = { x: -fork, y: D };
   const p8 = { x: -fork + H / 4 + 5, y: D };
-  const p9 = { x: -(fork + H / 16 + 10), y: R };
+  const p9 = { x: -(fork + ext), y: R };
   const p10 = { x: -fork + 10, y: 0 };
   const p11 = { x: p10.x + W / 4 + 20, y: 0 };
   const p12 = { x: B / 2 - 5, y: F };
@@ -1300,6 +1586,8 @@ export function trouserBackPoints(
   const F = body.waistToFloor - spec.riseDrop;
   const fork = forkWidth(H);
   const f = trouserFrontPoints(body, style);
+  const scale = resolveCrotchExtensionScale(style);
+  const ext = frontCrotchExtension(H, scale);
 
   const p16 = { x: -fork + fork / 4, y: R };
   const p17 = { x: p16.x, y: D };
@@ -1309,7 +1597,7 @@ export function trouserBackPoints(
   const p21 = { x: p20x, y: -BACK_CB_WAIST_RISE };
   const L = W / 4 + 40;
   const p22 = { x: p21.x + Math.sqrt(L * L - p21.y * p21.y), y: 0 };
-  const p23 = { x: f.p9.x - ((H / 16 + 10) / 2 + spec.backCrotchAdd), y: R };
+  const p23 = { x: f.p9.x - (ext / 2 + spec.backCrotchAdd), y: R };
   const p24 = { x: p23.x, y: R + 5 };
   const p25 = { x: p17.x + H / 4 + 15, y: D };
   const p26 = { x: f.p12.x + 10, y: F };
@@ -1318,7 +1606,7 @@ export function trouserBackPoints(
 
   const p27 = { x: f.p13.x + 10, y: kneeY };
   const p29 = { x: f.p15.x - 10, y: kneeY };
-  const guide = backCrotchGuide(p16, backCrotchTouch(H));
+  const guide = crotchGuide45(p16, backCrotchTouch(H) * scale);
 
   return { p16, p17, p18, p19, p21, p22, p23, p24, p25, p26, p27, p28, p29, guide };
 }
@@ -1441,7 +1729,14 @@ export function trouserConstruction(
   const F = body.waistToFloor - drop;
   const f = trouserFrontPoints(body, style);
   const b = trouserBackPoints(body, style);
-  const frontGuide = crotchGuide(f.p5, f.p6, f.p9, frontCrotchTouch(body.hip));
+  const crotchScale = resolveCrotchExtensionScale(style);
+  // Front 45° touch landmark — drawn in the construction overlay / checked by
+  // verify:aldrich. The cut crotch is a Bézier constrained to this depth, not
+  // a Catmull-Rom through the guide as a knot.
+  const frontGuide = crotchGuide45(
+    f.p5,
+    frontCrotchTouch(body.hip) * crotchScale,
+  );
   const frontInsideLegCtrl = insideLegCurveControls(f.p9, f.p15, 7.5, "inseamCtrl");
   const frontCrotchControls = crotchCurveControls(frontGuide);
 
@@ -1588,19 +1883,97 @@ export function draftTrouserFront(
 ): PatternPiece {
   const spec = trouserBlockSpec(style);
   const H = body.hip;
+  const R = body.bodyRise - spec.riseDrop;
+  const D = body.hipDepth - spec.hipDepthDrop;
   const F = body.waistToFloor - spec.riseDrop;
   const f = trouserFrontPoints(body, style);
-  const { p5, p6, p8, p9, p12, p13, p14, p15 } = f;
+  const { p5, p6, p8, p9, p10, p12, p13, p14, p15 } = f;
   const r = style.waistReduction ?? 0;
   const wr = frontWaistResolved(body, style);
 
-  const frontGuide = crotchGuide(p5, p6, p9, frontCrotchTouch(H));
-  const crotchCurve = frontCrotchCurve(p9, frontGuide, p6);
+  const crotchScale = resolveCrotchExtensionScale(style);
+  const touch = frontCrotchTouch(H) * crotchScale;
+  // Landmark only (construction overlay / verify) — not a curve knot.
+  const frontGuide = crotchGuide45(p5, touch);
+  const fork = Math.abs(p5.x);
+  const straightRun = resolveCrotchStraightRun(style, R, D, p10.y);
+  const extension = frontCrotchExtension(H, crotchScale);
+  const arrivalAngle = resolveCrotchArrivalAngle(style);
+  const frontCrotch = frontCrotchCurve({
+    p5,
+    p9,
+    p10,
+    fork,
+    R,
+    straightRun,
+    extension,
+    arrivalAngleDeg: arrivalAngle,
+    touch,
+  });
+  const crotchCurve = frontCrotch.points;
+  const cfJoin = frontCrotch.P0;
+
+  // Full tip→CF-top path (band-independent). Extend along the construction CF to
+  // p10 when the Bézier leaves below the waist corner — then clip at the lowered
+  // waist. Same idea as the back: p10 lives on the band when r > 0.
+  const fullToTop =
+    Math.hypot(cfJoin.x - p10.x, cfJoin.y - p10.y) < 0.5
+      ? crotchCurve
+      : [...crotchCurve, p10];
+  const cfTop = wr.cf;
+  const clipped = clipPolylineBelowY(fullToTop, cfTop.y, cfTop);
+  // crossGap may exceed 0.1 mm while 7–10 insets waist CF from the fork-line
+  // crotch; the join is forced to wr.cf (see scripts/verify-front-cf-clip.ts).
+  const crotchFromWaist = clipped.points;
 
   const insideLegCtrl = insideLegControl(p9, p15);
   const insideLegToFork = quadBezier(p15, insideLegCtrl, p9).slice(1);
 
   const facingFinish = isDartedFacingFinish(style);
+
+  // Split at the hipline for role tagging — one continuous polyline, two roles.
+  const { lower: crotchSeg, upper: cfSeg } = splitPolylineAtY(
+    crotchFromWaist,
+    D,
+  );
+
+  // Hip notch: omit when there is no straight CF (curve leaves at the waist).
+  const markingsHip: Marking[] = [];
+  if (straightRun >= 0.5) {
+    let hipNotchAt = p6;
+    let hipNotchBefore = frontGuide;
+    let hipNotchAfter = p6;
+    try {
+      const onCurve = pointOnPolylineAtY(crotchFromWaist, D);
+      hipNotchAt = onCurve.at;
+      hipNotchBefore = onCurve.before;
+      hipNotchAfter = onCurve.after;
+    } catch {
+      // Hipline not on the clipped piece (extreme depth) — keep construction p6.
+      hipNotchAt = p6;
+    }
+    markingsHip.push({
+      kind: "notch",
+      at: hipNotchAt,
+      dir: crotchNotchDir(hipNotchBefore, hipNotchAfter),
+      count: 1,
+    });
+  }
+
+  const crotchCfSegments: TaggedSegment[] = [
+    {
+      points: crotchSeg.length >= 2 ? crotchSeg : crotchFromWaist,
+      edge: "seam",
+      role: "crotch",
+    },
+  ];
+  if (cfSeg.length >= 2) {
+    crotchCfSegments.push({
+      points: cfSeg,
+      edge: "seam",
+      role: "centre-front",
+    });
+  }
 
   const segments: TaggedSegment[] = [
     {
@@ -1624,16 +1997,7 @@ export function draftTrouserFront(
       edge: "seam",
       role: "inseam",
     },
-    {
-      points: crotchCurve,
-      edge: "seam",
-      role: "crotch",
-    },
-    {
-      points: [p6, wr.cf],
-      edge: "seam",
-      role: "centre-front",
-    },
+    ...crotchCfSegments,
   ];
 
   const outline = segmentsToOutline(segments);
@@ -1656,12 +2020,7 @@ export function draftTrouserFront(
     { kind: "notch", at: waistMidF, dir: waistInwardF, count: 1 },
     { kind: "notch", at: p8, count: 1 },
     { kind: "notch", at: p15, count: 1 },
-    {
-      kind: "notch",
-      at: p6,
-      dir: crotchNotchDir(frontGuide, p6),
-      count: 1,
-    },
+    ...markingsHip,
   ];
 
   return {

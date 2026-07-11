@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="128.4" height="208.5" viewBox="0 0 128.4 208.5">
+  <rect width="100%" height="100%" fill="#faf8f5"/>
+  <path d="M15.00,163.50 L25.68,161.53 L36.99,160.59 L48.56,160.06 L60.00,159.33 L70.93,157.77 L80.97,154.77 L89.73,149.71 L96.84,141.97 L102.00,131.40 L105.48,118.50 L107.66,103.69 L108.97,87.36 L109.78,69.92 L110.52,51.78 L111.58,33.34 L113.36,15.00" fill="none" stroke="#999" stroke-width="2" stroke-dasharray="6 4"/>
+  <path d="M15.00,163.50 L25.65,161.31 L36.90,159.83 L48.38,158.65 L59.75,157.31 L70.64,155.41 L80.69,152.50 L89.54,148.17 L96.84,141.97 L103.34,131.51 L107.47,118.40 L109.79,103.18 L110.84,86.42 L111.17,68.67 L111.34,50.47 L111.88,32.40 L113.36,15.00" fill="none" stroke="#c44" stroke-width="2"/>
+  <text x="8" y="14" font-size="12" fill="#999">back @0.5 uniform (dashed)</text>
+  <text x="8" y="30" font-size="12" fill="#c44">back @0.5 centripetal</text>
+</svg>

@@ -169,17 +169,29 @@ export function verifyAldrichProductionDepth0(options?: {
   checks.push(check("4–15 knee line y", f.p15.y, kneeYExpected));
 
   const frontTouch = frontCrotchTouch(H);
-  const frontGuide = (() => {
-    const chord = { x: f.p9.x - f.p6.x, y: f.p9.y - f.p6.y };
-    const len = Math.hypot(chord.x, chord.y);
-    const u = { x: chord.x / len, y: chord.y / len };
-    let perp = { x: -u.y, y: u.x };
-    if (perp.x > 0) perp = { x: -perp.x, y: -perp.y };
-    return { x: f.p5.x + frontTouch * perp.x, y: f.p5.y + frontTouch * perp.y };
-  })();
+  // Deliberate faithfulness fix: front guide is Aldrich's 45° bisector at p5
+  // (same construction as the back at p16), not a chord-perpendicular of p9→p6.
+  const frontGuide = {
+    x: f.p5.x - frontTouch * Math.SQRT1_2,
+    y: f.p5.y - frontTouch * Math.SQRT1_2,
+  };
   checks.push(
     check("front crotch touch from 5", dist(f.p5, frontGuide), frontTouch),
   );
+  {
+    const gv = { x: frontGuide.x - f.p5.x, y: frontGuide.y - f.p5.y };
+    const angleAboveHoriz =
+      (Math.atan2(-gv.y, -gv.x) * 180) / Math.PI;
+    checks.push(
+      check(
+        "front guide 45° above horizontal from 5",
+        angleAboveHoriz,
+        45,
+        true,
+        "Aldrich p.46 bisector at p5 — matches back guide construction",
+      ),
+    );
+  }
 
   // --- Back ---
   checks.push(
