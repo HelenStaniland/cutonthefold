@@ -20,6 +20,9 @@ import {
   WAISTLINE_CURVE_FRONT,
   WAISTLINE_CURVE_FRONT_MAX,
   WAISTLINE_CURVE_FRONT_MIN,
+  DEFAULT_FRONT_WAIST_INSET,
+  FRONT_WAIST_INSET_MAX,
+  FRONT_WAIST_INSET_MIN,
   type WaistbandMode,
 } from "@/lib/patterns/trouserBlock";
 import { DEFAULT_FIT, easeForFit } from "@/lib/pattern/fitPresets";
@@ -41,6 +44,7 @@ export type TrouserStyleSettings = {
   crotchStraightRun: number | null;
   crotchArrivalAngle: number;
   waistlineCurveFront: number;
+  frontWaistInset: number;
 };
 
 export const DEFAULT_TROUSER_STYLE: TrouserStyleSettings = {
@@ -55,6 +59,7 @@ export const DEFAULT_TROUSER_STYLE: TrouserStyleSettings = {
   crotchStraightRun: null,
   crotchArrivalAngle: DEFAULT_CROTCH_ARRIVAL_ANGLE,
   waistlineCurveFront: WAISTLINE_CURVE_FRONT,
+  frontWaistInset: DEFAULT_FRONT_WAIST_INSET,
 };
 
 const STYLE_STORAGE_KEY = "cotf:style:v1";
@@ -121,6 +126,10 @@ function parseStyle(raw: unknown): TrouserStyleSettings | null {
         Math.min(WAISTLINE_CURVE_FRONT_MAX, scoopRaw),
       )
     : WAISTLINE_CURVE_FRONT;
+  const insetRaw = o.frontWaistInset;
+  const frontWaistInset = isFiniteNumber(insetRaw)
+    ? Math.max(FRONT_WAIST_INSET_MIN, Math.min(FRONT_WAIST_INSET_MAX, insetRaw))
+    : DEFAULT_FRONT_WAIST_INSET;
   return {
     legBottomWidth: o.legBottomWidth,
     waistbandDepth: o.waistbandDepth,
@@ -133,6 +142,7 @@ function parseStyle(raw: unknown): TrouserStyleSettings | null {
     crotchStraightRun,
     crotchArrivalAngle,
     waistlineCurveFront,
+    frontWaistInset,
   };
 }
 
@@ -148,6 +158,7 @@ type StyleContextValue = TrouserStyleSettings & {
   setCrotchStraightRun: Dispatch<SetStateAction<number | null>>;
   setCrotchArrivalAngle: Dispatch<SetStateAction<number>>;
   setWaistlineCurveFront: Dispatch<SetStateAction<number>>;
+  setFrontWaistInset: Dispatch<SetStateAction<number>>;
 };
 
 const StyleContext = createContext<StyleContextValue | null>(null);
@@ -211,6 +222,10 @@ export function StyleProvider({ children }: { children: ReactNode }) {
     fieldSetter(setStyle, "waistlineCurveFront"),
     [setStyle],
   );
+  const setFrontWaistInset = useCallback(
+    fieldSetter(setStyle, "frontWaistInset"),
+    [setStyle],
+  );
 
   const value = useMemo(
     () => ({
@@ -226,6 +241,7 @@ export function StyleProvider({ children }: { children: ReactNode }) {
       setCrotchStraightRun,
       setCrotchArrivalAngle,
       setWaistlineCurveFront,
+      setFrontWaistInset,
     }),
     [
       style,
@@ -240,6 +256,7 @@ export function StyleProvider({ children }: { children: ReactNode }) {
       setCrotchStraightRun,
       setCrotchArrivalAngle,
       setWaistlineCurveFront,
+      setFrontWaistInset,
     ],
   );
 

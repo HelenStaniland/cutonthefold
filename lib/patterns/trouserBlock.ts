@@ -301,8 +301,11 @@ export function frontDartFromCentreFront(
   body: BodyMeasurements,
   style: TrouserFrontStyle,
 ): number {
+  const inset = resolveFrontWaistInset(style);
   const { p10 } = trouserFrontPoints(body, style);
-  return -p10.x - 10;
+  // Historical formula was −p10.x − 10 with the trailing 10 = Aldrich 7–10.
+  // Keep that identity under a variable inset.
+  return -p10.x - inset;
 }
 
 export type TrouserFrontStyle = {
@@ -322,9 +325,10 @@ export type TrouserFrontStyle = {
    */
   crotchExtensionScale?: number;
   /**
-   * Straight centre-front run (mm), measured down from p10 before the crotch
-   * curve begins. Default = hipline depth (D − p10.y) — Aldrich's point 6.
-   * 0 = curve leaves at the waist (no straight CF section).
+   * Departure height on the true CF (mm below p10.y). The crotch Bézier leaves at
+   * P0 = (−fork, p10.y + crotchStraightRun); the edge above is the slanted join
+   * p10 → P0 (Aldrich 10–6 when departure = hipline).
+   * Default = hipline (D − p10.y). Range [0, D − p10.y]. 0 = curve from the waist.
    */
   crotchStraightRun?: Millimetres;
   /**
@@ -337,6 +341,11 @@ export type TrouserFrontStyle = {
    * 0 = straight front waist (§2a off). Clamped [0, 30].
    */
   waistlineCurveFront?: Millimetres;
+  /**
+   * Aldrich 7–10: how far p10 sits inboard of the fork-line CF (mm).
+   * Default 10 (Aldrich). 0 = vertical CF (Izzy-style). Clamped [0, 20].
+   */
+  frontWaistInset?: Millimetres;
 };
 
 export const withWaistband = (
@@ -501,8 +510,13 @@ export const DEFAULT_CROTCH_EXTENSION_SCALE = 1.0;
 export const DEFAULT_CROTCH_ARRIVAL_ANGLE = 14;
 export const CROTCH_ARRIVAL_ANGLE_MIN = 5;
 export const CROTCH_ARRIVAL_ANGLE_MAX = 45;
-/** Straight CF run: 0 = curve from the waist; max is just above the crotch. */
+/** Departure on CF: 0 = from the waist; max = hipline (Aldrich default). */
 export const CROTCH_STRAIGHT_RUN_MIN = 0;
+
+/** Aldrich 7–10 default inset (mm). */
+export const DEFAULT_FRONT_WAIST_INSET = 10;
+export const FRONT_WAIST_INSET_MIN = 0;
+export const FRONT_WAIST_INSET_MAX = 20;
 
 export function resolveCrotchExtensionScale(
   style: Pick<TrouserFrontStyle, "crotchExtensionScale">,
@@ -525,19 +539,26 @@ export function resolveCrotchArrivalAngle(
 }
 
 /**
- * Straight CF length down from p10 before the crotch curve.
- * Default = hipline (D − p10.y), matching Aldrich point 6 / previous departure-at-hipline.
+ * Y-distance below p10 at which the crotch curve leaves the true CF (−fork).
+ * Default / max = hipline (D − p10.y) — Aldrich's point 6.
  */
 export function resolveCrotchStraightRun(
   style: Pick<TrouserFrontStyle, "crotchStraightRun">,
-  R: Millimetres,
+  _R: Millimetres,
   D: Millimetres,
   p10y: Millimetres,
 ): Millimetres {
   const hiplineFromTop = Math.max(0, D - p10y);
   const raw = style.crotchStraightRun ?? hiplineFromTop;
-  const max = Math.max(CROTCH_STRAIGHT_RUN_MIN, R - p10y - 20);
-  return Math.max(CROTCH_STRAIGHT_RUN_MIN, Math.min(max, raw));
+  return Math.max(CROTCH_STRAIGHT_RUN_MIN, Math.min(hiplineFromTop, raw));
+}
+
+/** Aldrich 7–10: p10 inset from the fork line. Default 10. */
+export function resolveFrontWaistInset(
+  style: Pick<TrouserFrontStyle, "frontWaistInset">,
+): Millimetres {
+  const raw = style.frontWaistInset ?? DEFAULT_FRONT_WAIST_INSET;
+  return Math.max(FRONT_WAIST_INSET_MIN, Math.min(FRONT_WAIST_INSET_MAX, raw));
 }
 
 export function frontCrotchExtension(
@@ -1120,7 +1141,9 @@ function backCrotchBelowHip(b: BackPoints): Point[] {
  * Handle lengths d1 = k·(drop to crotch), d2 = k·extension; k is solved so the curve
  * passes through the 45° touch landmark (crotchGuide45 is overlay-only, not a knot).
  *
- * P0 is on the CF, `straightRun` mm below p10. Returns samples ordered p9 → P0.
+ * P0 sits on the true CF (−fork), `straightRun` mm below p10.y. The edge above is the
+ * slanted join p10 → P0 (Aldrich 10–6 when departure is at the hipline).
+ * Returns samples ordered p9 → P0.
  */
 export function frontCrotchCurve(args: {
   p5: Point;
@@ -1556,12 +1579,13 @@ export function trouserFrontPoints(
   const fork = forkWidth(H);
   const scale = resolveCrotchExtensionScale(style);
   const ext = frontCrotchExtension(H, scale);
+  const inset = resolveFrontWaistInset(style);
 
   const p5 = { x: -fork, y: R };
   const p6 = { x: -fork, y: D };
   const p8 = { x: -fork + H / 4 + 5, y: D };
   const p9 = { x: -(fork + ext), y: R };
-  const p10 = { x: -fork + 10, y: 0 };
+  const p10 = { x: -fork + inset, y: 0 };
   const p11 = { x: p10.x + W / 4 + 20, y: 0 };
   const p12 = { x: B / 2 - 5, y: F };
   const p14 = { x: -(B / 2 - 5), y: F };
@@ -1913,17 +1937,16 @@ export function draftTrouserFront(
   const crotchCurve = frontCrotch.points;
   const cfJoin = frontCrotch.P0;
 
-  // Full tip→CF-top path (band-independent). Extend along the construction CF to
-  // p10 when the Bézier leaves below the waist corner — then clip at the lowered
-  // waist. Same idea as the back: p10 lives on the band when r > 0.
+  // Full tip→waist path (band-independent): Bézier to P0 on the true CF, then the
+  // slanted join P0 → p10 (Aldrich 10–6 when P0 = p6). Clip at the lowered waist.
   const fullToTop =
     Math.hypot(cfJoin.x - p10.x, cfJoin.y - p10.y) < 0.5
       ? crotchCurve
       : [...crotchCurve, p10];
   const cfTop = wr.cf;
   const clipped = clipPolylineBelowY(fullToTop, cfTop.y, cfTop);
-  // crossGap may exceed 0.1 mm while 7–10 insets waist CF from the fork-line
-  // crotch; the join is forced to wr.cf (see scripts/verify-front-cf-clip.ts).
+  // crossGap may exceed 0.1 mm while 7–10 insets wr.cf from the fork-line join;
+  // the join is forced to wr.cf (see scripts/verify-front-cf-clip.ts).
   const crotchFromWaist = clipped.points;
 
   const insideLegCtrl = insideLegControl(p9, p15);
@@ -1937,20 +1960,27 @@ export function draftTrouserFront(
     D,
   );
 
-  // Hip notch: omit when there is no straight CF (curve leaves at the waist).
+  // Hip notch at p6 when the departure is at/below the hipline (default), or where
+  // the path crosses D. Omit when the curve leaves at the waist (no straight join).
   const markingsHip: Marking[] = [];
   if (straightRun >= 0.5) {
     let hipNotchAt = p6;
     let hipNotchBefore = frontGuide;
     let hipNotchAfter = p6;
-    try {
-      const onCurve = pointOnPolylineAtY(crotchFromWaist, D);
-      hipNotchAt = onCurve.at;
-      hipNotchBefore = onCurve.before;
-      hipNotchAfter = onCurve.after;
-    } catch {
-      // Hipline not on the clipped piece (extreme depth) — keep construction p6.
-      hipNotchAt = p6;
+    if (Math.abs(cfJoin.y - D) < 0.5 && Math.abs(cfJoin.x - p6.x) < 0.5) {
+      // Aldrich default: P0 = p6.
+      hipNotchAt = cfJoin;
+      hipNotchBefore = crotchCurve[Math.max(0, crotchCurve.length - 2)]!;
+      hipNotchAfter = cfJoin;
+    } else {
+      try {
+        const onCurve = pointOnPolylineAtY(crotchFromWaist, D);
+        hipNotchAt = onCurve.at;
+        hipNotchBefore = onCurve.before;
+        hipNotchAfter = onCurve.after;
+      } catch {
+        hipNotchAt = p6;
+      }
     }
     markingsHip.push({
       kind: "notch",

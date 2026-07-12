@@ -28,6 +28,8 @@ import {
   CROTCH_ARRIVAL_ANGLE_MAX,
   CROTCH_STRAIGHT_RUN_MIN,
   resolveCrotchStraightRun,
+  FRONT_WAIST_INSET_MIN,
+  FRONT_WAIST_INSET_MAX,
   WAISTLINE_CURVE_FRONT_MIN,
   WAISTLINE_CURVE_FRONT_MAX,
   trouserFacingSteps,
@@ -105,6 +107,8 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
     setCrotchArrivalAngle,
     waistlineCurveFront,
     setWaistlineCurveFront,
+    frontWaistInset,
+    setFrontWaistInset,
   } = useStyle();
   // Per-block default — resets on classic ↔ production switch (intentional).
   const [waistDrop, setWaistDrop] = useState(
@@ -124,6 +128,7 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
     crotchStraightRun: crotchStraightRun ?? undefined,
     crotchArrivalAngle,
     waistlineCurveFront,
+    frontWaistInset,
   };
   const activeFit = fitForEase(ease);
   const draftBody = applyEase(body, ease);
@@ -139,7 +144,7 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
     draftD,
     p10y,
   );
-  const straightRunMax = Math.max(CROTCH_STRAIGHT_RUN_MIN, draftR - p10y - 20);
+  const straightRunMax = Math.max(CROTCH_STRAIGHT_RUN_MIN, draftD - p10y);
   const yokeDepthMax = maxYokeDepth(draftBody, block, waistDrop);
   const backShapedCap = maxBackShapedWaistDepth(
     draftBody,
@@ -574,11 +579,11 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
             </div>
             <div className={styles.field}>
               <label className={styles.fieldLabel} htmlFor="crotch-straight-run">
-                Straight CF before curve
+                Crotch departure on CF
               </label>
               <span className={styles.fieldHint}>
-                How much of the centre front is straight before the crotch curve
-                begins. 0 = curved all the way from the waist.
+                How far below the waist the crotch curve leaves the centre front.
+                Default = hipline (Aldrich 10–6). 0 = curve from the waist.
               </span>
               <div className={styles.rangeRow}>
                 <input
@@ -646,6 +651,30 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                 <span className={styles.rangeValue}>
                   {waistlineCurveFront} mm
                 </span>
+              </div>
+            </div>
+            <div className={styles.field}>
+              <label className={styles.fieldLabel} htmlFor="front-waist-inset">
+                Front waist inset
+              </label>
+              <span className={styles.fieldHint}>
+                Aldrich 7–10: how far the waist is set in from the centre front.
+                0 = vertical CF (Izzy-style).
+              </span>
+              <div className={styles.rangeRow}>
+                <input
+                  id="front-waist-inset"
+                  type="range"
+                  className={styles.rangeInput}
+                  min={FRONT_WAIST_INSET_MIN}
+                  max={FRONT_WAIST_INSET_MAX}
+                  step={1}
+                  value={frontWaistInset}
+                  onChange={(e) =>
+                    setFrontWaistInset(Number(e.target.value))
+                  }
+                />
+                <span className={styles.rangeValue}>{frontWaistInset} mm</span>
               </div>
             </div>
           </section>
