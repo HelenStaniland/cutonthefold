@@ -1233,13 +1233,13 @@
 }
 
 .previewSkirt {
-  fill: var(--preview-skirt);
+  fill: none;
   stroke: var(--preview-stroke);
   stroke-width: 4;
 }
 
 .previewWaistband {
-  fill: var(--preview-waistband);
+  fill: none;
   stroke: var(--preview-stroke);
   stroke-width: 4;
 }
