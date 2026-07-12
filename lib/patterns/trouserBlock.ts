@@ -325,10 +325,10 @@ export type TrouserFrontStyle = {
    */
   crotchExtensionScale?: number;
   /**
-   * Departure height on the true CF (mm below p10.y). The crotch Bézier leaves at
-   * P0 = (−fork, p10.y + crotchStraightRun); the edge above is the slanted join
-   * p10 → P0 (Aldrich 10–6 when departure = hipline).
-   * Default = hipline (D − p10.y). Range [0, D − p10.y]. 0 = curve from the waist.
+   * Departure height on the true CF (mm below the scooped waist CF, wr.cf.y).
+   * P0 = (−fork, wr.cf.y + crotchStraightRun); the edge above is the slanted join
+   * wr.cf → P0 (Aldrich 10–6 when departure is at the hipline).
+   * Default / max = hipline from scooped waist (D − wr.cf.y). 0 = curve from the waist.
    */
   crotchStraightRun?: Millimetres;
   /**
@@ -539,18 +539,19 @@ export function resolveCrotchArrivalAngle(
 }
 
 /**
- * Y-distance below p10 at which the crotch curve leaves the true CF (−fork).
- * Default / max = hipline (D − p10.y) — Aldrich's point 6.
+ * Y-distance below the scooped waist CF (wr.cf.y) at which the crotch curve
+ * leaves the true CF (−fork). Default / max = hipline (D − waistCfY) — Aldrich's
+ * point 6 measured from the scooped waist, so P0 lands on y = D.
  */
 export function resolveCrotchStraightRun(
   style: Pick<TrouserFrontStyle, "crotchStraightRun">,
   _R: Millimetres,
   D: Millimetres,
-  p10y: Millimetres,
+  waistCfY: Millimetres,
 ): Millimetres {
-  const hiplineFromTop = Math.max(0, D - p10y);
-  const raw = style.crotchStraightRun ?? hiplineFromTop;
-  return Math.max(CROTCH_STRAIGHT_RUN_MIN, Math.min(hiplineFromTop, raw));
+  const hiplineFromWaist = Math.max(0, D - waistCfY);
+  const raw = style.crotchStraightRun ?? hiplineFromWaist;
+  return Math.max(CROTCH_STRAIGHT_RUN_MIN, Math.min(hiplineFromWaist, raw));
 }
 
 /** Aldrich 7–10: p10 inset from the fork line. Default 10. */
@@ -619,68 +620,59 @@ function pointOnPolylineAtY(
 }
 
 /**
- * Keep the portion of a tip→CF-top polyline at or below `yCut` (y ≥ yCut), ending
- * exactly at `top` (the lowered waist CF). Interpolates the crossing; does not
- * snap to the nearest sample. `crossGap` is |naturalCrossing − top|.
+ * Evaluate a cubic Bézier at parameter t ∈ [0, 1].
  */
-function clipPolylineBelowY(
-  poly: Point[],
-  yCut: Millimetres,
-  top: Point,
-): { points: Point[]; crossGap: Millimetres } {
-  if (poly.length === 0) {
-    return { points: [{ ...top }], crossGap: 0 };
-  }
+function cubicBezierAt(
+  p0: Point,
+  c1: Point,
+  c2: Point,
+  p3: Point,
+  t: number,
+): Point {
+  const u = 1 - t;
+  const w0 = u * u * u;
+  const w1 = 3 * u * u * t;
+  const w2 = 3 * u * t * t;
+  const w3 = t * t * t;
+  return {
+    x: w0 * p0.x + w1 * c1.x + w2 * c2.x + w3 * p3.x,
+    y: w0 * p0.y + w1 * c1.y + w2 * c2.y + w3 * p3.y,
+  };
+}
 
-  const kept: Point[] = [];
-  let natural: Point | null = null;
-
-  for (let i = 0; i < poly.length; i++) {
-    const p = poly[i]!;
-    if (p.y >= yCut - 1e-9) {
-      kept.push({ ...p });
-      continue;
+/**
+ * Front crotch tip→waist path: full Bézier tip→P0, then the straight CF join
+ * P0→wr.cf (Aldrich 10–6 generalised — absorbs the waist inset).
+ * Does not snap the curve onto wr.cf; P0 stays the curve endpoint.
+ * Degenerate join (inset 0 and coincident waist): omit the join segment.
+ */
+function frontCrotchPathToWaist(
+  P0: Point,
+  P1: Point,
+  P2: Point,
+  P3: Point,
+  wrCf: Point,
+  steps = 48,
+): Point[] {
+  // Assert y monotonic along the Bézier (P0 at CF → P3 at crotch tip).
+  let yPrev = P0.y;
+  for (let i = 1; i <= 16; i++) {
+    const y = cubicBezierAt(P0, P1, P2, P3, i / 16).y;
+    if (y + 1e-6 < yPrev) {
+      throw new Error(
+        `front crotch Bézier not monotonic in y (y(${i / 16})=${y} < yPrev=${yPrev})`,
+      );
     }
-    // p is above the cut (smaller y) — crossed on the previous segment.
-    if (kept.length === 0) {
-      break;
-    }
-    const a = kept[kept.length - 1]!;
-    if (Math.abs(p.y - a.y) < 1e-12) {
-      natural = { x: a.x, y: yCut };
-    } else {
-      const t = (yCut - a.y) / (p.y - a.y);
-      natural = { x: a.x + t * (p.x - a.x), y: yCut };
-    }
-    break;
+    yPrev = y;
   }
 
-  if (kept.length === 0) {
-    return { points: [{ ...top }], crossGap: 0 };
+  const tipToP0 = cubicBezier(P0, P1, P2, P3, steps).slice().reverse();
+  // tipToP0 ends at P0 once.
+  if (Math.hypot(P0.x - wrCf.x, P0.y - wrCf.y) < 0.01) {
+    tipToP0[tipToP0.length - 1] = { ...wrCf };
+    return tipToP0;
   }
-
-  if (!natural) {
-    natural = kept[kept.length - 1]!;
-  }
-  const crossGap = Math.hypot(natural.x - top.x, natural.y - top.y);
-
-  // End exactly at the waist CF — drop a trailing sample already on the cut line.
-  if (Math.abs(kept[kept.length - 1]!.y - yCut) < 1e-6) {
-    kept[kept.length - 1] = { ...top };
-  } else if (natural !== kept[kept.length - 1]) {
-    kept.push({ ...top });
-  } else {
-    kept[kept.length - 1] = { ...top };
-  }
-
-  const points: Point[] = [];
-  for (const p of kept) {
-    const prev = points[points.length - 1];
-    if (!prev || Math.hypot(prev.x - p.x, prev.y - p.y) > 1e-6) {
-      points.push(p);
-    }
-  }
-  return { points, crossGap };
+  return [...tipToP0, { ...wrCf }];
 }
 
 /**
@@ -1138,52 +1130,58 @@ function backCrotchBelowHip(b: BackPoints): Point[] {
 
 /**
  * Front crotch as a cubic Bézier with vertical CF departure and angled arrival at p9.
- * Handle lengths d1 = k·(drop to crotch), d2 = k·extension; k is solved so the curve
- * passes through the 45° touch landmark (crotchGuide45 is overlay-only, not a knot).
+ * Handle lengths d1 = k·run (run = p9.y − P0.y, never vanishes), d2 = k·extension;
+ * k is solved so the curve passes through the 45° touch landmark (overlay-only, not a knot).
  *
- * P0 sits on the true CF (−fork), `straightRun` mm below p10.y. The edge above is the
- * slanted join p10 → P0 (Aldrich 10–6 when departure is at the hipline).
+ * P0 sits on the true CF (−fork), `straightRun` mm below the scooped waist CF (waistCfY).
+ * The edge above is the slanted join wr.cf → P0 (Aldrich 10–6 when departure is at the hipline).
  * Returns samples ordered p9 → P0.
  */
 export function frontCrotchCurve(args: {
   p5: Point;
   p9: Point;
-  p10: Point;
   fork: Millimetres;
   R: Millimetres;
+  /** Scooped waist CF y (wr.cf.y) — one source of truth for the waist top. */
+  waistCfY: Millimetres;
   straightRun: Millimetres;
   extension: Millimetres;
   arrivalAngleDeg: number;
   touch: Millimetres;
-}): { points: Point[]; P0: Point; k: number; touchMiss: Millimetres } {
+}): { points: Point[]; P0: Point; P1: Point; P2: Point; P3: Point; k: number; touchMiss: Millimetres } {
   const {
     p5,
     p9,
-    p10,
     fork,
-    R,
+    waistCfY,
     straightRun,
     extension,
     arrivalAngleDeg,
     touch,
   } = args;
-  const P0: Point = { x: -fork, y: p10.y + straightRun };
+  const P0: Point = { x: -fork, y: waistCfY + straightRun };
   const P3 = p9;
-  // Drop from P0 down to the crotch line — same role as the old "departure" length.
-  const dropToCrotch = Math.max(20, R - P0.y);
+  // Vertical run P0 → crotch tip — not the style departure (which is 0 at the waist).
+  const run = p9.y - P0.y;
   // Arrival travelling down-and-out (−x, +y), θ below horizontal.
   const theta = (arrivalAngleDeg * Math.PI) / 180;
   const dir = { x: -Math.cos(theta), y: Math.sin(theta) };
   const touchPt = crotchGuide45(p5, touch);
 
-  const curveForK = (k: number): Point[] => {
-    const d1 = k * dropToCrotch;
+  const handlesForK = (k: number): { P1: Point; P2: Point } => {
+    const d1 = k * run;
     const d2 = k * extension;
-    const P1: Point = { x: P0.x, y: P0.y + d1 };
-    const P2: Point = {
-      x: P3.x - d2 * dir.x,
-      y: P3.y - d2 * dir.y,
+    return {
+      P1: { x: P0.x, y: P0.y + d1 },
+      P2: {
+        x: P3.x - d2 * dir.x,
+        y: P3.y - d2 * dir.y,
+      },
     };
+  };
+
+  const curveForK = (k: number): Point[] => {
+    const { P1, P2 } = handlesForK(k);
     return cubicBezier(P0, P1, P2, P3, 48);
   };
 
@@ -1222,10 +1220,11 @@ export function frontCrotchCurve(args: {
   }
   const k = (lo + hi) / 2;
   const touchMiss = miss(k);
-  const forward = curveForK(k);
+  const { P1, P2 } = handlesForK(k);
+  const forward = cubicBezier(P0, P1, P2, P3, 48);
   // Outline: crotch runs crotch-tip → CF join.
   const points = forward.slice().reverse();
-  return { points, P0, k, touchMiss };
+  return { points, P0, P1, P2, P3, k, touchMiss };
 }
 
 function resolveBackWaistSeamAtDepth(
@@ -1911,7 +1910,7 @@ export function draftTrouserFront(
   const D = body.hipDepth - spec.hipDepthDrop;
   const F = body.waistToFloor - spec.riseDrop;
   const f = trouserFrontPoints(body, style);
-  const { p5, p6, p8, p9, p10, p12, p13, p14, p15 } = f;
+  const { p5, p6, p8, p9, p12, p13, p14, p15 } = f;
   const r = style.waistReduction ?? 0;
   const wr = frontWaistResolved(body, style);
 
@@ -1920,34 +1919,31 @@ export function draftTrouserFront(
   // Landmark only (construction overlay / verify) — not a curve knot.
   const frontGuide = crotchGuide45(p5, touch);
   const fork = Math.abs(p5.x);
-  const straightRun = resolveCrotchStraightRun(style, R, D, p10.y);
+  // Departure measured from the scooped waist (wr.cf), not p10.y.
+  const straightRun = resolveCrotchStraightRun(style, R, D, wr.cf.y);
   const extension = frontCrotchExtension(H, crotchScale);
   const arrivalAngle = resolveCrotchArrivalAngle(style);
   const frontCrotch = frontCrotchCurve({
     p5,
     p9,
-    p10,
     fork,
     R,
+    waistCfY: wr.cf.y,
     straightRun,
     extension,
     arrivalAngleDeg: arrivalAngle,
     touch,
   });
-  const crotchCurve = frontCrotch.points;
-  const cfJoin = frontCrotch.P0;
+  const { P0: cfJoin, P1, P2, P3, points: crotchCurve } = frontCrotch;
 
-  // Full tip→waist path (band-independent): Bézier to P0 on the true CF, then the
-  // slanted join P0 → p10 (Aldrich 10–6 when P0 = p6). Clip at the lowered waist.
-  const fullToTop =
-    Math.hypot(cfJoin.x - p10.x, cfJoin.y - p10.y) < 0.5
-      ? crotchCurve
-      : [...crotchCurve, p10];
-  const cfTop = wr.cf;
-  const clipped = clipPolylineBelowY(fullToTop, cfTop.y, cfTop);
-  // crossGap may exceed 0.1 mm while 7–10 insets wr.cf from the fork-line join;
-  // the join is forced to wr.cf (see scripts/verify-front-cf-clip.ts).
-  const crotchFromWaist = clipped.points;
+  // Tip→waist: full Bézier to P0, then straight join P0→wr.cf (no snap).
+  const crotchFromWaist = frontCrotchPathToWaist(
+    cfJoin,
+    P1,
+    P2,
+    P3,
+    wr.cf,
+  );
 
   const insideLegCtrl = insideLegControl(p9, p15);
   const insideLegToFork = quadBezier(p15, insideLegCtrl, p9).slice(1);

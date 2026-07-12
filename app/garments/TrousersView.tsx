@@ -28,6 +28,7 @@ import {
   CROTCH_ARRIVAL_ANGLE_MAX,
   CROTCH_STRAIGHT_RUN_MIN,
   resolveCrotchStraightRun,
+  resolveWaistlineCurveFront,
   FRONT_WAIST_INSET_MIN,
   FRONT_WAIST_INSET_MAX,
   WAISTLINE_CURVE_FRONT_MIN,
@@ -136,15 +137,15 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
   const riseDrop = Math.max(0, Math.min(WAIST_DROP_MAX, waistDrop));
   const draftR = draftBody.bodyRise - riseDrop;
   const draftD = draftBody.hipDepth - riseDrop;
-  // p10.y is the CF top construction line (always 0 in the block frame).
-  const p10y = 0;
+  // Scooped waist CF y — departure is measured from here, not p10.y (= 0).
+  const waistCfY = resolveWaistlineCurveFront(style);
   const straightRun = resolveCrotchStraightRun(
     style,
     draftR,
     draftD,
-    p10y,
+    waistCfY,
   );
-  const straightRunMax = Math.max(CROTCH_STRAIGHT_RUN_MIN, draftD - p10y);
+  const straightRunMax = Math.max(CROTCH_STRAIGHT_RUN_MIN, draftD - waistCfY);
   const yokeDepthMax = maxYokeDepth(draftBody, block, waistDrop);
   const backShapedCap = maxBackShapedWaistDepth(
     draftBody,
