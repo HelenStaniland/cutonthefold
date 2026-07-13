@@ -33,6 +33,10 @@ import {
   FRONT_WAIST_INSET_MAX,
   WAISTLINE_CURVE_FRONT_MIN,
   WAISTLINE_CURVE_FRONT_MAX,
+  BACK_CROTCH_DROP_MIN,
+  BACK_CROTCH_DROP_MAX,
+  CROTCH_FULLNESS_MIN,
+  CROTCH_FULLNESS_MAX,
   trouserFacingSteps,
 } from "@/lib/patterns/trouserBlock";
 import { draftWaistband } from "@/lib/elements/waistband";
@@ -45,6 +49,10 @@ import {
   fitForEase,
   FIT_PRESETS,
 } from "@/lib/pattern/fitPresets";
+import {
+  BLOCK_PRESETS,
+  type BlockPreset,
+} from "@/lib/pattern/blockPresets";
 import { previewTrousers } from "@/lib/previews/trouserBlock";
 import {
   DEFAULT_SEAM_ALLOWANCE,
@@ -100,8 +108,10 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
     setZipLength,
     ease,
     setEase,
-    crotchExtensionScale,
-    setCrotchExtensionScale,
+    frontCrotchExtensionScale,
+    setFrontCrotchExtensionScale,
+    backCrotchExtensionScale,
+    setBackCrotchExtensionScale,
     crotchStraightRun,
     setCrotchStraightRun,
     crotchArrivalAngle,
@@ -110,6 +120,12 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
     setWaistlineCurveFront,
     frontWaistInset,
     setFrontWaistInset,
+    backCrotchDrop,
+    setBackCrotchDrop,
+    frontCrotchFullness,
+    setFrontCrotchFullness,
+    backCrotchFullness,
+    setBackCrotchFullness,
   } = useStyle();
   // Per-block default — resets on classic ↔ production switch (intentional).
   const [waistDrop, setWaistDrop] = useState(
@@ -125,11 +141,15 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
     bottomWidth: legBottomWidth,
     block,
     waistDrop,
-    crotchExtensionScale,
+    frontCrotchExtensionScale,
+    backCrotchExtensionScale,
     crotchStraightRun: crotchStraightRun ?? undefined,
     crotchArrivalAngle,
     waistlineCurveFront,
     frontWaistInset,
+    backCrotchDrop,
+    frontCrotchFullness,
+    backCrotchFullness,
   };
   const activeFit = fitForEase(ease);
   const draftBody = applyEase(body, ease);
@@ -211,6 +231,47 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
       );
     }
   };
+
+  /** Pattern-reference preset (ease + style). Fit presets only change ease. */
+  const applyBlockPreset = (preset: BlockPreset) => {
+    const { measured, provisional } = preset;
+    setEase(measured.ease);
+    setCrotchStraightRun(measured.crotchStraightRun);
+    setFrontWaistInset(measured.frontWaistInset);
+    setCrotchArrivalAngle(measured.crotchArrivalAngle);
+    setBackCrotchDrop(measured.backCrotchDrop);
+    setFrontCrotchFullness(measured.frontCrotchFullness);
+    setBackCrotchFullness(measured.backCrotchFullness);
+    setFrontCrotchExtensionScale(measured.frontCrotchExtensionScale);
+    setBackCrotchExtensionScale(measured.backCrotchExtensionScale);
+    setWaistDrop(measured.waistDrop);
+    setWaistbandMode(measured.waistbandMode);
+    setWaistbandDepth(measured.waistbandDepth);
+    setWaistlineCurveFront(provisional.waistlineCurveFront);
+    // bottomWidth left as-is (unmeasured for Izzy).
+  };
+
+  const activeBlockPreset =
+    BLOCK_PRESETS.find((p) => {
+      const m = p.measured;
+      const pr = p.provisional;
+      return (
+        ease.waist === m.ease.waist &&
+        ease.hip === m.ease.hip &&
+        crotchStraightRun === m.crotchStraightRun &&
+        frontWaistInset === m.frontWaistInset &&
+        crotchArrivalAngle === m.crotchArrivalAngle &&
+        backCrotchDrop === m.backCrotchDrop &&
+        frontCrotchFullness === m.frontCrotchFullness &&
+        backCrotchFullness === m.backCrotchFullness &&
+        frontCrotchExtensionScale === m.frontCrotchExtensionScale &&
+        backCrotchExtensionScale === m.backCrotchExtensionScale &&
+        waistDrop === m.waistDrop &&
+        waistbandMode === m.waistbandMode &&
+        waistbandDepth === m.waistbandDepth &&
+        waistlineCurveFront === pr.waistlineCurveFront
+      );
+    })?.name ?? null;
 
   const tstyle =
     waistbandMode === "darted"
@@ -464,6 +525,34 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
       <div className={styles.workspace}>
         <aside className={styles.sidebar}>
           <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>Pattern reference</h2>
+            <p className={styles.fieldHint}>
+              Applies measured crotch/waist settings from a named pattern.
+              Starting point only — sliders stay free afterwards.
+            </p>
+            <div
+              className={styles.fitPresetList}
+              role="group"
+              aria-label="Pattern reference preset"
+            >
+              {BLOCK_PRESETS.map((preset) => (
+                <button
+                  key={preset.name}
+                  type="button"
+                  className={
+                    activeBlockPreset === preset.name
+                      ? styles.fitPresetActive
+                      : styles.fitPreset
+                  }
+                  onClick={() => applyBlockPreset(preset)}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className={styles.section}>
             <h2 className={styles.sectionTitle}>Fit</h2>
             <div className={styles.fitPresetList} role="group" aria-label="Fit preset">
               {FIT_PRESETS.map((preset) => (
@@ -520,7 +609,7 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                   type="range"
                   className={styles.rangeInput}
                   min={0}
-                  max={40}
+                  max={100}
                   step={5}
                   value={ease.waist}
                   onChange={(e) =>
@@ -553,28 +642,59 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
               </div>
             </div>
             <div className={styles.field}>
-              <label className={styles.fieldLabel} htmlFor="crotch-extension">
-                Crotch extension
+              <label
+                className={styles.fieldLabel}
+                htmlFor="front-crotch-extension"
+              >
+                Front crotch extension
               </label>
               <span className={styles.fieldHint}>
-                Aldrich (1.0) to a narrower, Izzy-like crotch (0.5). Lower = less
-                fabric between the legs.
+                How far the front crotch point extends. Aldrich 1.0, Izzy ~0.5.
+                Lower = less fabric between the legs.
               </span>
               <div className={styles.rangeRow}>
                 <input
-                  id="crotch-extension"
+                  id="front-crotch-extension"
                   type="range"
                   className={styles.rangeInput}
                   min={CROTCH_EXTENSION_SCALE_MIN}
                   max={CROTCH_EXTENSION_SCALE_MAX}
-                  step={0.05}
-                  value={crotchExtensionScale}
+                  step={0.01}
+                  value={frontCrotchExtensionScale}
                   onChange={(e) =>
-                    setCrotchExtensionScale(Number(e.target.value))
+                    setFrontCrotchExtensionScale(Number(e.target.value))
                   }
                 />
                 <span className={styles.rangeValue}>
-                  {crotchExtensionScale.toFixed(2)}
+                  {frontCrotchExtensionScale.toFixed(2)}
+                </span>
+              </div>
+            </div>
+            <div className={styles.field}>
+              <label
+                className={styles.fieldLabel}
+                htmlFor="back-crotch-extension"
+              >
+                Back crotch extension
+              </label>
+              <span className={styles.fieldHint}>
+                How far the back crotch point extends. Aldrich 1.0, Izzy ~0.875.
+              </span>
+              <div className={styles.rangeRow}>
+                <input
+                  id="back-crotch-extension"
+                  type="range"
+                  className={styles.rangeInput}
+                  min={CROTCH_EXTENSION_SCALE_MIN}
+                  max={CROTCH_EXTENSION_SCALE_MAX}
+                  step={0.01}
+                  value={backCrotchExtensionScale}
+                  onChange={(e) =>
+                    setBackCrotchExtensionScale(Number(e.target.value))
+                  }
+                />
+                <span className={styles.rangeValue}>
+                  {backCrotchExtensionScale.toFixed(2)}
                 </span>
               </div>
             </div>
@@ -625,6 +745,85 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                 />
                 <span className={styles.rangeValue}>
                   {crotchArrivalAngle}°
+                </span>
+              </div>
+            </div>
+            <div className={styles.field}>
+              <label className={styles.fieldLabel} htmlFor="back-crotch-drop">
+                Back crotch drop
+              </label>
+              <span className={styles.fieldHint}>
+                Aldrich 23–24: how far below the crotch line the back curve ends
+                (5 mm = hook; 0 = flat Izzy-style).
+              </span>
+              <div className={styles.rangeRow}>
+                <input
+                  id="back-crotch-drop"
+                  type="range"
+                  className={styles.rangeInput}
+                  min={BACK_CROTCH_DROP_MIN}
+                  max={BACK_CROTCH_DROP_MAX}
+                  step={1}
+                  value={backCrotchDrop}
+                  onChange={(e) => setBackCrotchDrop(Number(e.target.value))}
+                />
+                <span className={styles.rangeValue}>{backCrotchDrop} mm</span>
+              </div>
+            </div>
+            <div className={styles.field}>
+              <label
+                className={styles.fieldLabel}
+                htmlFor="front-crotch-fullness"
+              >
+                Front crotch fullness
+              </label>
+              <span className={styles.fieldHint}>
+                How full the front crotch curve is. Lower = flatter/scooped;
+                higher = fuller. Aldrich 0.62, Izzy 0.84.
+              </span>
+              <div className={styles.rangeRow}>
+                <input
+                  id="front-crotch-fullness"
+                  type="range"
+                  className={styles.rangeInput}
+                  min={CROTCH_FULLNESS_MIN}
+                  max={CROTCH_FULLNESS_MAX}
+                  step={0.01}
+                  value={frontCrotchFullness}
+                  onChange={(e) =>
+                    setFrontCrotchFullness(Number(e.target.value))
+                  }
+                />
+                <span className={styles.rangeValue}>
+                  {frontCrotchFullness.toFixed(2)}
+                </span>
+              </div>
+            </div>
+            <div className={styles.field}>
+              <label
+                className={styles.fieldLabel}
+                htmlFor="back-crotch-fullness"
+              >
+                Back crotch fullness
+              </label>
+              <span className={styles.fieldHint}>
+                How full the back crotch curve is. Aldrich 0.87.
+              </span>
+              <div className={styles.rangeRow}>
+                <input
+                  id="back-crotch-fullness"
+                  type="range"
+                  className={styles.rangeInput}
+                  min={CROTCH_FULLNESS_MIN}
+                  max={CROTCH_FULLNESS_MAX}
+                  step={0.01}
+                  value={backCrotchFullness}
+                  onChange={(e) =>
+                    setBackCrotchFullness(Number(e.target.value))
+                  }
+                />
+                <span className={styles.rangeValue}>
+                  {backCrotchFullness.toFixed(2)}
                 </span>
               </div>
             </div>

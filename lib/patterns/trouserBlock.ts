@@ -15,7 +15,6 @@ import {
 } from "@/lib/types/measurements";
 import { validationResult, ValidationResult } from "@/lib/types/validation";
 import {
-  catmullRomCentripetal,
   cubicBezier,
   pchipByY,
   pointAtArcDistanceFromEnd,
@@ -137,6 +136,27 @@ const CB_FOLD_INTERIOR_DEG = 135;
 const WAIST_CAP_SAMPLE_COUNT = 241;
 const CB_WAIST_NEAR_DENSE = 48;
 
+/** Cache for maxBackShapedWaistDepth — keyed on body + style inputs, not band depth. */
+const backShapedDepthCapCache = new Map<string, Millimetres>();
+
+function backShapedDepthCapCacheKey(
+  body: BodyMeasurements,
+  block: TrouserBlock,
+  bottomWidth: Millimetres,
+  waistDrop: Millimetres | undefined,
+): string {
+  return [
+    body.waist,
+    body.hip,
+    body.bodyRise,
+    body.hipDepth,
+    body.waistToFloor,
+    block,
+    bottomWidth,
+    waistDrop ?? "",
+  ].join("|");
+}
+
 /** Largest shaped depth (mm) where the back waist stays coherent at CB. */
 export function maxBackShapedWaistDepth(
   body: BodyMeasurements,
@@ -144,6 +164,12 @@ export function maxBackShapedWaistDepth(
   bottomWidth: Millimetres = DEFAULT_HEM_WIDTH,
   waistDrop?: Millimetres,
 ): Millimetres {
+  const key = backShapedDepthCapCacheKey(body, block, bottomWidth, waistDrop);
+  const cached = backShapedDepthCapCache.get(key);
+  if (cached !== undefined) {
+    return cached;
+  }
+
   const style: TrouserFrontStyle = {
     bottomWidth,
     block,
@@ -151,24 +177,32 @@ export function maxBackShapedWaistDepth(
     waistDrop,
   };
   const hipCap = maxYokeDepth(body, block, waistDrop);
+  let result: Millimetres;
   if (hipCap <= SHAPED_DEPTH_MIN) {
-    return SHAPED_DEPTH_MIN;
-  }
-
-  let firstBad: Millimetres | null = null;
-  for (let d = SHAPED_DEPTH_MIN; d <= hipCap; d += 1) {
-    if (!isBackShapedWaistCoherentAtDepth(body, style, d)) {
-      firstBad = d;
-      break;
+    result = SHAPED_DEPTH_MIN;
+  } else {
+    // Coherence is monotonic in depth (first bad stays bad) — binary search.
+    let lo = SHAPED_DEPTH_MIN;
+    let hi = hipCap + 1;
+    while (lo < hi) {
+      const mid = Math.floor((lo + hi) / 2);
+      if (isBackShapedWaistCoherentAtDepth(body, style, mid)) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
+    }
+    const firstBad = lo <= hipCap ? lo : null;
+    if (firstBad === null) {
+      result = hipCap;
+    } else if (firstBad <= SHAPED_DEPTH_MIN) {
+      result = SHAPED_DEPTH_MIN;
+    } else {
+      result = Math.max(SHAPED_DEPTH_MIN, firstBad - SHAPED_DEPTH_CAP_STEP);
     }
   }
-  if (firstBad === null) {
-    return hipCap;
-  }
-  if (firstBad <= SHAPED_DEPTH_MIN) {
-    return SHAPED_DEPTH_MIN;
-  }
-  return Math.max(SHAPED_DEPTH_MIN, firstBad - SHAPED_DEPTH_CAP_STEP);
+  backShapedDepthCapCache.set(key, result);
+  return result;
 }
 
 /** Finished depth range for the active waistband mode (mm). */
@@ -320,10 +354,15 @@ export type TrouserFrontStyle = {
   waistbandMode?: WaistbandMode;
   /**
    * Scale on Aldrich's front crotch extension (H/16+10). 1.0 = Aldrich;
-   * ~0.5 ≈ Izzy (half the extension at the same drafted hip). Clamped [0.4, 1.0].
-   * Intermediate values have no external authority — toile is the verdict.
+   * ~0.51 ≈ Izzy (measured). Clamped [0.4, 1.0]. Independent of the back scale.
    */
-  crotchExtensionScale?: number;
+  frontCrotchExtensionScale?: number;
+  /**
+   * Scale on Aldrich's back crotch span |p16 → p23|.
+   * 1.0 = Aldrich; Izzy ≈ 0.88 (approximate — see preset). Clamped [0.4, 1.0].
+   * Independent of the front scale; p23 is anchored to p16, not p9.
+   */
+  backCrotchExtensionScale?: number;
   /**
    * Departure height on the true CF (mm below the scooped waist CF, wr.cf.y).
    * P0 = (−fork, wr.cf.y + crotchStraightRun); the edge above is the slanted join
@@ -346,6 +385,24 @@ export type TrouserFrontStyle = {
    * Default 10 (Aldrich). 0 = vertical CF (Izzy-style). Clamped [0, 20].
    */
   frontWaistInset?: Millimetres;
+  /**
+   * How far below the crotch line (y = R) the back crotch curve ends (mm).
+   * Terminus T = (p23.x, R + backCrotchDrop); the inseam starts at the same point.
+   * Default 5 (Aldrich 23–24) — curve hooks down into T. 0 = Izzy: flat run on the
+   * crotch line to p23, no hook. Clamped [0, 10].
+   */
+  backCrotchDrop?: Millimetres;
+  /**
+   * Front crotch curve fullness — Bézier shape factor k1 (d1 = k1 · drop).
+   * Default 0.6175 (Aldrich). Izzy fitted ≈ 0.84. Clamped [0.2, 1.0];
+   * upper bound is the loop-proof guarantee.
+   */
+  frontCrotchFullness?: number;
+  /**
+   * Back crotch curve fullness — Bézier shape factor k1 (d1 = k1 · drop).
+   * Default 0.865 (Aldrich). Clamped [0.2, 1.0]; upper bound is loop-proof.
+   */
+  backCrotchFullness?: number;
 };
 
 export const withWaistband = (
@@ -495,16 +552,16 @@ export function backCrotchTouch(hip: Millimetres): Millimetres {
 
 /**
  * Aldrich p.46: 5–9 = one sixteenth hip plus 1 cm. Expressed as a fraction of the
- * drafted hip so it grades correctly across bodies. crotchExtensionScale = 1.0 is
- * Aldrich; 0.5 approximates the Izzy pattern (measured: half Aldrich's front extension
- * at the same drafted hip). Validated only by toile — no external authority for
- * intermediate values.
+ * drafted hip so it grades correctly across bodies. Scale 1.0 is Aldrich; front and
+ * back scales are independent (Izzy: front ≈ 0.51, back ≈ 0.875).
  */
 const ALDRICH_FRONT_EXTENSION = (H: Millimetres): Millimetres => H / 16 + 10;
 
 export const CROTCH_EXTENSION_SCALE_MIN = 0.4;
 export const CROTCH_EXTENSION_SCALE_MAX = 1.0;
 export const DEFAULT_CROTCH_EXTENSION_SCALE = 1.0;
+export const DEFAULT_FRONT_CROTCH_EXTENSION_SCALE = DEFAULT_CROTCH_EXTENSION_SCALE;
+export const DEFAULT_BACK_CROTCH_EXTENSION_SCALE = DEFAULT_CROTCH_EXTENSION_SCALE;
 
 /** Default arrival ≈ previous Catmull leave angle at p9 (degrees below horizontal). */
 export const DEFAULT_CROTCH_ARRIVAL_ANGLE = 14;
@@ -518,14 +575,42 @@ export const DEFAULT_FRONT_WAIST_INSET = 10;
 export const FRONT_WAIST_INSET_MIN = 0;
 export const FRONT_WAIST_INSET_MAX = 20;
 
-export function resolveCrotchExtensionScale(
-  style: Pick<TrouserFrontStyle, "crotchExtensionScale">,
-): number {
-  const raw = style.crotchExtensionScale ?? DEFAULT_CROTCH_EXTENSION_SCALE;
+function clampCrotchExtensionScale(raw: number): number {
   return Math.max(
     CROTCH_EXTENSION_SCALE_MIN,
     Math.min(CROTCH_EXTENSION_SCALE_MAX, raw),
   );
+}
+
+export function resolveFrontCrotchExtensionScale(
+  style: Pick<TrouserFrontStyle, "frontCrotchExtensionScale">,
+): number {
+  const raw =
+    style.frontCrotchExtensionScale ?? DEFAULT_FRONT_CROTCH_EXTENSION_SCALE;
+  return clampCrotchExtensionScale(raw);
+}
+
+export function resolveBackCrotchExtensionScale(
+  style: Pick<TrouserFrontStyle, "backCrotchExtensionScale">,
+): number {
+  const raw =
+    style.backCrotchExtensionScale ?? DEFAULT_BACK_CROTCH_EXTENSION_SCALE;
+  return clampCrotchExtensionScale(raw);
+}
+
+/**
+ * @deprecated Use resolveFrontCrotchExtensionScale / resolveBackCrotchExtensionScale.
+ * Kept only so older scripts compile; reads front scale (or default).
+ */
+export function resolveCrotchExtensionScale(
+  style: Pick<
+    TrouserFrontStyle,
+    "frontCrotchExtensionScale" | "backCrotchExtensionScale"
+  > & { crotchExtensionScale?: number },
+): number {
+  // Stale crotchExtensionScale is ignored — never coerce into either new param.
+  void style.crotchExtensionScale;
+  return resolveFrontCrotchExtensionScale(style);
 }
 
 export function resolveCrotchArrivalAngle(
@@ -562,11 +647,64 @@ export function resolveFrontWaistInset(
   return Math.max(FRONT_WAIST_INSET_MIN, Math.min(FRONT_WAIST_INSET_MAX, raw));
 }
 
+/** Aldrich 23–24 default (mm below crotch line). 0 = Izzy (no hook). */
+export const DEFAULT_BACK_CROTCH_DROP = 5;
+export const BACK_CROTCH_DROP_MIN = 0;
+export const BACK_CROTCH_DROP_MAX = 10;
+
+export function resolveBackCrotchDrop(
+  style: Pick<TrouserFrontStyle, "backCrotchDrop">,
+): Millimetres {
+  const raw = style.backCrotchDrop ?? DEFAULT_BACK_CROTCH_DROP;
+  return Math.max(BACK_CROTCH_DROP_MIN, Math.min(BACK_CROTCH_DROP_MAX, raw));
+}
+
+/**
+ * Crotch Bézier fullness (k1). Aldrich defaults; k2 stays fixed.
+ * k1 ≤ 1 is loop-proof by construction — do not raise the max.
+ */
+export const DEFAULT_FRONT_CROTCH_FULLNESS = 0.6175;
+export const DEFAULT_BACK_CROTCH_FULLNESS = 0.865;
+export const CROTCH_FULLNESS_MIN = 0.2;
+export const CROTCH_FULLNESS_MAX = 1.0;
+/** Arrival-side shape factor — fixed for now (arrival angle owns that end). */
+const FRONT_CROTCH_K2 = 0.4203;
+const BACK_CROTCH_K2 = 0.5004;
+
+export function resolveFrontCrotchFullness(
+  style: Pick<TrouserFrontStyle, "frontCrotchFullness">,
+): number {
+  const raw = style.frontCrotchFullness ?? DEFAULT_FRONT_CROTCH_FULLNESS;
+  return Math.max(CROTCH_FULLNESS_MIN, Math.min(CROTCH_FULLNESS_MAX, raw));
+}
+
+export function resolveBackCrotchFullness(
+  style: Pick<TrouserFrontStyle, "backCrotchFullness">,
+): number {
+  const raw = style.backCrotchFullness ?? DEFAULT_BACK_CROTCH_FULLNESS;
+  return Math.max(CROTCH_FULLNESS_MIN, Math.min(CROTCH_FULLNESS_MAX, raw));
+}
+
 export function frontCrotchExtension(
   H: Millimetres,
   scale: number,
 ): Millimetres {
   return ALDRICH_FRONT_EXTENSION(H) * scale;
+}
+
+/**
+ * Aldrich's back crotch extension at scale 1: |p16 → p23|.
+ * p16 sits fork/4 inboard of the fork line; at Aldrich defaults
+ * p23 = p9 − (frontExt/2 + backCrotchAdd) with unscaled frontExt.
+ * So |p16 → p23| = fork/4 + frontExt + frontExt/2 + backCrotchAdd.
+ */
+export function aldrichBackExtension(
+  H: Millimetres,
+  fork: Millimetres,
+  backCrotchAdd: Millimetres,
+): Millimetres {
+  const fe = ALDRICH_FRONT_EXTENSION(H); // unscaled — back baseline is fixed
+  return fork / 4 + fe + fe / 2 + backCrotchAdd;
 }
 
 const forkWidth = (H: number) => H / 12 + 20;
@@ -1111,16 +1249,209 @@ function cbInteriorAngle(
   return (Math.acos(Math.max(-1, Math.min(1, dot))) * 180) / Math.PI;
 }
 
-function backCrotchCurve(b: BackPoints): Point[] {
-  return catmullRomCentripetal([b.p24, b.guide, b.p19, b.p21]);
+/**
+ * Horizontal crotch-line run as a fraction of the back's horizontal crotch
+ * extent (|p19.x − p23.x|). Izzy measured ≈ 22% (43 mm of ~195).
+ */
+export const BACK_CROTCH_HORIZ_RUN_FRAC = 0.22;
+
+/** Flat run K→p23 along the crotch line (mm). */
+export function backCrotchHorizRun(b: BackPoints): Millimetres {
+  return BACK_CROTCH_HORIZ_RUN_FRAC * Math.abs(b.p19.x - b.p23.x);
+}
+
+/** Memo for draftBackCrotch — geometry depends on body/style points, not band depth. */
+const draftBackCrotchCache = new Map<
+  string,
+  ReturnType<typeof draftBackCrotchUncached>
+>();
+
+function draftBackCrotchCacheKey(b: BackPoints, k1: number): string {
+  return [
+    b.p19.x,
+    b.p19.y,
+    b.p21.x,
+    b.p21.y,
+    b.p23.x,
+    b.p23.y,
+    b.p24.x,
+    b.p24.y,
+    b.guide.x,
+    b.guide.y,
+    k1,
+  ].join("|");
+}
+
+/**
+ * Back crotch: tangent-continuous path tip→waist, ending at terminus T.
+ *
+ * T = (p23.x, R + backCrotchDrop). Drop 5 → Aldrich p24 (hook); drop 0 → p23 (Izzy).
+ * The inseam starts at the same T — one continuous seam, no p23→p24 step.
+ *
+ * drop = 0: cubic p19→K (leave along CB, arrive horizontal), then flat run K→T
+ *   along the crotch line. `horizRun` sizes that run only.
+ * drop > 0: cubic p19→T (leave along CB, arrive along K→T — descending hook).
+ *   No flat run; `horizRun` still places construction K for the arrival direction.
+ *
+ * Handle lengths: d1 = k1·(end.y − p19.y) with style `backCrotchFullness`;
+ * d2 = k2·|end − p19| with fixed BACK_CROTCH_K2. Touch is reported, not constrained.
+ */
+export function draftBackCrotch(
+  b: BackPoints,
+  style: Pick<TrouserFrontStyle, "backCrotchFullness"> = {},
+): {
+  points: Point[];
+  K: Point;
+  T: Point;
+  P0: Point;
+  P1: Point;
+  P2: Point;
+  P3: Point;
+  k: number;
+  k1: number;
+  k2: number;
+  touchMiss: Millimetres;
+  horizRun: Millimetres;
+  crotchDrop: Millimetres;
+} {
+  const k1 = resolveBackCrotchFullness(style);
+  const key = draftBackCrotchCacheKey(b, k1);
+  const cached = draftBackCrotchCache.get(key);
+  if (cached) {
+    return cached;
+  }
+  const result = draftBackCrotchUncached(b, k1);
+  draftBackCrotchCache.set(key, result);
+  return result;
+}
+
+function draftBackCrotchUncached(
+  b: BackPoints,
+  k1: number,
+): {
+  points: Point[];
+  K: Point;
+  T: Point;
+  P0: Point;
+  P1: Point;
+  P2: Point;
+  P3: Point;
+  k: number;
+  k1: number;
+  k2: number;
+  touchMiss: Millimetres;
+  horizRun: Millimetres;
+  crotchDrop: Millimetres;
+} {
+  const R = b.p23.y;
+  const crotchDrop = Math.max(0, b.p24.y - b.p23.y);
+  const T: Point = { x: b.p23.x, y: R + crotchDrop };
+  const towardCb = Math.sign(b.p19.x - b.p23.x) || 1;
+  // Construction K on the crotch line (CB side of tip). Sizes the flat run when
+  // drop = 0; when drop > 0 it only sets the arrival direction (K → T).
+  const horizRun = backCrotchHorizRun(b);
+  const K: Point = { x: b.p23.x + towardCb * horizRun, y: R };
+
+  const P0 = b.p19;
+  // Unit direction of the straight CB travel p21 → p19 (curve continues that way).
+  const u = normalize({
+    x: b.p19.x - b.p21.x,
+    y: b.p19.y - b.p21.y,
+  });
+  const touchPt = b.guide;
+
+  // End of the cubic: K when flat (drop 0), else T (hook).
+  const flat = crotchDrop < 1e-9;
+  const P3: Point = flat ? { ...K } : { ...T };
+  // Arrival at P3: horizontal toward tip when flat; else along K → T (descends).
+  const arrive = flat
+    ? { x: -towardCb, y: 0 }
+    : normalize({ x: T.x - K.x, y: T.y - K.y });
+
+  const vert = Math.max(1e-6, P3.y - P0.y);
+  const chord = Math.max(1e-6, Math.hypot(P3.x - P0.x, P3.y - P0.y));
+  const k2 = BACK_CROTCH_K2;
+  const d1 = k1 * vert;
+  const d2 = k2 * chord;
+  const P1: Point = { x: P0.x + d1 * u.x, y: P0.y + d1 * u.y };
+  const P2: Point = {
+    x: P3.x - d2 * arrive.x,
+    y: P3.y - d2 * arrive.y,
+  };
+
+  // Dense sample for the touch diagnostic only (outline stays at 48).
+  let touchMiss: Millimetres = Infinity;
+  for (let i = 0; i <= 64; i++) {
+    const p = cubicBezierAt(P0, P1, P2, P3, i / 64);
+    const d = Math.hypot(p.x - touchPt.x, p.y - touchPt.y);
+    if (d < touchMiss) touchMiss = d;
+  }
+
+  // Assert y monotonic along the Bézier (p19 → end).
+  let yPrev = P0.y;
+  for (let i = 1; i <= 16; i++) {
+    const y = cubicBezierAt(P0, P1, P2, P3, i / 16).y;
+    if (y + 1e-6 < yPrev) {
+      throw new Error(
+        `back crotch Bézier not monotonic in y (y(${i / 16})=${y} < yPrev=${yPrev})`,
+      );
+    }
+    yPrev = y;
+  }
+
+  // Bézier end → p19; reverse for tip→waist.
+  const endToP19 = cubicBezier(P0, P1, P2, P3, 48).slice().reverse();
+  // Tip→waist: T, then (drop 0 only) flat run onto K if T ≠ first sample, then curve → p19 → p21.
+  const points: Point[] = [];
+  points.push({ ...T });
+  if (flat && Math.hypot(T.x - K.x, T.y - K.y) > 0.01) {
+    // Flat run is the segment T → K; K is the first sample of endToP19.
+    // (No extra K push — endToP19 already starts at K.)
+  }
+  for (const p of endToP19) {
+    const last = points[points.length - 1]!;
+    if (Math.hypot(last.x - p.x, last.y - p.y) > 0.01) {
+      points.push(p);
+    }
+  }
+  const last = points[points.length - 1]!;
+  if (Math.hypot(last.x - b.p21.x, last.y - b.p21.y) > 0.01) {
+    points.push({ ...b.p21 });
+  }
+
+  return {
+    points,
+    K,
+    T,
+    P0,
+    P1,
+    P2,
+    P3,
+    k: k1,
+    k1,
+    k2,
+    touchMiss,
+    horizRun,
+    crotchDrop,
+  };
+}
+
+function backCrotchCurve(
+  b: BackPoints,
+  style: Pick<TrouserFrontStyle, "backCrotchFullness"> = {},
+): Point[] {
+  return draftBackCrotch(b, style).points;
 }
 
 /** Crotch body for CB clearance — stops at hipline p19; p19→p21 is the straight CB join leg. */
-function backCrotchBelowHip(b: BackPoints): Point[] {
-  const full = backCrotchCurve(b);
+function backCrotchBelowHip(
+  b: BackPoints,
+  style: Pick<TrouserFrontStyle, "backCrotchFullness"> = {},
+): Point[] {
+  const full = backCrotchCurve(b, style);
   let hipIdx = full.length - 1;
   for (let i = 0; i < full.length; i++) {
-    if (Math.hypot(full[i].x - b.p19.x, full[i].y - b.p19.y) < 0.5) {
+    if (Math.hypot(full[i]!.x - b.p19.x, full[i]!.y - b.p19.y) < 0.5) {
       hipIdx = i;
       break;
     }
@@ -1130,8 +1461,8 @@ function backCrotchBelowHip(b: BackPoints): Point[] {
 
 /**
  * Front crotch as a cubic Bézier with vertical CF departure and angled arrival at p9.
- * Handle lengths d1 = k·run (run = p9.y − P0.y, never vanishes), d2 = k·extension;
- * k is solved so the curve passes through the 45° touch landmark (overlay-only, not a knot).
+ * Handle lengths: d1 = k1·drop (k1 = frontCrotchFullness), d2 = k2·chord with fixed
+ * FRONT_CROTCH_K2. The 45° touch is reported, not constrained. k1 ≤ 1 is loop-proof.
  *
  * P0 sits on the true CF (−fork), `straightRun` mm below the scooped waist CF (waistCfY).
  * The edge above is the slanted join wr.cf → P0 (Aldrich 10–6 when departure is at the hipline).
@@ -1148,83 +1479,63 @@ export function frontCrotchCurve(args: {
   extension: Millimetres;
   arrivalAngleDeg: number;
   touch: Millimetres;
-}): { points: Point[]; P0: Point; P1: Point; P2: Point; P3: Point; k: number; touchMiss: Millimetres } {
+  /** Shape factor k1; default Aldrich. Clamped [0.2, 1.0]. */
+  k1?: number;
+}): {
+  points: Point[];
+  P0: Point;
+  P1: Point;
+  P2: Point;
+  P3: Point;
+  k: number;
+  k1: number;
+  k2: number;
+  touchMiss: Millimetres;
+} {
   const {
     p5,
     p9,
     fork,
     waistCfY,
     straightRun,
-    extension,
     arrivalAngleDeg,
     touch,
   } = args;
+  // `extension` remains on the args API for call sites; d2 uses fixed k2·chord.
   const P0: Point = { x: -fork, y: waistCfY + straightRun };
   const P3 = p9;
-  // Vertical run P0 → crotch tip — not the style departure (which is 0 at the waist).
-  const run = p9.y - P0.y;
+  // Vertical drop P0 → tip; chord |P3 − P0|.
+  const drop = Math.max(1e-6, P3.y - P0.y);
+  const chord = Math.max(1e-6, Math.hypot(P3.x - P0.x, P3.y - P0.y));
   // Arrival travelling down-and-out (−x, +y), θ below horizontal.
   const theta = (arrivalAngleDeg * Math.PI) / 180;
   const dir = { x: -Math.cos(theta), y: Math.sin(theta) };
   const touchPt = crotchGuide45(p5, touch);
 
-  const handlesForK = (k: number): { P1: Point; P2: Point } => {
-    const d1 = k * run;
-    const d2 = k * extension;
-    return {
-      P1: { x: P0.x, y: P0.y + d1 },
-      P2: {
-        x: P3.x - d2 * dir.x,
-        y: P3.y - d2 * dir.y,
-      },
-    };
+  const k1 = resolveFrontCrotchFullness({
+    frontCrotchFullness: args.k1 ?? DEFAULT_FRONT_CROTCH_FULLNESS,
+  });
+  const k2 = FRONT_CROTCH_K2;
+  const d1 = k1 * drop;
+  const d2 = k2 * chord;
+  const P1: Point = { x: P0.x, y: P0.y + d1 };
+  const P2: Point = {
+    x: P3.x - d2 * dir.x,
+    y: P3.y - d2 * dir.y,
   };
 
-  const curveForK = (k: number): Point[] => {
-    const { P1, P2 } = handlesForK(k);
-    return cubicBezier(P0, P1, P2, P3, 48);
-  };
-
-  const miss = (k: number): Millimetres => {
-    const curve = curveForK(k);
-    let best = Infinity;
-    for (const p of curve) {
-      const d = Math.hypot(p.x - touchPt.x, p.y - touchPt.y);
-      if (d < best) best = d;
-    }
-    return best;
-  };
-
-  // Scan then refine: find k minimising distance to the 45° touch point.
-  let bestK = 0.55;
-  let bestMiss = miss(bestK);
-  for (let i = 0; i <= 40; i++) {
-    const k = 0.15 + (i / 40) * 1.85;
-    const m = miss(k);
-    if (m < bestMiss) {
-      bestMiss = m;
-      bestK = k;
-    }
+  // Dense sample for the touch diagnostic only (outline stays at 48).
+  let touchMiss: Millimetres = Infinity;
+  for (let i = 0; i <= 64; i++) {
+    const p = cubicBezierAt(P0, P1, P2, P3, i / 64);
+    const d = Math.hypot(p.x - touchPt.x, p.y - touchPt.y);
+    if (d < touchMiss) touchMiss = d;
   }
-  let lo = Math.max(0.05, bestK - 0.08);
-  let hi = bestK + 0.08;
-  for (let iter = 0; iter < 24; iter++) {
-    const mid = (lo + hi) / 2;
-    const m1 = miss(mid - 1e-3);
-    const m2 = miss(mid + 1e-3);
-    if (m1 < m2) {
-      hi = mid;
-    } else {
-      lo = mid;
-    }
-  }
-  const k = (lo + hi) / 2;
-  const touchMiss = miss(k);
-  const { P1, P2 } = handlesForK(k);
-  const forward = cubicBezier(P0, P1, P2, P3, 48);
+
   // Outline: crotch runs crotch-tip → CF join.
+  const forward = cubicBezier(P0, P1, P2, P3, 48);
   const points = forward.slice().reverse();
-  return { points, P0, P1, P2, P3, k, touchMiss };
+  return { points, P0, P1, P2, P3, k: k1, k1, k2, touchMiss };
 }
 
 function resolveBackWaistSeamAtDepth(
@@ -1287,8 +1598,17 @@ function backCbClearOfCrotchReason(
     return `waistNext.x ${waistNext.x.toFixed(2)} <= cb.x ${cb.x.toFixed(2)}`;
   }
 
-  const crotchCheck = backCrotchBelowHip(b);
-  const joinStart = backCrotchCurve(b).at(-1)!;
+  const drafted = draftBackCrotch(b, style);
+  const full = drafted.points;
+  let hipIdx = full.length - 1;
+  for (let i = 0; i < full.length; i++) {
+    if (Math.hypot(full[i]!.x - b.p19.x, full[i]!.y - b.p19.y) < 0.5) {
+      hipIdx = i;
+      break;
+    }
+  }
+  const crotchCheck = full.slice(0, hipIdx + 1);
+  const joinStart = full[full.length - 1]!;
   const nearCount = strict
     ? Math.min(CB_WAIST_NEAR_DENSE, waistSeam.length)
     : Math.min(12, waistSeam.length);
@@ -1342,7 +1662,7 @@ function assertBackCbClearOfCrotch(
   }
   const b = trouserBackPoints(body, style);
   const cb = dense[0];
-  const joinStart = backCrotchCurve(b).at(-1)!;
+  const joinStart = backCrotchCurve(b, style).at(-1)!;
   const interior =
     dense.length >= 2 ? cbInteriorAngle(joinStart, cb, dense[1]) : 0;
   throw new Error(
@@ -1576,8 +1896,8 @@ export function trouserFrontPoints(
 
   const kneeY = trouserKneeY(body, spec.riseDrop);
   const fork = forkWidth(H);
-  const scale = resolveCrotchExtensionScale(style);
-  const ext = frontCrotchExtension(H, scale);
+  const frontScale = resolveFrontCrotchExtensionScale(style);
+  const ext = frontCrotchExtension(H, frontScale);
   const inset = resolveFrontWaistInset(style);
 
   const p5 = { x: -fork, y: R };
@@ -1609,8 +1929,7 @@ export function trouserBackPoints(
   const F = body.waistToFloor - spec.riseDrop;
   const fork = forkWidth(H);
   const f = trouserFrontPoints(body, style);
-  const scale = resolveCrotchExtensionScale(style);
-  const ext = frontCrotchExtension(H, scale);
+  const backScale = resolveBackCrotchExtensionScale(style);
 
   const p16 = { x: -fork + fork / 4, y: R };
   const p17 = { x: p16.x, y: D };
@@ -1620,8 +1939,12 @@ export function trouserBackPoints(
   const p21 = { x: p20x, y: -BACK_CB_WAIST_RISE };
   const L = W / 4 + 40;
   const p22 = { x: p21.x + Math.sqrt(L * L - p21.y * p21.y), y: 0 };
-  const p23 = { x: f.p9.x - (ext / 2 + spec.backCrotchAdd), y: R };
-  const p24 = { x: p23.x, y: R + 5 };
+  // Back tip from p16 — independent of front scale / p9.
+  const backExt =
+    aldrichBackExtension(H, fork, spec.backCrotchAdd) * backScale;
+  const p23 = { x: p16.x - backExt, y: R };
+  const crotchDrop = resolveBackCrotchDrop(style);
+  const p24 = { x: p23.x, y: R + crotchDrop };
   const p25 = { x: p17.x + H / 4 + 15, y: D };
   const p26 = { x: f.p12.x + 10, y: F };
   const p28 = { x: f.p14.x - 10, y: F };
@@ -1629,7 +1952,7 @@ export function trouserBackPoints(
 
   const p27 = { x: f.p13.x + 10, y: kneeY };
   const p29 = { x: f.p15.x - 10, y: kneeY };
-  const guide = crotchGuide45(p16, backCrotchTouch(H) * scale);
+  const guide = crotchGuide45(p16, backCrotchTouch(H) * backScale);
 
   return { p16, p17, p18, p19, p21, p22, p23, p24, p25, p26, p27, p28, p29, guide };
 }
@@ -1752,13 +2075,13 @@ export function trouserConstruction(
   const F = body.waistToFloor - drop;
   const f = trouserFrontPoints(body, style);
   const b = trouserBackPoints(body, style);
-  const crotchScale = resolveCrotchExtensionScale(style);
+  const frontScale = resolveFrontCrotchExtensionScale(style);
   // Front 45° touch landmark — drawn in the construction overlay / checked by
   // verify:aldrich. The cut crotch is a Bézier constrained to this depth, not
   // a Catmull-Rom through the guide as a knot.
   const frontGuide = crotchGuide45(
     f.p5,
-    frontCrotchTouch(body.hip) * crotchScale,
+    frontCrotchTouch(body.hip) * frontScale,
   );
   const frontInsideLegCtrl = insideLegCurveControls(f.p9, f.p15, 7.5, "inseamCtrl");
   const frontCrotchControls = crotchCurveControls(frontGuide);
@@ -1879,7 +2202,6 @@ export function trouserConstruction(
         draftLine(b.p18, b.p21, "construction"),
         draftLine(b.p21, b.p22, "construction"),
         draftLine(b.p16, b.guide, "construction"),
-        draftLine(b.p19, b.p24, "construction"),
         draftLine(b.p23, b.p24, "construction"),
         draftLine(b.p17, b.p25, "construction"),
         draftLine(b.p25, b.p27, "helper"),
@@ -1914,7 +2236,7 @@ export function draftTrouserFront(
   const r = style.waistReduction ?? 0;
   const wr = frontWaistResolved(body, style);
 
-  const crotchScale = resolveCrotchExtensionScale(style);
+  const crotchScale = resolveFrontCrotchExtensionScale(style);
   const touch = frontCrotchTouch(H) * crotchScale;
   // Landmark only (construction overlay / verify) — not a curve knot.
   const frontGuide = crotchGuide45(p5, touch);
@@ -1933,6 +2255,7 @@ export function draftTrouserFront(
     extension,
     arrivalAngleDeg: arrivalAngle,
     touch,
+    k1: resolveFrontCrotchFullness(style),
   });
   const { P0: cfJoin, P1, P2, P3, points: crotchCurve } = frontCrotch;
 
@@ -2071,8 +2394,8 @@ export function draftTrouserBack(
 
   const insideLegCtrl = insideLegControl(p24, p29, 12.5);
   const backInsideToFork = quadBezier(p29, insideLegCtrl, p24).slice(1);
-  // Crotch body stops at the hipline join (p19); CB leg runs to the lowered waist.
-  const crotch = backCrotchBelowHip(b);
+  // Crotch ends at T (= p24); inseam starts at the same point — no p23→p24 step.
+  const crotch = backCrotchBelowHip(b, style);
   const cbTop = crotch[crotch.length - 1]!;
   const hipOnCrotch = pointOnPolylineAtY(crotch, b.p17.y);
 

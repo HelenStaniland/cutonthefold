@@ -6,11 +6,18 @@ import type { BodyMeasurements, Millimetres, Point } from "@/lib/types/measureme
 import { catmullRom } from "@/lib/geometry/curves";
 import {
   backCrotchTouch,
+  draftBackCrotch,
   draftTrouserBack,
   draftTrouserFront,
   draftTrousers,
+  frontCrotchCurve,
+  frontCrotchExtension,
   frontCrotchTouch,
   isDartedFacingFinish,
+  resolveCrotchArrivalAngle,
+  resolveFrontCrotchExtensionScale,
+  resolveCrotchStraightRun,
+  resolveWaistlineCurveFront,
   trouserBackPoints,
   trouserFramePoints,
   trouserFrontPoints,
@@ -624,6 +631,75 @@ export function verifyFrontWaistSeamBow(options?: {
       );
       throw new Error(
         `Front waist seam bow verification failed (${failed.length} critical):\n${lines.join("\n")}`,
+      );
+    }
+  }
+
+  return checks;
+}
+
+/**
+ * At Aldrich default style only: drafted crotch curves must pass within 1 mm
+ * of the 45° touch landmarks. Touch is a diagnostic elsewhere — not a solve
+ * constraint — so this is the sole regression gate for book fidelity.
+ */
+export function verifyCrotchCurveTouchAtDefaults(options?: {
+  assert?: boolean;
+}): AldrichCheck[] {
+  const TOUCH_EPS_MM = 1.0;
+  const body = ALDRICH_P46_SIZE_12_BODY;
+  const style = ALDRICH_P46_DEPTH0_STYLE;
+  const checks: AldrichCheck[] = [];
+
+  const f = trouserFrontPoints(body, style);
+  const H = body.hip;
+  const scale = resolveFrontCrotchExtensionScale(style);
+  const waistCfY = resolveWaistlineCurveFront(style);
+  const R = f.p9.y;
+  const D = f.p6.y;
+  const front = frontCrotchCurve({
+    p5: f.p5,
+    p9: f.p9,
+    fork: Math.abs(f.p5.x),
+    R,
+    waistCfY,
+    straightRun: resolveCrotchStraightRun(style, R, D, waistCfY),
+    extension: frontCrotchExtension(H, scale),
+    arrivalAngleDeg: resolveCrotchArrivalAngle(style),
+    touch: frontCrotchTouch(H) * scale,
+  });
+  checks.push(
+    check(
+      "front crotch curve vs Aldrich touch (defaults)",
+      front.touchMiss,
+      0,
+      true,
+      "diagnostic only outside defaults; ≤1 mm at book defaults",
+      TOUCH_EPS_MM,
+    ),
+  );
+
+  const back = draftBackCrotch(trouserBackPoints(body, style), style);
+  checks.push(
+    check(
+      "back crotch curve vs Aldrich touch (defaults)",
+      back.touchMiss,
+      0,
+      true,
+      "diagnostic only outside defaults; ≤1 mm at book defaults",
+      TOUCH_EPS_MM,
+    ),
+  );
+
+  if (options?.assert) {
+    const failed = checks.filter((c) => c.critical && !c.pass);
+    if (failed.length > 0) {
+      const lines = failed.map(
+        (c) =>
+          `  ${c.id}: got ${c.computed}, expected ${c.expected}${c.note ? ` (${c.note})` : ""}`,
+      );
+      throw new Error(
+        `Crotch-curve touch-at-defaults verification failed (${failed.length} critical):\n${lines.join("\n")}`,
       );
     }
   }

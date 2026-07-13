@@ -8,7 +8,7 @@ import {
 } from "@/lib/types/measurements";
 import { inwardNormalAtPolyline } from "@/lib/pattern/markingGeometry";
 
-export const DEFAULT_SEAM_ALLOWANCE: SeamAllowancePolicy = { seam: 15, hem: 50 };
+export const DEFAULT_SEAM_ALLOWANCE: SeamAllowancePolicy = { seam: 10, hem: 50 };
 
 const PARALLEL_ANGLE_THRESHOLD = (5 * Math.PI) / 180;
 const MITER_LIMIT = 2.5; // max corner extension as a multiple of local allowance

@@ -16,13 +16,21 @@ import {
   CROTCH_EXTENSION_SCALE_MAX,
   CROTCH_EXTENSION_SCALE_MIN,
   DEFAULT_CROTCH_ARRIVAL_ANGLE,
-  DEFAULT_CROTCH_EXTENSION_SCALE,
+  DEFAULT_FRONT_CROTCH_EXTENSION_SCALE,
+  DEFAULT_BACK_CROTCH_EXTENSION_SCALE,
   WAISTLINE_CURVE_FRONT,
   WAISTLINE_CURVE_FRONT_MAX,
   WAISTLINE_CURVE_FRONT_MIN,
   DEFAULT_FRONT_WAIST_INSET,
   FRONT_WAIST_INSET_MAX,
   FRONT_WAIST_INSET_MIN,
+  DEFAULT_BACK_CROTCH_DROP,
+  BACK_CROTCH_DROP_MIN,
+  BACK_CROTCH_DROP_MAX,
+  DEFAULT_FRONT_CROTCH_FULLNESS,
+  DEFAULT_BACK_CROTCH_FULLNESS,
+  CROTCH_FULLNESS_MIN,
+  CROTCH_FULLNESS_MAX,
   type WaistbandMode,
 } from "@/lib/patterns/trouserBlock";
 import { DEFAULT_FIT, easeForFit } from "@/lib/pattern/fitPresets";
@@ -39,12 +47,16 @@ export type TrouserStyleSettings = {
   dartedBandDepth: number;
   zipLength: number;
   ease: Ease;
-  crotchExtensionScale: number;
+  frontCrotchExtensionScale: number;
+  backCrotchExtensionScale: number;
   /** null = follow the hipline (D − p10.y) for the current body. */
   crotchStraightRun: number | null;
   crotchArrivalAngle: number;
   waistlineCurveFront: number;
   frontWaistInset: number;
+  backCrotchDrop: number;
+  frontCrotchFullness: number;
+  backCrotchFullness: number;
 };
 
 export const DEFAULT_TROUSER_STYLE: TrouserStyleSettings = {
@@ -55,17 +67,28 @@ export const DEFAULT_TROUSER_STYLE: TrouserStyleSettings = {
   dartedBandDepth: 25,
   zipLength: 180,
   ease: easeForFit(DEFAULT_FIT)!,
-  crotchExtensionScale: DEFAULT_CROTCH_EXTENSION_SCALE,
+  frontCrotchExtensionScale: DEFAULT_FRONT_CROTCH_EXTENSION_SCALE,
+  backCrotchExtensionScale: DEFAULT_BACK_CROTCH_EXTENSION_SCALE,
   crotchStraightRun: null,
   crotchArrivalAngle: DEFAULT_CROTCH_ARRIVAL_ANGLE,
   waistlineCurveFront: WAISTLINE_CURVE_FRONT,
   frontWaistInset: DEFAULT_FRONT_WAIST_INSET,
+  backCrotchDrop: DEFAULT_BACK_CROTCH_DROP,
+  frontCrotchFullness: DEFAULT_FRONT_CROTCH_FULLNESS,
+  backCrotchFullness: DEFAULT_BACK_CROTCH_FULLNESS,
 };
 
 const STYLE_STORAGE_KEY = "cotf:style:v1";
 
 function isFiniteNumber(v: unknown): v is number {
   return typeof v === "number" && Number.isFinite(v);
+}
+
+function clampExt(raw: number): number {
+  return Math.max(
+    CROTCH_EXTENSION_SCALE_MIN,
+    Math.min(CROTCH_EXTENSION_SCALE_MAX, raw),
+  );
 }
 
 function parseStyle(raw: unknown): TrouserStyleSettings | null {
@@ -97,13 +120,16 @@ function parseStyle(raw: unknown): TrouserStyleSettings | null {
   if (finish !== "facing" && finish !== "waistband") {
     return null;
   }
-  const crotchRaw = o.crotchExtensionScale;
-  const crotchExtensionScale = isFiniteNumber(crotchRaw)
-    ? Math.max(
-        CROTCH_EXTENSION_SCALE_MIN,
-        Math.min(CROTCH_EXTENSION_SCALE_MAX, crotchRaw),
-      )
-    : DEFAULT_CROTCH_EXTENSION_SCALE;
+  // Stale crotchExtensionScale is ignored — not coerced into either new param.
+  void o.crotchExtensionScale;
+  const frontExtRaw = o.frontCrotchExtensionScale;
+  const frontCrotchExtensionScale = isFiniteNumber(frontExtRaw)
+    ? clampExt(frontExtRaw)
+    : DEFAULT_FRONT_CROTCH_EXTENSION_SCALE;
+  const backExtRaw = o.backCrotchExtensionScale;
+  const backCrotchExtensionScale = isFiniteNumber(backExtRaw)
+    ? clampExt(backExtRaw)
+    : DEFAULT_BACK_CROTCH_EXTENSION_SCALE;
   // Ignore stale crotchDepartureHeight — do not coerce into the new key.
   const runRaw = o.crotchStraightRun;
   const crotchStraightRun =
@@ -130,6 +156,21 @@ function parseStyle(raw: unknown): TrouserStyleSettings | null {
   const frontWaistInset = isFiniteNumber(insetRaw)
     ? Math.max(FRONT_WAIST_INSET_MIN, Math.min(FRONT_WAIST_INSET_MAX, insetRaw))
     : DEFAULT_FRONT_WAIST_INSET;
+  const dropRaw = o.backCrotchDrop;
+  const backCrotchDrop = isFiniteNumber(dropRaw)
+    ? Math.max(BACK_CROTCH_DROP_MIN, Math.min(BACK_CROTCH_DROP_MAX, dropRaw))
+    : DEFAULT_BACK_CROTCH_DROP;
+  const frontFullRaw = o.frontCrotchFullness;
+  const frontCrotchFullness = isFiniteNumber(frontFullRaw)
+    ? Math.max(
+        CROTCH_FULLNESS_MIN,
+        Math.min(CROTCH_FULLNESS_MAX, frontFullRaw),
+      )
+    : DEFAULT_FRONT_CROTCH_FULLNESS;
+  const backFullRaw = o.backCrotchFullness;
+  const backCrotchFullness = isFiniteNumber(backFullRaw)
+    ? Math.max(CROTCH_FULLNESS_MIN, Math.min(CROTCH_FULLNESS_MAX, backFullRaw))
+    : DEFAULT_BACK_CROTCH_FULLNESS;
   return {
     legBottomWidth: o.legBottomWidth,
     waistbandDepth: o.waistbandDepth,
@@ -138,11 +179,15 @@ function parseStyle(raw: unknown): TrouserStyleSettings | null {
     dartedBandDepth: o.dartedBandDepth,
     zipLength: o.zipLength,
     ease: { waist: easeObj.waist, hip: easeObj.hip },
-    crotchExtensionScale,
+    frontCrotchExtensionScale,
+    backCrotchExtensionScale,
     crotchStraightRun,
     crotchArrivalAngle,
     waistlineCurveFront,
     frontWaistInset,
+    backCrotchDrop,
+    frontCrotchFullness,
+    backCrotchFullness,
   };
 }
 
@@ -154,11 +199,15 @@ type StyleContextValue = TrouserStyleSettings & {
   setDartedBandDepth: Dispatch<SetStateAction<number>>;
   setZipLength: Dispatch<SetStateAction<number>>;
   setEase: Dispatch<SetStateAction<Ease>>;
-  setCrotchExtensionScale: Dispatch<SetStateAction<number>>;
+  setFrontCrotchExtensionScale: Dispatch<SetStateAction<number>>;
+  setBackCrotchExtensionScale: Dispatch<SetStateAction<number>>;
   setCrotchStraightRun: Dispatch<SetStateAction<number | null>>;
   setCrotchArrivalAngle: Dispatch<SetStateAction<number>>;
   setWaistlineCurveFront: Dispatch<SetStateAction<number>>;
   setFrontWaistInset: Dispatch<SetStateAction<number>>;
+  setBackCrotchDrop: Dispatch<SetStateAction<number>>;
+  setFrontCrotchFullness: Dispatch<SetStateAction<number>>;
+  setBackCrotchFullness: Dispatch<SetStateAction<number>>;
 };
 
 const StyleContext = createContext<StyleContextValue | null>(null);
@@ -206,8 +255,12 @@ export function StyleProvider({ children }: { children: ReactNode }) {
   );
   const setZipLength = useCallback(fieldSetter(setStyle, "zipLength"), [setStyle]);
   const setEase = useCallback(fieldSetter(setStyle, "ease"), [setStyle]);
-  const setCrotchExtensionScale = useCallback(
-    fieldSetter(setStyle, "crotchExtensionScale"),
+  const setFrontCrotchExtensionScale = useCallback(
+    fieldSetter(setStyle, "frontCrotchExtensionScale"),
+    [setStyle],
+  );
+  const setBackCrotchExtensionScale = useCallback(
+    fieldSetter(setStyle, "backCrotchExtensionScale"),
     [setStyle],
   );
   const setCrotchStraightRun = useCallback(
@@ -226,6 +279,18 @@ export function StyleProvider({ children }: { children: ReactNode }) {
     fieldSetter(setStyle, "frontWaistInset"),
     [setStyle],
   );
+  const setBackCrotchDrop = useCallback(
+    fieldSetter(setStyle, "backCrotchDrop"),
+    [setStyle],
+  );
+  const setFrontCrotchFullness = useCallback(
+    fieldSetter(setStyle, "frontCrotchFullness"),
+    [setStyle],
+  );
+  const setBackCrotchFullness = useCallback(
+    fieldSetter(setStyle, "backCrotchFullness"),
+    [setStyle],
+  );
 
   const value = useMemo(
     () => ({
@@ -237,11 +302,15 @@ export function StyleProvider({ children }: { children: ReactNode }) {
       setDartedBandDepth,
       setZipLength,
       setEase,
-      setCrotchExtensionScale,
+      setFrontCrotchExtensionScale,
+      setBackCrotchExtensionScale,
       setCrotchStraightRun,
       setCrotchArrivalAngle,
       setWaistlineCurveFront,
       setFrontWaistInset,
+      setBackCrotchDrop,
+      setFrontCrotchFullness,
+      setBackCrotchFullness,
     }),
     [
       style,
@@ -252,11 +321,15 @@ export function StyleProvider({ children }: { children: ReactNode }) {
       setDartedBandDepth,
       setZipLength,
       setEase,
-      setCrotchExtensionScale,
+      setFrontCrotchExtensionScale,
+      setBackCrotchExtensionScale,
       setCrotchStraightRun,
       setCrotchArrivalAngle,
       setWaistlineCurveFront,
       setFrontWaistInset,
+      setBackCrotchDrop,
+      setFrontCrotchFullness,
+      setBackCrotchFullness,
     ],
   );
 

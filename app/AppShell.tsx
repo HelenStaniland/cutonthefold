@@ -11,7 +11,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const navWasOpenRef = useRef(false);
 
   const closeNav = useCallback(() => setNavOpen(false), []);
-  const openNav = useCallback(() => setNavOpen(true), []);
 
   useEffect(() => {
     if (navOpen) {
@@ -68,7 +67,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           aria-label={navOpen ? "Close menu" : "Open menu"}
           aria-expanded={navOpen}
           aria-controls="mobile-nav-drawer"
-          onClick={() => (navOpen ? closeNav() : openNav())}
+          onClick={() => (navOpen ? closeNav() : setNavOpen(true))}
         >
           <span className={styles.menuIcon} aria-hidden />
         </button>
