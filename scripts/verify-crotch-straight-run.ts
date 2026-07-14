@@ -142,7 +142,7 @@ console.log(
 );
 console.log(
   `CF hip notches at D: ` +
-    `${piece0.markings.filter((m) => m.kind === "notch" && Math.abs(m.at.y - D) < 2 && m.at.x < -50).length} (want 0)`,
+    `${piece0.markings.filter((m) => m.kind === "notch" && Math.abs(m.at.y - D) < 2 && m.at.x < -50).length} (want 1 — hipline balance on curve)`,
 );
 
 function writeFrontSvg(

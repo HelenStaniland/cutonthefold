@@ -3,10 +3,9 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useMeasurements } from "@/app/measurements-context";
-import { useStyle } from "@/app/style-context";
+import { useStyle, GarmentStyleProvider, type TrouserStyleSettings } from "@/app/style-context";
 import {
   draftTrousers,
-  type TrouserBlock,
   type TrouserFrontStyle,
   type WaistbandMode,
   trouserConstruction,
@@ -24,19 +23,28 @@ import {
   DARTED_DEPTH_MAX,
   CROTCH_EXTENSION_SCALE_MIN,
   CROTCH_EXTENSION_SCALE_MAX,
+  DEFAULT_FRONT_CROTCH_EXTENSION_SCALE,
+  DEFAULT_BACK_CROTCH_EXTENSION_SCALE,
   CROTCH_ARRIVAL_ANGLE_MIN,
   CROTCH_ARRIVAL_ANGLE_MAX,
+  DEFAULT_CROTCH_ARRIVAL_ANGLE,
   CROTCH_STRAIGHT_RUN_MIN,
   resolveCrotchStraightRun,
   resolveWaistlineCurveFront,
   FRONT_WAIST_INSET_MIN,
   FRONT_WAIST_INSET_MAX,
+  DEFAULT_FRONT_WAIST_INSET,
+  WAISTLINE_CURVE_FRONT,
   WAISTLINE_CURVE_FRONT_MIN,
   WAISTLINE_CURVE_FRONT_MAX,
   BACK_CROTCH_DROP_MIN,
   BACK_CROTCH_DROP_MAX,
+  DEFAULT_BACK_CROTCH_DROP,
   CROTCH_FULLNESS_MIN,
   CROTCH_FULLNESS_MAX,
+  DEFAULT_FRONT_CROTCH_FULLNESS,
+  DEFAULT_BACK_CROTCH_FULLNESS,
+  blockFromWaistDrop,
   trouserFacingSteps,
 } from "@/lib/patterns/trouserBlock";
 import { draftWaistband } from "@/lib/elements/waistband";
@@ -45,14 +53,10 @@ import { downloadPattern } from "@/lib/export/pdf";
 import { downloadInstructions } from "@/lib/export/instructions";
 import { notchSegments } from "@/lib/pattern/markingGeometry";
 import {
+  FIT_PRESETS,
   easeForFit,
   fitForEase,
-  FIT_PRESETS,
 } from "@/lib/pattern/fitPresets";
-import {
-  BLOCK_PRESETS,
-  type BlockPreset,
-} from "@/lib/pattern/blockPresets";
 import { previewTrousers } from "@/lib/previews/trouserBlock";
 import {
   DEFAULT_SEAM_ALLOWANCE,
@@ -87,15 +91,60 @@ const DRAFT_LINE_ORDER: DraftingLineKind[] = [
 ];
 
 type TrousersViewProps = {
-  block: TrouserBlock;
   title: string;
+  /** Persistence key prefix: cotf:garment-style:${garmentId}. */
+  garmentId: string;
+  /** Garment defaults — used on first visit / empty storage / Reset to preset. */
+  defaults: TrouserStyleSettings;
+  /** Show "Reset to block" (Trouser Block only). */
+  showResetToBlock?: boolean;
+  /** Show "Reset to preset" (garment views). */
+  showResetToPreset?: boolean;
 };
 
-export default function TrousersView({ block, title }: TrousersViewProps) {
+function styleMatchesPreset(
+  style: TrouserStyleSettings,
+  defaults: TrouserStyleSettings,
+): boolean {
+  return (
+    style.legBottomWidth === defaults.legBottomWidth &&
+    style.waistDrop === defaults.waistDrop &&
+    style.waistbandDepth === defaults.waistbandDepth &&
+    style.waistbandMode === defaults.waistbandMode &&
+    style.dartedWaistFinish === defaults.dartedWaistFinish &&
+    style.dartedBandDepth === defaults.dartedBandDepth &&
+    style.zipLength === defaults.zipLength &&
+    style.ease.waist === defaults.ease.waist &&
+    style.ease.hip === defaults.ease.hip &&
+    style.frontCrotchExtensionScale === defaults.frontCrotchExtensionScale &&
+    style.backCrotchExtensionScale === defaults.backCrotchExtensionScale &&
+    style.crotchStraightRun === defaults.crotchStraightRun &&
+    style.crotchArrivalAngle === defaults.crotchArrivalAngle &&
+    style.waistlineCurveFront === defaults.waistlineCurveFront &&
+    style.frontWaistInset === defaults.frontWaistInset &&
+    style.backCrotchDrop === defaults.backCrotchDrop &&
+    style.frontCrotchFullness === defaults.frontCrotchFullness &&
+    style.backCrotchFullness === defaults.backCrotchFullness
+  );
+}
+
+function TrousersViewInner({
+  title,
+  defaults,
+  showResetToBlock = false,
+  showResetToPreset = false,
+}: {
+  title: string;
+  defaults: TrouserStyleSettings;
+  showResetToBlock?: boolean;
+  showResetToPreset?: boolean;
+}) {
   const { body, sizeCode } = useMeasurements();
   const {
     legBottomWidth,
     setLegBottomWidth,
+    waistDrop,
+    setWaistDrop,
     waistbandDepth,
     setWaistbandDepth,
     waistbandMode,
@@ -126,30 +175,47 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
     setFrontCrotchFullness,
     backCrotchFullness,
     setBackCrotchFullness,
+    resetToBlock,
+    resetToPreset,
   } = useStyle();
-  // Per-block default — resets on classic ↔ production switch (intentional).
-  const [waistDrop, setWaistDrop] = useState(
-    block === "production" ? WAIST_DROP_MAX : 0,
-  );
+  const block = blockFromWaistDrop(waistDrop);
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<PatternViewMode>("pattern");
   const [showSeamAllowance, setShowSeamAllowance] = useState(true);
   const [includeConstructionOverlay, setIncludeConstructionOverlay] =
     useState(false);
 
+  // Resolved slider display values (null override → module default).
+  const frontExtShown =
+    frontCrotchExtensionScale ?? DEFAULT_FRONT_CROTCH_EXTENSION_SCALE;
+  const backExtShown =
+    backCrotchExtensionScale ?? DEFAULT_BACK_CROTCH_EXTENSION_SCALE;
+  const arrivalShown = crotchArrivalAngle ?? DEFAULT_CROTCH_ARRIVAL_ANGLE;
+  const scoopShown = waistlineCurveFront ?? WAISTLINE_CURVE_FRONT;
+  const insetShown = frontWaistInset ?? DEFAULT_FRONT_WAIST_INSET;
+  const dropShown = backCrotchDrop ?? DEFAULT_BACK_CROTCH_DROP;
+  const frontFullShown =
+    frontCrotchFullness ?? DEFAULT_FRONT_CROTCH_FULLNESS;
+  const backFullShown = backCrotchFullness ?? DEFAULT_BACK_CROTCH_FULLNESS;
+
+  // Only pass overrides that are set — omitted keys fall through to resolvers.
   const style: TrouserFrontStyle = {
     bottomWidth: legBottomWidth,
     block,
     waistDrop,
-    frontCrotchExtensionScale,
-    backCrotchExtensionScale,
-    crotchStraightRun: crotchStraightRun ?? undefined,
-    crotchArrivalAngle,
-    waistlineCurveFront,
-    frontWaistInset,
-    backCrotchDrop,
-    frontCrotchFullness,
-    backCrotchFullness,
+    ...(frontCrotchExtensionScale != null
+      ? { frontCrotchExtensionScale }
+      : {}),
+    ...(backCrotchExtensionScale != null
+      ? { backCrotchExtensionScale }
+      : {}),
+    ...(crotchStraightRun != null ? { crotchStraightRun } : {}),
+    ...(crotchArrivalAngle != null ? { crotchArrivalAngle } : {}),
+    ...(waistlineCurveFront != null ? { waistlineCurveFront } : {}),
+    ...(frontWaistInset != null ? { frontWaistInset } : {}),
+    ...(backCrotchDrop != null ? { backCrotchDrop } : {}),
+    ...(frontCrotchFullness != null ? { frontCrotchFullness } : {}),
+    ...(backCrotchFullness != null ? { backCrotchFullness } : {}),
   };
   const activeFit = fitForEase(ease);
   const draftBody = applyEase(body, ease);
@@ -232,46 +298,42 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
     }
   };
 
-  /** Pattern-reference preset (ease + style). Fit presets only change ease. */
-  const applyBlockPreset = (preset: BlockPreset) => {
-    const { measured, provisional } = preset;
-    setEase(measured.ease);
-    setCrotchStraightRun(measured.crotchStraightRun);
-    setFrontWaistInset(measured.frontWaistInset);
-    setCrotchArrivalAngle(measured.crotchArrivalAngle);
-    setBackCrotchDrop(measured.backCrotchDrop);
-    setFrontCrotchFullness(measured.frontCrotchFullness);
-    setBackCrotchFullness(measured.backCrotchFullness);
-    setFrontCrotchExtensionScale(measured.frontCrotchExtensionScale);
-    setBackCrotchExtensionScale(measured.backCrotchExtensionScale);
-    setWaistDrop(measured.waistDrop);
-    setWaistbandMode(measured.waistbandMode);
-    setWaistbandDepth(measured.waistbandDepth);
-    setWaistlineCurveFront(provisional.waistlineCurveFront);
-    // bottomWidth left as-is (unmeasured for Izzy).
-  };
+  /** Restore darted / no-band / clear geometry; keep current waistDrop. */
+  const atBlockFoundation =
+    frontCrotchExtensionScale === null &&
+    backCrotchExtensionScale === null &&
+    crotchStraightRun === null &&
+    crotchArrivalAngle === null &&
+    waistlineCurveFront === null &&
+    frontWaistInset === null &&
+    backCrotchDrop === null &&
+    frontCrotchFullness === null &&
+    backCrotchFullness === null &&
+    waistbandMode === "darted" &&
+    dartedWaistFinish === "facing";
 
-  const activeBlockPreset =
-    BLOCK_PRESETS.find((p) => {
-      const m = p.measured;
-      const pr = p.provisional;
-      return (
-        ease.waist === m.ease.waist &&
-        ease.hip === m.ease.hip &&
-        crotchStraightRun === m.crotchStraightRun &&
-        frontWaistInset === m.frontWaistInset &&
-        crotchArrivalAngle === m.crotchArrivalAngle &&
-        backCrotchDrop === m.backCrotchDrop &&
-        frontCrotchFullness === m.frontCrotchFullness &&
-        backCrotchFullness === m.backCrotchFullness &&
-        frontCrotchExtensionScale === m.frontCrotchExtensionScale &&
-        backCrotchExtensionScale === m.backCrotchExtensionScale &&
-        waistDrop === m.waistDrop &&
-        waistbandMode === m.waistbandMode &&
-        waistbandDepth === m.waistbandDepth &&
-        waistlineCurveFront === pr.waistlineCurveFront
-      );
-    })?.name ?? null;
+  const atPresetDefaults = styleMatchesPreset(
+    {
+      legBottomWidth,
+      waistDrop,
+      waistbandDepth,
+      waistbandMode,
+      dartedWaistFinish,
+      dartedBandDepth,
+      zipLength,
+      ease,
+      frontCrotchExtensionScale,
+      backCrotchExtensionScale,
+      crotchStraightRun,
+      crotchArrivalAngle,
+      waistlineCurveFront,
+      frontWaistInset,
+      backCrotchDrop,
+      frontCrotchFullness,
+      backCrotchFullness,
+    },
+    defaults,
+  );
 
   const tstyle =
     waistbandMode === "darted"
@@ -340,16 +402,15 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
   const pattern = withSeamAllowance(net, DEFAULT_SEAM_ALLOWANCE);
   const patternSpec = useMemo<PatternSpec>(
     () => {
-      const baseLabel =
-        block === "production"
-          ? "Production trouser block"
-          : "Classic trouser block";
-      const blockDefaultDrop = block === "production" ? WAIST_DROP_MAX : 0;
+      const baseLabel = "Trouser block";
+      const position =
+        waistDrop === 0
+          ? "classic / natural waist"
+          : waistDrop === WAIST_DROP_MAX
+            ? "production / low waist"
+            : `waist drop ${waistDrop} mm`;
       return {
-        blockName:
-          waistDrop !== blockDefaultDrop
-            ? `${baseLabel} (waist drop ${waistDrop} mm)`
-            : baseLabel,
+        blockName: `${baseLabel} (${position})`,
         sizeLabel: sizeCode === "custom" ? "Custom" : `Size ${sizeCode}`,
         fitName: activeFit,
         body,
@@ -357,7 +418,7 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
         hemWidth: legBottomWidth,
       };
     },
-    [block, sizeCode, activeFit, body, ease, legBottomWidth, waistDrop],
+    [sizeCode, activeFit, body, ease, legBottomWidth, waistDrop],
   );
   const displayPattern =
     viewMode === "pattern" && showSeamAllowance ? pattern : net;
@@ -524,33 +585,59 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
 
       <div className={styles.workspace}>
         <aside className={styles.sidebar}>
-          <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>Pattern reference</h2>
-            <p className={styles.fieldHint}>
-              Applies measured crotch/waist settings from a named pattern.
-              Starting point only — sliders stay free afterwards.
-            </p>
-            <div
-              className={styles.fitPresetList}
-              role="group"
-              aria-label="Pattern reference preset"
-            >
-              {BLOCK_PRESETS.map((preset) => (
+          {showResetToBlock && (
+            <section className={styles.section}>
+              <h2 className={styles.sectionTitle}>Block foundation</h2>
+              <p className={styles.fieldHint}>
+                The trouser block is a fitting foundation — darted waist, no
+                waistband, Aldrich geometry. Garments add modifications on top.
+              </p>
+              <div
+                className={styles.fitPresetList}
+                role="group"
+                aria-label="Reset to block"
+              >
                 <button
-                  key={preset.name}
                   type="button"
                   className={
-                    activeBlockPreset === preset.name
+                    atBlockFoundation
                       ? styles.fitPresetActive
                       : styles.fitPreset
                   }
-                  onClick={() => applyBlockPreset(preset)}
+                  onClick={resetToBlock}
                 >
-                  {preset.label}
+                  Reset to block
                 </button>
-              ))}
-            </div>
-          </section>
+              </div>
+            </section>
+          )}
+
+          {showResetToPreset && (
+            <section className={styles.section}>
+              <h2 className={styles.sectionTitle}>Garment preset</h2>
+              <p className={styles.fieldHint}>
+                Reloads this garment&apos;s named defaults (overrides any saved
+                dialled-in values). Measurements are not changed.
+              </p>
+              <div
+                className={styles.fitPresetList}
+                role="group"
+                aria-label="Reset to preset"
+              >
+                <button
+                  type="button"
+                  className={
+                    atPresetDefaults
+                      ? styles.fitPresetActive
+                      : styles.fitPreset
+                  }
+                  onClick={resetToPreset}
+                >
+                  Reset to preset
+                </button>
+              </div>
+            </section>
+          )}
 
           <section className={styles.section}>
             <h2 className={styles.sectionTitle}>Fit</h2>
@@ -625,8 +712,35 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
               </label>
               <span className={styles.fieldHint}>
                 Lowers the finished waist from the natural waistline (0) to the
-                low waistline (50 mm). Rise, girth and darts follow.
+                low waistline (50 mm). Rise, girth and darts follow. Classic and
+                production are positions on this axis, not separate blocks.
               </span>
+              <div
+                className={styles.fitPresetList}
+                role="group"
+                aria-label="Waist height position"
+              >
+                <button
+                  type="button"
+                  className={
+                    waistDrop === 0 ? styles.fitPresetActive : styles.fitPreset
+                  }
+                  onClick={() => setWaistDrop(0)}
+                >
+                  Classic (natural waist)
+                </button>
+                <button
+                  type="button"
+                  className={
+                    waistDrop === WAIST_DROP_MAX
+                      ? styles.fitPresetActive
+                      : styles.fitPreset
+                  }
+                  onClick={() => setWaistDrop(WAIST_DROP_MAX)}
+                >
+                  Production (low waist)
+                </button>
+              </div>
               <div className={styles.rangeRow}>
                 <input
                   id="waist-drop"
@@ -660,13 +774,13 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                   min={CROTCH_EXTENSION_SCALE_MIN}
                   max={CROTCH_EXTENSION_SCALE_MAX}
                   step={0.01}
-                  value={frontCrotchExtensionScale}
+                  value={frontExtShown}
                   onChange={(e) =>
                     setFrontCrotchExtensionScale(Number(e.target.value))
                   }
                 />
                 <span className={styles.rangeValue}>
-                  {frontCrotchExtensionScale.toFixed(2)}
+                  {frontExtShown.toFixed(2)}
                 </span>
               </div>
             </div>
@@ -688,13 +802,13 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                   min={CROTCH_EXTENSION_SCALE_MIN}
                   max={CROTCH_EXTENSION_SCALE_MAX}
                   step={0.01}
-                  value={backCrotchExtensionScale}
+                  value={backExtShown}
                   onChange={(e) =>
                     setBackCrotchExtensionScale(Number(e.target.value))
                   }
                 />
                 <span className={styles.rangeValue}>
-                  {backCrotchExtensionScale.toFixed(2)}
+                  {backExtShown.toFixed(2)}
                 </span>
               </div>
             </div>
@@ -738,13 +852,13 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                   min={CROTCH_ARRIVAL_ANGLE_MIN}
                   max={CROTCH_ARRIVAL_ANGLE_MAX}
                   step={1}
-                  value={crotchArrivalAngle}
+                  value={arrivalShown}
                   onChange={(e) =>
                     setCrotchArrivalAngle(Number(e.target.value))
                   }
                 />
                 <span className={styles.rangeValue}>
-                  {crotchArrivalAngle}°
+                  {arrivalShown}°
                 </span>
               </div>
             </div>
@@ -764,10 +878,10 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                   min={BACK_CROTCH_DROP_MIN}
                   max={BACK_CROTCH_DROP_MAX}
                   step={1}
-                  value={backCrotchDrop}
+                  value={dropShown}
                   onChange={(e) => setBackCrotchDrop(Number(e.target.value))}
                 />
-                <span className={styles.rangeValue}>{backCrotchDrop} mm</span>
+                <span className={styles.rangeValue}>{dropShown} mm</span>
               </div>
             </div>
             <div className={styles.field}>
@@ -789,13 +903,13 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                   min={CROTCH_FULLNESS_MIN}
                   max={CROTCH_FULLNESS_MAX}
                   step={0.01}
-                  value={frontCrotchFullness}
+                  value={frontFullShown}
                   onChange={(e) =>
                     setFrontCrotchFullness(Number(e.target.value))
                   }
                 />
                 <span className={styles.rangeValue}>
-                  {frontCrotchFullness.toFixed(2)}
+                  {frontFullShown.toFixed(2)}
                 </span>
               </div>
             </div>
@@ -817,13 +931,13 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                   min={CROTCH_FULLNESS_MIN}
                   max={CROTCH_FULLNESS_MAX}
                   step={0.01}
-                  value={backCrotchFullness}
+                  value={backFullShown}
                   onChange={(e) =>
                     setBackCrotchFullness(Number(e.target.value))
                   }
                 />
                 <span className={styles.rangeValue}>
-                  {backCrotchFullness.toFixed(2)}
+                  {backFullShown.toFixed(2)}
                 </span>
               </div>
             </div>
@@ -843,13 +957,13 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                   min={WAISTLINE_CURVE_FRONT_MIN}
                   max={WAISTLINE_CURVE_FRONT_MAX}
                   step={1}
-                  value={waistlineCurveFront}
+                  value={scoopShown}
                   onChange={(e) =>
                     setWaistlineCurveFront(Number(e.target.value))
                   }
                 />
                 <span className={styles.rangeValue}>
-                  {waistlineCurveFront} mm
+                  {scoopShown} mm
                 </span>
               </div>
             </div>
@@ -869,12 +983,12 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
                   min={FRONT_WAIST_INSET_MIN}
                   max={FRONT_WAIST_INSET_MAX}
                   step={1}
-                  value={frontWaistInset}
+                  value={insetShown}
                   onChange={(e) =>
                     setFrontWaistInset(Number(e.target.value))
                   }
                 />
-                <span className={styles.rangeValue}>{frontWaistInset} mm</span>
+                <span className={styles.rangeValue}>{insetShown} mm</span>
               </div>
             </div>
           </section>
@@ -1783,5 +1897,24 @@ export default function TrousersView({ block, title }: TrousersViewProps) {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function TrousersView({
+  title,
+  garmentId,
+  defaults,
+  showResetToBlock = false,
+  showResetToPreset = false,
+}: TrousersViewProps) {
+  return (
+    <GarmentStyleProvider garmentId={garmentId} defaults={defaults}>
+      <TrousersViewInner
+        title={title}
+        defaults={defaults}
+        showResetToBlock={showResetToBlock}
+        showResetToPreset={showResetToPreset}
+      />
+    </GarmentStyleProvider>
   );
 }

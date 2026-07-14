@@ -1,5 +1,5 @@
-import TrousersView from "../TrousersView";
+import { redirect } from "next/navigation";
 
 export default function ClassicTrousersPage() {
-  return <TrousersView block="classic" title="Classic trousers" />;
+  redirect("/blocks/trouser-block");
 }

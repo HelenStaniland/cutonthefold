@@ -297,6 +297,16 @@ export function resolveWaistDrop(style: TrouserFrontStyle): Millimetres {
 }
 
 /**
+ * Endpoint tag for APIs that still take `TrouserBlock`.
+ * Geometry always comes from continuous `waistDrop` via `blockSpecForDrop`.
+ * Halfway and above → "production"; below → "classic".
+ */
+export function blockFromWaistDrop(waistDrop: Millimetres): TrouserBlock {
+  const d = Math.max(0, Math.min(WAIST_DROP_MAX, waistDrop));
+  return d >= WAIST_DROP_MAX / 2 ? "production" : "classic";
+}
+
+/**
  * Waist girth W — linear taper from natural waist (d=0) to low waist (d=50).
  * Assumes a linear waist→low-waist taper over the 5 cm drop (estimate from two girths).
  */
@@ -2232,14 +2242,12 @@ export function draftTrouserFront(
   const D = body.hipDepth - spec.hipDepthDrop;
   const F = body.waistToFloor - spec.riseDrop;
   const f = trouserFrontPoints(body, style);
-  const { p5, p6, p8, p9, p12, p13, p14, p15 } = f;
+  const { p5, p8, p9, p12, p13, p14, p15 } = f;
   const r = style.waistReduction ?? 0;
   const wr = frontWaistResolved(body, style);
 
   const crotchScale = resolveFrontCrotchExtensionScale(style);
   const touch = frontCrotchTouch(H) * crotchScale;
-  // Landmark only (construction overlay / verify) — not a curve knot.
-  const frontGuide = crotchGuide45(p5, touch);
   const fork = Math.abs(p5.x);
   // Departure measured from the scooped waist (wr.cf), not p10.y.
   const straightRun = resolveCrotchStraightRun(style, R, D, wr.cf.y);
@@ -2257,7 +2265,7 @@ export function draftTrouserFront(
     touch,
     k1: resolveFrontCrotchFullness(style),
   });
-  const { P0: cfJoin, P1, P2, P3, points: crotchCurve } = frontCrotch;
+  const { P0: cfJoin, P1, P2, P3 } = frontCrotch;
 
   // Tip→waist: full Bézier to P0, then straight join P0→wr.cf (no snap).
   const crotchFromWaist = frontCrotchPathToWaist(
@@ -2279,34 +2287,25 @@ export function draftTrouserFront(
     D,
   );
 
-  // Hip notch at p6 when the departure is at/below the hipline (default), or where
-  // the path crosses D. Omit when the curve leaves at the waist (no straight join).
+  // Hipline balance notch: where the assembled CF/crotch seam crosses y = D.
+  // Always emitted (including crotchStraightRun = 0). Interpolated along the
+  // seam — not snapped to a sample. At Aldrich default (departure = hipline)
+  // the crossing coincides with construction point p6.
   const markingsHip: Marking[] = [];
-  if (straightRun >= 0.5) {
-    let hipNotchAt = p6;
-    let hipNotchBefore = frontGuide;
-    let hipNotchAfter = p6;
-    if (Math.abs(cfJoin.y - D) < 0.5 && Math.abs(cfJoin.x - p6.x) < 0.5) {
-      // Aldrich default: P0 = p6.
-      hipNotchAt = cfJoin;
-      hipNotchBefore = crotchCurve[Math.max(0, crotchCurve.length - 2)]!;
-      hipNotchAfter = cfJoin;
-    } else {
-      try {
-        const onCurve = pointOnPolylineAtY(crotchFromWaist, D);
-        hipNotchAt = onCurve.at;
-        hipNotchBefore = onCurve.before;
-        hipNotchAfter = onCurve.after;
-      } catch {
-        hipNotchAt = p6;
-      }
-    }
+  try {
+    const onSeam = pointOnPolylineAtY(crotchFromWaist, D);
     markingsHip.push({
       kind: "notch",
-      at: hipNotchAt,
-      dir: crotchNotchDir(hipNotchBefore, hipNotchAfter),
+      at: onSeam.at,
+      dir: crotchNotchDir(onSeam.before, onSeam.after),
       count: 1,
     });
+  } catch (err) {
+    throw new Error(
+      `Front CF hipline notch: centre-front seam does not cross y=D (${D}): ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
   }
 
   const crotchCfSegments: TaggedSegment[] = [

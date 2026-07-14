@@ -9,6 +9,12 @@ type NavProps = {
   onNavigate?: () => void;
 };
 
+function linkClass(pathname: string, href: string, also: string[] = []) {
+  const active =
+    pathname === href || also.some((p) => pathname === p || pathname.startsWith(p + "/"));
+  return `${styles.navLink} ${active ? styles.navLinkActive : ""}`;
+}
+
 export default function Nav({ onNavigate }: NavProps) {
   const pathname = usePathname();
 
@@ -20,7 +26,7 @@ export default function Nav({ onNavigate }: NavProps) {
           <li>
             <Link
               href="/measurements"
-              className={`${styles.navLink} ${pathname === "/measurements" ? styles.navLinkActive : ""}`}
+              className={linkClass(pathname, "/measurements")}
               onClick={onNavigate}
             >
               Measurements
@@ -29,10 +35,28 @@ export default function Nav({ onNavigate }: NavProps) {
           <li>
             <Link
               href="/measurements/edit"
-              className={`${styles.navLink} ${pathname === "/measurements/edit" ? styles.navLinkActive : ""}`}
+              className={linkClass(pathname, "/measurements/edit")}
               onClick={onNavigate}
             >
               Your sizes
+            </Link>
+          </li>
+        </ul>
+      </li>
+      <li className={styles.navGroup}>
+        <span className={styles.navGroupLabel}>Blocks</span>
+        <ul className={styles.navSubList}>
+          <li>
+            <Link
+              href="/blocks/trouser-block"
+              className={linkClass(pathname, "/blocks/trouser-block", [
+                "/garments/trouser-block",
+                "/garments/classic-trousers",
+                "/garments/production-trousers",
+              ])}
+              onClick={onNavigate}
+            >
+              Trouser Block
             </Link>
           </li>
         </ul>
@@ -42,29 +66,11 @@ export default function Nav({ onNavigate }: NavProps) {
         <ul className={styles.navSubList}>
           <li>
             <Link
-              href="/garments/gathered-skirt"
-              className={`${styles.navLink} ${pathname === "/garments/gathered-skirt" ? styles.navLinkActive : ""}`}
+              href="/garments/izzy-pants"
+              className={linkClass(pathname, "/garments/izzy-pants")}
               onClick={onNavigate}
             >
-              Gathered skirt
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/garments/classic-trousers"
-              className={`${styles.navLink} ${pathname === "/garments/classic-trousers" ? styles.navLinkActive : ""}`}
-              onClick={onNavigate}
-            >
-              Classic Trousers
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/garments/production-trousers"
-              className={`${styles.navLink} ${pathname === "/garments/production-trousers" ? styles.navLinkActive : ""}`}
-              onClick={onNavigate}
-            >
-              Production Trousers
+              Izzy Pants
             </Link>
           </li>
         </ul>

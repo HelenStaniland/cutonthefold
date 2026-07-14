@@ -3,26 +3,20 @@ import type { WaistbandMode } from "@/lib/patterns/trouserBlock";
 import { WAISTLINE_CURVE_FRONT } from "@/lib/patterns/trouserBlock";
 
 /**
- * Pattern-reference (block) presets — distinct from FIT_PRESETS in fitPresets.ts.
- *
- * Fit presets only set wearing ease (waist/hip). Block presets set crotch/waist
- * style parameters measured from a named pattern, plus the ease that pattern
- * uses. Selecting one is a starting point; sliders stay free afterwards.
+ * Named garment modification sets applied on top of the trouser block.
+ * Izzy is a *garment*, not a peer "setting" of the block.
  */
 
-export type BlockPresetMeasured = {
+export type GarmentMeasured = {
   crotchStraightRun: number;
   frontWaistInset: number;
   crotchArrivalAngle: number;
   backCrotchDrop: number;
-  /** Front crotch Bézier fullness k1 — fitted from measured points. */
   frontCrotchFullness: number;
-  /** Back crotch Bézier fullness k1 — fitted from measured points. */
   backCrotchFullness: number;
-  /** Front extension scale — Izzy 45 mm ÷ Aldrich 81.875 mm. */
   frontCrotchExtensionScale: number;
   /**
-   * Back extension scale on |p16 → p23|. Approximate — see comment block.
+   * Approximate — CB-plumb inference, not direct measure; overlay may adjust.
    */
   backCrotchExtensionScale: number;
   waistDrop: number;
@@ -31,16 +25,21 @@ export type BlockPresetMeasured = {
   waistbandDepth: number;
 };
 
-export type BlockPresetProvisional = {
+export type GarmentProvisional = {
   /** Izzy yoke-seam curvature unmeasured. */
   waistlineCurveFront: number;
+  /**
+   * Finished width of one leg, inseam to side seam (mm).
+   * PROVISIONAL — not measured. Eyeballed so the preview reads as a wide leg.
+   */
+  bottomWidth: number;
 };
 
-export type BlockPreset = {
+export type GarmentPreset = {
   name: string;
   label: string;
-  measured: BlockPresetMeasured;
-  provisional: BlockPresetProvisional;
+  measured: GarmentMeasured;
+  provisional: GarmentProvisional;
 };
 
 /*
@@ -59,28 +58,28 @@ export type BlockPreset = {
  *   waistbandMode shaped, waistbandDepth 120 — shaped yoke, measured depth
  *
  * APPROXIMATE (geometric inference — expect overlay adjustment):
- *   backCrotchExtensionScale 0.88 — not a direct measure. Izzy's plumb was
- *     dropped from the top of the CB seam (offset from p16's vertical); the
- *     ~28 mm correction was inferred from the CB slant. Unlike every other
- *     Izzy value (measured directly or fitted to ≤2 mm), expect this to need
- *     adjustment against a printed overlay. Do not treat as measured.
+ *   backCrotchExtensionScale 0.88 — not a direct measure.
  *
- * PROVISIONAL (NOT measured — Aldrich defaults; do not treat as findings):
+ * PROVISIONAL (NOT measured — do not treat as findings):
  *   waistlineCurveFront 12 — Izzy waist is a yoke seam; curvature unmeasured.
- *   bottomWidth — leave as-is (wide leg, not yet measured).
+ *   bottomWidth 330 — not measured. Eyeballed so the preview reads as a wide
+ *     leg. Izzy's finished-garment table gives a hem CIRCUMFERENCE of 72.3 cm
+ *     at size 44; our bottomWidth is the finished width of ONE leg, inseam to
+ *     side seam, so the correct value should be derivable from that — but the
+ *     relationship has not been confirmed against the pattern piece. Measure
+ *     the hem width on the printed piece and replace this.
  */
-export const IZZY_PRESET: BlockPreset = {
+export const IZZY_PRESET: GarmentPreset = {
   name: "izzy",
-  label: "Izzy",
+  label: "Izzy Pants",
   measured: {
     crotchStraightRun: 0,
     frontWaistInset: 0,
     crotchArrivalAngle: 32,
     backCrotchDrop: 0,
-    frontCrotchFullness: 0.84, // 6-point fit, max Δ 0.15 mm
-    backCrotchFullness: 0.30, // 34-point fit, max Δ 1.64 mm
-    frontCrotchExtensionScale: 0.55, // 45 / 81.875 mm
-    // Approximate — CB-plumb inference, not direct measure; overlay may adjust.
+    frontCrotchFullness: 0.84,
+    backCrotchFullness: 0.30,
+    frontCrotchExtensionScale: 0.55,
     backCrotchExtensionScale: 0.88,
     waistDrop: 0,
     ease: { waist: 80, hip: 50 },
@@ -88,12 +87,20 @@ export const IZZY_PRESET: BlockPreset = {
     waistbandDepth: 120,
   },
   provisional: {
-    waistlineCurveFront: WAISTLINE_CURVE_FRONT, // 12 — unmeasured
+    waistlineCurveFront: WAISTLINE_CURVE_FRONT,
+    // PROVISIONAL — not measured. Eyeballed so the preview reads as a wide leg.
+    // Izzy's finished-garment table gives a hem CIRCUMFERENCE of 72.3 cm at size 44;
+    // our bottomWidth is the finished width of ONE leg, inseam to side seam, so the
+    // correct value should be derivable from that — but the relationship has not been
+    // confirmed against the pattern piece. Measure the hem width on the printed piece
+    // and replace this.
+    bottomWidth: 330,
   },
 };
 
-export const BLOCK_PRESETS: BlockPreset[] = [IZZY_PRESET];
+/** @deprecated Prefer IZZY_PRESET directly — kept for diagnostic scripts. */
+export const BLOCK_PRESETS: GarmentPreset[] = [IZZY_PRESET];
 
-export function blockPresetByName(name: string): BlockPreset | undefined {
+export function blockPresetByName(name: string): GarmentPreset | undefined {
   return BLOCK_PRESETS.find((p) => p.name === name);
 }
