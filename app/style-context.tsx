@@ -23,6 +23,8 @@ import {
   BACK_CROTCH_DROP_MAX,
   CROTCH_FULLNESS_MIN,
   CROTCH_FULLNESS_MAX,
+  INSEAM_KNEE_INSET_MIN,
+  INSEAM_KNEE_INSET_MAX,
   WAIST_DROP_MAX,
   type WaistbandMode,
 } from "@/lib/patterns/trouserBlock";
@@ -69,6 +71,13 @@ function clampExt(raw: number): number {
   );
 }
 
+function clampInseamKneeInset(raw: number): number {
+  return Math.max(
+    INSEAM_KNEE_INSET_MIN,
+    Math.min(INSEAM_KNEE_INSET_MAX, raw),
+  );
+}
+
 function optClamped(
   raw: unknown,
   clamp: (n: number) => number,
@@ -109,6 +118,12 @@ function parseStyle(raw: unknown): TrouserStyleSettings | null {
   }
   void o.crotchExtensionScale;
   void o.crotchDepartureHeight;
+  void o.frontKneeShaping;
+  void o.backKneeShaping;
+  void o.frontKneeWidth;
+  void o.frontHemWidth;
+  void o.backKneeWidth;
+  void o.backHemWidth;
 
   const waistDropRaw = o.waistDrop;
   const waistDrop = isFiniteNumber(waistDropRaw)
@@ -117,6 +132,8 @@ function parseStyle(raw: unknown): TrouserStyleSettings | null {
 
   return {
     legBottomWidth: o.legBottomWidth,
+    frontInseamKneeInset: optClamped(o.frontInseamKneeInset, clampInseamKneeInset),
+    backInseamKneeInset: optClamped(o.backInseamKneeInset, clampInseamKneeInset),
     waistDrop,
     waistbandDepth: o.waistbandDepth,
     waistbandMode: mode,
@@ -150,6 +167,8 @@ function parseStyle(raw: unknown): TrouserStyleSettings | null {
 
 type StyleContextValue = TrouserStyleSettings & {
   setLegBottomWidth: Dispatch<SetStateAction<number>>;
+  setFrontInseamKneeInset: Dispatch<SetStateAction<number | null>>;
+  setBackInseamKneeInset: Dispatch<SetStateAction<number | null>>;
   setWaistDrop: Dispatch<SetStateAction<number>>;
   setWaistbandDepth: Dispatch<SetStateAction<number>>;
   setWaistbandMode: Dispatch<SetStateAction<WaistbandMode>>;
@@ -216,6 +235,14 @@ export function GarmentStyleProvider({
   const setLegBottomWidth = useCallback(fieldSetter(setStyle, "legBottomWidth"), [
     setStyle,
   ]);
+  const setFrontInseamKneeInset = useCallback(
+    fieldSetter(setStyle, "frontInseamKneeInset"),
+    [setStyle],
+  );
+  const setBackInseamKneeInset = useCallback(
+    fieldSetter(setStyle, "backInseamKneeInset"),
+    [setStyle],
+  );
   const setWaistDrop = useCallback(fieldSetter(setStyle, "waistDrop"), [
     setStyle,
   ]);
@@ -290,6 +317,8 @@ export function GarmentStyleProvider({
     () => ({
       ...style,
       setLegBottomWidth,
+      setFrontInseamKneeInset,
+      setBackInseamKneeInset,
       setWaistDrop,
       setWaistbandDepth,
       setWaistbandMode,
@@ -312,6 +341,8 @@ export function GarmentStyleProvider({
     [
       style,
       setLegBottomWidth,
+      setFrontInseamKneeInset,
+      setBackInseamKneeInset,
       setWaistDrop,
       setWaistbandDepth,
       setWaistbandMode,

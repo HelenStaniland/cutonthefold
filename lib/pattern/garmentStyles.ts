@@ -10,7 +10,14 @@ import { IZZY_PRESET } from "@/lib/pattern/blockPresets";
 export type DartedWaistFinish = "facing" | "waistband";
 
 export type TrouserStyleSettings = {
+  /** Aldrich bottomWidth — front hem B−10, back B+10. */
   legBottomWidth: number;
+  /**
+   * Signed inseam knee inset from crotch→hem chord (mm).
+   * null = Aldrich KNEE_ADD block path.
+   */
+  frontInseamKneeInset: number | null;
+  backInseamKneeInset: number | null;
   waistDrop: number;
   waistbandDepth: number;
   waistbandMode: WaistbandMode;
@@ -44,6 +51,8 @@ const clearedGeometry = {
 /** Faithful Trouser Block: darted, no band, geometry overrides cleared. */
 export const BLOCK_TROUSER_STYLE: TrouserStyleSettings = {
   legBottomWidth: 220,
+  frontInseamKneeInset: null,
+  backInseamKneeInset: null,
   waistDrop: 0,
   waistbandDepth: 0,
   waistbandMode: "darted",
@@ -59,7 +68,9 @@ export const IZZY_TROUSER_STYLE: TrouserStyleSettings = (() => {
   const m = IZZY_PRESET.measured;
   const pr = IZZY_PRESET.provisional;
   return {
-    legBottomWidth: pr.bottomWidth,
+    legBottomWidth: m.bottomWidth,
+    frontInseamKneeInset: m.frontInseamKneeInset,
+    backInseamKneeInset: m.backInseamKneeInset,
     waistDrop: m.waistDrop,
     waistbandDepth: m.waistbandDepth,
     waistbandMode: m.waistbandMode,

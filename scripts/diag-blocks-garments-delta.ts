@@ -28,6 +28,12 @@ function toDraftStyle(
   const base: TrouserFrontStyle = {
     bottomWidth: s.legBottomWidth,
     waistDrop,
+    ...(s.frontInseamKneeInset != null
+      ? { frontInseamKneeInset: s.frontInseamKneeInset }
+      : {}),
+    ...(s.backInseamKneeInset != null
+      ? { backInseamKneeInset: s.backInseamKneeInset }
+      : {}),
     ...(s.frontCrotchExtensionScale != null
       ? { frontCrotchExtensionScale: s.frontCrotchExtensionScale }
       : {}),
@@ -103,6 +109,8 @@ const m = IZZY_PRESET.measured;
 const pr = IZZY_PRESET.provisional;
 const fromPreset: TrouserStyleSettings = {
   legBottomWidth: 220,
+  frontInseamKneeInset: m.frontInseamKneeInset,
+  backInseamKneeInset: m.backInseamKneeInset,
   waistDrop: m.waistDrop,
   waistbandDepth: m.waistbandDepth,
   waistbandMode: m.waistbandMode,

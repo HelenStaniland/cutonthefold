@@ -23,16 +23,22 @@ export type GarmentMeasured = {
   ease: Ease;
   waistbandMode: WaistbandMode;
   waistbandDepth: number;
+  /**
+   * Signed inseam knee inset from the crotch→hem chord (mm).
+   * Negative = inboard (flare). Side knee gets k×inset with k = 0.18.
+   */
+  frontInseamKneeInset: number;
+  backInseamKneeInset: number;
+  /**
+   * Finished one-leg hem width (Aldrich bottomWidth): front = B−10, back = B+10.
+   * B = 360 → front hem 350; back drafts 370 vs measured ~373.
+   */
+  bottomWidth: number;
 };
 
 export type GarmentProvisional = {
   /** Izzy yoke-seam curvature unmeasured. */
   waistlineCurveFront: number;
-  /**
-   * Finished width of one leg, inseam to side seam (mm).
-   * PROVISIONAL — not measured. Eyeballed so the preview reads as a wide leg.
-   */
-  bottomWidth: number;
 };
 
 export type GarmentPreset = {
@@ -45,29 +51,12 @@ export type GarmentPreset = {
 /*
  * Izzy — measured vs provisional
  * -----------------------------
- * MEASURED (from the Izzy pattern; confident):
- *   crotchStraightRun 0 — curve leaves CF at the waist
- *   frontWaistInset 0 — vertical CF, no Aldrich 7–10
- *   crotchArrivalAngle 32° — fitted
- *   frontCrotchFullness 0.84 — fit to 6 measured points (max Δ 0.15 mm)
- *   backCrotchFullness 0.30 — fit to 34 measured points (max Δ 1.64 mm)
- *   frontCrotchExtensionScale 0.55 — 45 / 81.875 mm at drafted hip 1150
- *   backCrotchDrop 0 — no 23–24 step/hook
- *   waistDrop 0 — natural waist (12 cm yoke + 16 cm rise = 28 = body rise)
- *   hipEase 50 / waistEase 80 — size 44: body 110/84 → finished 115/92
- *   waistbandMode shaped, waistbandDepth 120 — shaped yoke, measured depth
+ * MEASURED:
+ *   …crotch / waist params as before…
+ *   frontInseamKneeInset −8 / backInseamKneeInset −33 — chord insets (mm)
+ *   bottomWidth 360 — front hem B−10 = 350
  *
- * APPROXIMATE (geometric inference — expect overlay adjustment):
- *   backCrotchExtensionScale 0.88 — not a direct measure.
- *
- * PROVISIONAL (NOT measured — do not treat as findings):
- *   waistlineCurveFront 12 — Izzy waist is a yoke seam; curvature unmeasured.
- *   bottomWidth 330 — not measured. Eyeballed so the preview reads as a wide
- *     leg. Izzy's finished-garment table gives a hem CIRCUMFERENCE of 72.3 cm
- *     at size 44; our bottomWidth is the finished width of ONE leg, inseam to
- *     side seam, so the correct value should be derivable from that — but the
- *     relationship has not been confirmed against the pattern piece. Measure
- *     the hem width on the printed piece and replace this.
+ * SUPERSEDED: four independent knee/hem widths; provisional bottomWidth 330.
  */
 export const IZZY_PRESET: GarmentPreset = {
   name: "izzy",
@@ -85,16 +74,12 @@ export const IZZY_PRESET: GarmentPreset = {
     ease: { waist: 80, hip: 50 },
     waistbandMode: "shaped",
     waistbandDepth: 120,
+    frontInseamKneeInset: -8,
+    backInseamKneeInset: -33,
+    bottomWidth: 360,
   },
   provisional: {
     waistlineCurveFront: WAISTLINE_CURVE_FRONT,
-    // PROVISIONAL — not measured. Eyeballed so the preview reads as a wide leg.
-    // Izzy's finished-garment table gives a hem CIRCUMFERENCE of 72.3 cm at size 44;
-    // our bottomWidth is the finished width of ONE leg, inseam to side seam, so the
-    // correct value should be derivable from that — but the relationship has not been
-    // confirmed against the pattern piece. Measure the hem width on the printed piece
-    // and replace this.
-    bottomWidth: 330,
   },
 };
 

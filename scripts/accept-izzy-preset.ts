@@ -24,14 +24,19 @@ const body = applyEase(
 
 const style: TrouserFrontStyle = withWaistband(
   {
-    bottomWidth: 220, // leave as-is (unmeasured)
+    bottomWidth: 220,
     block: "classic",
     waistDrop: m.waistDrop,
     crotchStraightRun: m.crotchStraightRun,
     frontWaistInset: m.frontWaistInset,
     crotchArrivalAngle: m.crotchArrivalAngle,
     backCrotchDrop: m.backCrotchDrop,
-    crotchExtensionScale: pr.crotchExtensionScale,
+    frontCrotchExtensionScale: m.frontCrotchExtensionScale,
+    backCrotchExtensionScale: m.backCrotchExtensionScale,
+    frontCrotchFullness: m.frontCrotchFullness,
+    backCrotchFullness: m.backCrotchFullness,
+    frontInseamKneeInset: m.frontInseamKneeInset,
+    backInseamKneeInset: m.backInseamKneeInset,
     waistlineCurveFront: pr.waistlineCurveFront,
   },
   m.waistbandDepth,

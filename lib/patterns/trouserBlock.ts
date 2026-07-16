@@ -352,9 +352,35 @@ export function frontDartFromCentreFront(
   return -p10.x - inset;
 }
 
+/**
+ * Side-seam share of a garment inseam knee inset.
+ * Measured Izzy: front ratio ~0.11, back ~0.18 — single k = 0.18 fits both
+ * within ~2 mm. Baked constant, not a style parameter.
+ */
+const KNEE_INSET_SIDE_SHARE = 0.18;
+
+export const INSEAM_KNEE_INSET_MIN = -80;
+export const INSEAM_KNEE_INSET_MAX = 40;
+
 export type TrouserFrontStyle = {
-  /** Finished hem width of one leg laid flat (= ½ the hem circumference; Aldrich's trouser bottom width). Front piece drafts 10mm narrower, back 10mm wider. */
+  /**
+   * Finished hem width of one leg laid flat (= ½ the hem circumference;
+   * Aldrich's trouser bottom width). Front drafts B−10, back B+10.
+   * Knee is from KNEE_ADD (block) or inseam knee insets (garment).
+   */
   bottomWidth: Millimetres;
+  /**
+   * Signed front inseam knee inset (mm) from the crotch→hem chord.
+   * Negative = inboard (toward centre / grainline) — flare.
+   * Positive = outboard — taper beyond the chord.
+   * Absent → Aldrich KNEE_ADD + clamp (block path, byte-identical).
+   * When set, side knee gets KNEE_INSET_SIDE_SHARE × this inset.
+   */
+  frontInseamKneeInset?: Millimetres;
+  /**
+   * Signed back inseam knee inset (mm). Absent → back knee = front ±10.
+   */
+  backInseamKneeInset?: Millimetres;
   block?: TrouserBlock;
   /** Waist height drop (mm), 0 = classic / natural waist, 50 = production / low waist. */
   waistDrop?: Millimetres;
@@ -866,6 +892,57 @@ function splitPolylineAtY(
 
 function xOnLineAtY(a: Point, b: Point, y: number): number {
   return a.x + ((b.x - a.x) * (y - a.y)) / (b.y - a.y);
+}
+
+/**
+ * Place knee points from each edge's crotch→hem chord + signed inseam inset.
+ *
+ * Sign: negative = inboard (toward centre). Pattern: side at +x, inseam at −x.
+ *   side   = sideChord   + k · inset   (negative inset → −x)
+ *   inseam = inseamChord − inset       (negative inset → +x)
+ */
+function kneeFromInseamInset(
+  sideHip: Point,
+  sideHem: Point,
+  inseamTip: Point,
+  inseamHem: Point,
+  kneeY: Millimetres,
+  inseamInset: Millimetres,
+): { side: Point; inseam: Point } {
+  const sideChord = xOnLineAtY(sideHip, sideHem, kneeY);
+  const inseamChord = xOnLineAtY(inseamTip, inseamHem, kneeY);
+  return {
+    side: {
+      x: sideChord + KNEE_INSET_SIDE_SHARE * inseamInset,
+      y: kneeY,
+    },
+    inseam: {
+      x: inseamChord - inseamInset,
+      y: kneeY,
+    },
+  };
+}
+
+function resolveInseamKneeInset(
+  raw: Millimetres | undefined,
+  label: string,
+): Millimetres | undefined {
+  if (raw === undefined) return undefined;
+  if (!Number.isFinite(raw)) {
+    console.warn(`trouserBlock: ${label}=${raw} is not finite; ignoring`);
+    return undefined;
+  }
+  if (raw < INSEAM_KNEE_INSET_MIN || raw > INSEAM_KNEE_INSET_MAX) {
+    const clamped = Math.max(
+      INSEAM_KNEE_INSET_MIN,
+      Math.min(INSEAM_KNEE_INSET_MAX, raw),
+    );
+    console.warn(
+      `trouserBlock: ${label}=${raw} outside [${INSEAM_KNEE_INSET_MIN}, ${INSEAM_KNEE_INSET_MAX}]; clamping to ${clamped}`,
+    );
+    return clamped;
+  }
+  return raw;
 }
 
 type WaistResolved = {
@@ -1842,16 +1919,6 @@ function crotchGuide45(corner: Point, touch: Millimetres): Point {
   return { x: corner.x - touch * c, y: corner.y - touch * c };
 }
 
-function insideLegControl(a: Point, b: Point, bulge: Millimetres = 7.5): Point {
-  const m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-  const d = { x: b.x - a.x, y: b.y - a.y };
-  let n = normalize({ x: d.y, y: -d.x });
-  if (n.x < 0) {
-    n = { x: -n.x, y: -n.y };
-  }
-  return { x: m.x + 2 * bulge * n.x, y: m.y + 2 * bulge * n.y };
-}
-
 type TaggedSegment = {
   points: Point[];
   edge: EdgeType;
@@ -1919,10 +1986,29 @@ export function trouserFrontPoints(
   const p12 = { x: B / 2 - 5, y: F };
   const p14 = { x: -(B / 2 - 5), y: F };
 
-  const K = B + 2 * kneeAdd;
-
-  const p13 = { x: Math.min(K / 2 - 5, xOnLineAtY(p8, p12, kneeY)), y: kneeY };
-  const p15 = { x: Math.max(-(K / 2 - 5), xOnLineAtY(p9, p14, kneeY)), y: kneeY };
+  const kneeInset = resolveInseamKneeInset(
+    style.frontInseamKneeInset,
+    "frontInseamKneeInset",
+  );
+  let p13: Point;
+  let p15: Point;
+  if (kneeInset !== undefined) {
+    // Garment path: per-edge chord + inseam inset; side gets k·inset.
+    const k = kneeFromInseamInset(p8, p12, p9, p14, kneeY, kneeInset);
+    p13 = k.side;
+    p15 = k.inseam;
+  } else {
+    // Block path: Aldrich KNEE_ADD + crotch→hem clamp (untouched).
+    const K = B + 2 * kneeAdd;
+    p13 = {
+      x: Math.min(K / 2 - 5, xOnLineAtY(p8, p12, kneeY)),
+      y: kneeY,
+    };
+    p15 = {
+      x: Math.max(-(K / 2 - 5), xOnLineAtY(p9, p14, kneeY)),
+      y: kneeY,
+    };
+  }
 
   return { p5, p6, p8, p9, p10, p11, p12, p13, p14, p15 };
 }
@@ -1960,8 +2046,21 @@ export function trouserBackPoints(
   const p28 = { x: f.p14.x - 10, y: F };
   const kneeY = f.p13.y;
 
-  const p27 = { x: f.p13.x + 10, y: kneeY };
-  const p29 = { x: f.p15.x - 10, y: kneeY };
+  const kneeInset = resolveInseamKneeInset(
+    style.backInseamKneeInset,
+    "backInseamKneeInset",
+  );
+  let p27: Point;
+  let p29: Point;
+  if (kneeInset !== undefined) {
+    const k = kneeFromInseamInset(p25, p26, p24, p28, kneeY, kneeInset);
+    p27 = k.side;
+    p29 = k.inseam;
+  } else {
+    p27 = { x: f.p13.x + 10, y: kneeY };
+    p29 = { x: f.p15.x - 10, y: kneeY };
+  }
+
   const guide = crotchGuide45(p16, backCrotchTouch(H) * backScale);
 
   return { p16, p17, p18, p19, p21, p22, p23, p24, p25, p26, p27, p28, p29, guide };
@@ -1994,22 +2093,6 @@ function crotchCurveControls(guide: Point): {
   return {
     points: [{ id: "guide", at: guide, kind: "curveControl" }],
     lines: [],
-  };
-}
-
-function insideLegCurveControls(
-  a: Point,
-  b: Point,
-  bulge: Millimetres,
-  id: string,
-): { points: DraftingPoint[]; lines: DraftingLine[] } {
-  const ctrl = insideLegControl(a, b, bulge);
-  return {
-    points: [{ id, at: ctrl, kind: "curveControl" }],
-    lines: [
-      draftLine(a, ctrl, "curveControl"),
-      draftLine(ctrl, b, "curveControl"),
-    ],
   };
 }
 
@@ -2093,10 +2176,8 @@ export function trouserConstruction(
     f.p5,
     frontCrotchTouch(body.hip) * frontScale,
   );
-  const frontInsideLegCtrl = insideLegCurveControls(f.p9, f.p15, 7.5, "inseamCtrl");
   const frontCrotchControls = crotchCurveControls(frontGuide);
 
-  const backInsideLegCtrl = insideLegCurveControls(b.p24, b.p29, 12.5, "inseamCtrl");
   const backCrotchControls = crotchCurveControls(b.guide);
   const backHemCtrl = { x: 0, y: F + 20 };
   const backHemControls = {
@@ -2159,7 +2240,6 @@ export function trouserConstruction(
         { id: "p14", at: f.p14 },
         { id: "p15", at: f.p15 },
         ...frontCrotchControls.points,
-        ...frontInsideLegCtrl.points,
       ],
       lines: [
         ...frame.lines,
@@ -2180,7 +2260,6 @@ export function trouserConstruction(
         horizLine(f.p13.y, frontX.min, frontX.max),
         horizLine(F, frontX.min, frontX.max),
         ...frontCrotchControls.lines,
-        ...frontInsideLegCtrl.lines,
       ],
     },
     {
@@ -2201,7 +2280,6 @@ export function trouserConstruction(
         { id: "p28", at: b.p28 },
         { id: "p29", at: b.p29 },
         ...backCrotchControls.points,
-        ...backInsideLegCtrl.points,
         ...backHemControls.points,
       ],
       lines: [
@@ -2225,7 +2303,6 @@ export function trouserConstruction(
         horizLine(b.p27.y, backX.min, backX.max),
         horizLine(F, backX.min, backX.max),
         ...backCrotchControls.lines,
-        ...backInsideLegCtrl.lines,
         ...backHemControls.lines,
       ],
     },
@@ -2276,8 +2353,10 @@ export function draftTrouserFront(
     wr.cf,
   );
 
-  const insideLegCtrl = insideLegControl(p9, p15);
-  const insideLegToFork = quadBezier(p15, insideLegCtrl, p9).slice(1);
+  // Faired inseam tip→knee→hem (same pchip as the side seam). Outline
+  // walks hem→tip, so reverse. Knee is an on-curve landmark, not a joint.
+  const inseamTipToHem = pchipByY([p9, p15, p14]);
+  const inseamHemToTip = [...inseamTipToHem].reverse();
 
   const facingFinish = isDartedFacingFinish(style);
 
@@ -2341,7 +2420,7 @@ export function draftTrouserFront(
       role: "hem",
     },
     {
-      points: [p14, p15, ...insideLegToFork],
+      points: inseamHemToTip,
       edge: "seam",
       role: "inseam",
     },
@@ -2391,8 +2470,9 @@ export function draftTrouserBack(
   const r = style.waistReduction ?? 0;
   const wr = backWaistResolved(body, style);
 
-  const insideLegCtrl = insideLegControl(p24, p29, 12.5);
-  const backInsideToFork = quadBezier(p29, insideLegCtrl, p24).slice(1);
+  // Faired inseam tip→knee→hem. Outline walks hem→tip.
+  const inseamTipToHem = pchipByY([p24, p29, p28]);
+  const inseamHemToTip = [...inseamTipToHem].reverse();
   // Crotch ends at T (= p24); inseam starts at the same point — no p23→p24 step.
   const crotch = backCrotchBelowHip(b, style);
   const cbTop = crotch[crotch.length - 1]!;
@@ -2418,7 +2498,7 @@ export function draftTrouserBack(
       role: "hem",
     },
     {
-      points: [p28, p29, ...backInsideToFork],
+      points: inseamHemToTip,
       edge: "seam",
       role: "inseam",
     },

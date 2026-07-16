@@ -44,6 +44,10 @@ import {
   CROTCH_FULLNESS_MAX,
   DEFAULT_FRONT_CROTCH_FULLNESS,
   DEFAULT_BACK_CROTCH_FULLNESS,
+  INSEAM_KNEE_INSET_MIN,
+  INSEAM_KNEE_INSET_MAX,
+  trouserFrontPoints,
+  trouserBackPoints,
   blockFromWaistDrop,
   trouserFacingSteps,
 } from "@/lib/patterns/trouserBlock";
@@ -108,6 +112,8 @@ function styleMatchesPreset(
 ): boolean {
   return (
     style.legBottomWidth === defaults.legBottomWidth &&
+    style.frontInseamKneeInset === defaults.frontInseamKneeInset &&
+    style.backInseamKneeInset === defaults.backInseamKneeInset &&
     style.waistDrop === defaults.waistDrop &&
     style.waistbandDepth === defaults.waistbandDepth &&
     style.waistbandMode === defaults.waistbandMode &&
@@ -143,6 +149,10 @@ function TrousersViewInner({
   const {
     legBottomWidth,
     setLegBottomWidth,
+    frontInseamKneeInset,
+    setFrontInseamKneeInset,
+    backInseamKneeInset,
+    setBackInseamKneeInset,
     waistDrop,
     setWaistDrop,
     waistbandDepth,
@@ -203,6 +213,10 @@ function TrousersViewInner({
     bottomWidth: legBottomWidth,
     block,
     waistDrop,
+    ...(frontInseamKneeInset != null
+      ? { frontInseamKneeInset }
+      : {}),
+    ...(backInseamKneeInset != null ? { backInseamKneeInset } : {}),
     ...(frontCrotchExtensionScale != null
       ? { frontCrotchExtensionScale }
       : {}),
@@ -315,6 +329,8 @@ function TrousersViewInner({
   const atPresetDefaults = styleMatchesPreset(
     {
       legBottomWidth,
+      frontInseamKneeInset,
+      backInseamKneeInset,
       waistDrop,
       waistbandDepth,
       waistbandMode,
@@ -341,6 +357,15 @@ function TrousersViewInner({
       : draftWaistDepth > 0
         ? withWaistband(style, draftWaistDepth, "shaped", draftBody)
         : style;
+
+  const resolvedLegWidths = useMemo(() => {
+    const f = trouserFrontPoints(draftBody, tstyle);
+    const b = trouserBackPoints(draftBody, tstyle);
+    return {
+      frontHem: Math.abs(f.p12.x - f.p14.x),
+      backHem: Math.abs(b.p26.x - b.p28.x),
+    };
+  }, [draftBody, tstyle]);
 
   const validation = validateTrousers(draftBody, tstyle);
   const baseNet = useMemo(
@@ -997,10 +1022,11 @@ function TrousersViewInner({
             <h2 className={styles.sectionTitle}>Style</h2>
             <div className={styles.field}>
               <label className={styles.fieldLabel} htmlFor="leg-bottom-width">
-                Leg hem width
+                Hem width (both)
               </label>
               <span className={styles.fieldHint}>
-                Finished width at the hem of one leg — inseam to side seam.
+                Aldrich bottomWidth: front hem = this − 10 mm, back hem = this +
+                10 mm.
               </span>
               <div className={styles.rangeRow}>
                 <input
@@ -1014,6 +1040,69 @@ function TrousersViewInner({
                   onChange={(e) => setLegBottomWidth(Number(e.target.value))}
                 />
                 <span className={styles.rangeValue}>{legBottomWidth} mm</span>
+              </div>
+            </div>
+            <div className={styles.field}>
+              <label
+                className={styles.fieldLabel}
+                htmlFor="front-inseam-knee-inset"
+              >
+                Front inseam knee inset
+              </label>
+              <span className={styles.fieldHint}>
+                Signed inset from the crotch→hem chord. Negative = inboard
+                (flare); positive = outboard. Unset = Aldrich block knee.
+              </span>
+              <div className={styles.rangeRow}>
+                <input
+                  id="front-inseam-knee-inset"
+                  type="range"
+                  className={styles.rangeInput}
+                  min={INSEAM_KNEE_INSET_MIN}
+                  max={INSEAM_KNEE_INSET_MAX}
+                  step={1}
+                  value={frontInseamKneeInset ?? 0}
+                  onChange={(e) =>
+                    setFrontInseamKneeInset(Number(e.target.value))
+                  }
+                />
+                <span className={styles.rangeValue}>
+                  {frontInseamKneeInset == null
+                    ? "Aldrich"
+                    : `${frontInseamKneeInset} mm`}
+                </span>
+              </div>
+            </div>
+            <div className={styles.field}>
+              <label
+                className={styles.fieldLabel}
+                htmlFor="back-inseam-knee-inset"
+              >
+                Back inseam knee inset
+              </label>
+              <span className={styles.fieldHint}>
+                Signed inset from the crotch→hem chord. Negative = inboard
+                (flare); positive = outboard. Unset = Aldrich block knee
+                (front ±10 mm).
+              </span>
+              <div className={styles.rangeRow}>
+                <input
+                  id="back-inseam-knee-inset"
+                  type="range"
+                  className={styles.rangeInput}
+                  min={INSEAM_KNEE_INSET_MIN}
+                  max={INSEAM_KNEE_INSET_MAX}
+                  step={1}
+                  value={backInseamKneeInset ?? 0}
+                  onChange={(e) =>
+                    setBackInseamKneeInset(Number(e.target.value))
+                  }
+                />
+                <span className={styles.rangeValue}>
+                  {backInseamKneeInset == null
+                    ? "Aldrich"
+                    : `${backInseamKneeInset} mm`}
+                </span>
               </div>
             </div>
             <div className={styles.field}>
@@ -1251,8 +1340,21 @@ function TrousersViewInner({
               Body rise <strong>{body.bodyRise}</strong> mm
             </Link>
             <span className={styles.chip}>
-              Leg hem width <strong>{legBottomWidth}</strong> mm
+              Front hem <strong>{Math.round(resolvedLegWidths.frontHem)}</strong> mm
             </span>
+            <span className={styles.chip}>
+              Back hem <strong>{Math.round(resolvedLegWidths.backHem)}</strong> mm
+            </span>
+            {frontInseamKneeInset != null && (
+              <span className={styles.chip}>
+                Front knee inset <strong>{frontInseamKneeInset}</strong> mm
+              </span>
+            )}
+            {backInseamKneeInset != null && (
+              <span className={styles.chip}>
+                Back knee inset <strong>{backInseamKneeInset}</strong> mm
+              </span>
+            )}
           </div>
 
           <div className={styles.canvasGrid}>
