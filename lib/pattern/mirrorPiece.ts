@@ -16,6 +16,7 @@ export function mirrorPieceX(piece: PatternPiece): PatternPiece {
     ...piece,
     outline: piece.outline.map((o) => ({ ...o, at: fx(o.at) })),
     cuttingOutline: piece.cuttingOutline?.map(fx),
+    netToCutIndex: piece.netToCutIndex,
     markings: piece.markings.map((m) => {
       switch (m.kind) {
         case "grainline":

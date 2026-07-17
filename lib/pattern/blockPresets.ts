@@ -1,5 +1,8 @@
 import type { Ease } from "@/lib/types/measurements";
-import type { WaistbandMode } from "@/lib/patterns/trouserBlock";
+import type {
+  BackHemShape,
+  WaistbandMode,
+} from "@/lib/patterns/trouserBlock";
 import { WAISTLINE_CURVE_FRONT } from "@/lib/patterns/trouserBlock";
 
 /**
@@ -34,6 +37,8 @@ export type GarmentMeasured = {
    * B = 360 → front hem 350; back drafts 370 vs measured ~373.
    */
   bottomWidth: number;
+  /** Shape of the finished back hem edge. */
+  backHemShape: BackHemShape;
 };
 
 export type GarmentProvisional = {
@@ -55,6 +60,7 @@ export type GarmentPreset = {
  *   …crotch / waist params as before…
  *   frontInseamKneeInset −8 / backInseamKneeInset −33 — chord insets (mm)
  *   bottomWidth 360 — front hem B−10 = 350
+ *   backHemShape straight — measured design edge (Aldrich remains curved)
  *
  * SUPERSEDED: four independent knee/hem widths; provisional bottomWidth 330.
  */
@@ -77,6 +83,7 @@ export const IZZY_PRESET: GarmentPreset = {
     frontInseamKneeInset: -8,
     backInseamKneeInset: -33,
     bottomWidth: 360,
+    backHemShape: "straight",
   },
   provisional: {
     waistlineCurveFront: WAISTLINE_CURVE_FRONT,

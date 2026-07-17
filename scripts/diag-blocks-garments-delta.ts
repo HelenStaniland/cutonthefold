@@ -28,6 +28,7 @@ function toDraftStyle(
   const base: TrouserFrontStyle = {
     bottomWidth: s.legBottomWidth,
     waistDrop,
+    backHemShape: s.backHemShape,
     ...(s.frontInseamKneeInset != null
       ? { frontInseamKneeInset: s.frontInseamKneeInset }
       : {}),
@@ -111,6 +112,7 @@ const fromPreset: TrouserStyleSettings = {
   legBottomWidth: 220,
   frontInseamKneeInset: m.frontInseamKneeInset,
   backInseamKneeInset: m.backInseamKneeInset,
+  backHemShape: m.backHemShape,
   waistDrop: m.waistDrop,
   waistbandDepth: m.waistbandDepth,
   waistbandMode: m.waistbandMode,

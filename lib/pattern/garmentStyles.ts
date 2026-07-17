@@ -3,7 +3,10 @@
  * Soft dependency only — no React. Safe to import from Server Components.
  */
 import type { Ease } from "@/lib/types/measurements";
-import type { WaistbandMode } from "@/lib/patterns/trouserBlock";
+import type {
+  BackHemShape,
+  WaistbandMode,
+} from "@/lib/patterns/trouserBlock";
 import { DEFAULT_FIT, easeForFit } from "@/lib/pattern/fitPresets";
 import { IZZY_PRESET } from "@/lib/pattern/blockPresets";
 
@@ -18,6 +21,7 @@ export type TrouserStyleSettings = {
    */
   frontInseamKneeInset: number | null;
   backInseamKneeInset: number | null;
+  backHemShape: BackHemShape;
   waistDrop: number;
   waistbandDepth: number;
   waistbandMode: WaistbandMode;
@@ -53,6 +57,7 @@ export const BLOCK_TROUSER_STYLE: TrouserStyleSettings = {
   legBottomWidth: 220,
   frontInseamKneeInset: null,
   backInseamKneeInset: null,
+  backHemShape: "curved",
   waistDrop: 0,
   waistbandDepth: 0,
   waistbandMode: "darted",
@@ -71,6 +76,7 @@ export const IZZY_TROUSER_STYLE: TrouserStyleSettings = (() => {
     legBottomWidth: m.bottomWidth,
     frontInseamKneeInset: m.frontInseamKneeInset,
     backInseamKneeInset: m.backInseamKneeInset,
+    backHemShape: m.backHemShape,
     waistDrop: m.waistDrop,
     waistbandDepth: m.waistbandDepth,
     waistbandMode: m.waistbandMode,

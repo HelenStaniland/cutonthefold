@@ -1,47 +1,64 @@
 /**
- * DIAGNOSTIC ONLY — hem seam-allowance corner behaviour across trouser pieces.
+ * DIAGNOSTIC ONLY — current hem allowance geometry for Izzy trousers.
  * Run: npx tsx scripts/diag-hem-allowance.ts
  *
- * Reports, for every piece that has a hem edge, the two hem end corners
- * (side-hem, inseam-hem): net vs cutting coords, deltas, the adjoining seam
- * tangent just above the corner (angle from vertical), and the local hem
- * tangent (angle from horizontal). Changes no source code.
- *
- * Conventions (SVG y-DOWN):
- *   - seam angle from vertical: atan2(dx, -dy) of the vector from the corner
- *     UP the seam; 0° = straight up, +ve leans toward +x.
- *   - hem angle from horizontal: atan2(-dy, dx) of the hem edge vector at the
- *     corner; 0° = horizontal, +ve tips visually up toward +x.
+ * Prints current numbers only. Does not change geometry.
  */
-import { applyEase, type Point, type OutlinePoint, type PatternPiece } from "../lib/types/measurements";
+import { applyEase, type OutlinePoint, type Point } from "../lib/types/measurements";
 import { bodyForSizeCode, DEFAULT_SIZE_CODE } from "../lib/data/standardSizes";
 import {
+  addSeamAllowance,
+  DEFAULT_SEAM_ALLOWANCE,
+} from "../lib/geometry/seamAllowance";
+import {
+  blockFromWaistDrop,
   draftTrousers,
   withWaistband,
-  blockFromWaistDrop,
   type TrouserFrontStyle,
 } from "../lib/patterns/trouserBlock";
-import { addSeamAllowance, DEFAULT_SEAM_ALLOWANCE } from "../lib/geometry/seamAllowance";
 import {
-  BLOCK_TROUSER_STYLE,
   IZZY_TROUSER_STYLE,
   type TrouserStyleSettings,
 } from "../lib/pattern/garmentStyles";
 
-const DEG = 180 / Math.PI;
+const DUP_TOL = 0.01;
 
-// Resolve TrouserStyleSettings → drafted TrouserFrontStyle exactly as the app
-// does (TrousersView): only-set overrides, block from waistDrop, and the
-// darted/shaped withWaistband wrap at the app's resolved depth.
+function fmt(n: number): string {
+  return n.toFixed(3);
+}
+
+function point(p: Point): string {
+  return `(${fmt(p.x)}, ${fmt(p.y)})`;
+}
+
+function collapse(outline: OutlinePoint[]): OutlinePoint[] {
+  const out: OutlinePoint[] = [];
+  for (const p of outline) {
+    const last = out[out.length - 1];
+    if (last && Math.hypot(p.at.x - last.at.x, p.at.y - last.at.y) < DUP_TOL) {
+      continue;
+    }
+    out.push(p);
+  }
+  if (out.length > 1) {
+    const first = out[0]!;
+    const last = out[out.length - 1]!;
+    if (Math.hypot(first.at.x - last.at.x, first.at.y - last.at.y) < DUP_TOL) {
+      out.pop();
+    }
+  }
+  return out;
+}
+
 function resolveStyle(
   s: TrouserStyleSettings,
   body: ReturnType<typeof applyEase>,
 ): TrouserFrontStyle {
-  const block = blockFromWaistDrop(s.waistDrop);
-  const style: TrouserFrontStyle = {
+  const base: TrouserFrontStyle = {
     bottomWidth: s.legBottomWidth,
-    block,
+    block: blockFromWaistDrop(s.waistDrop),
     waistDrop: s.waistDrop,
+    backHemShape: s.backHemShape,
     ...(s.frontInseamKneeInset != null
       ? { frontInseamKneeInset: s.frontInseamKneeInset }
       : {}),
@@ -59,139 +76,169 @@ function resolveStyle(
     ...(s.waistlineCurveFront != null ? { waistlineCurveFront: s.waistlineCurveFront } : {}),
     ...(s.frontWaistInset != null ? { frontWaistInset: s.frontWaistInset } : {}),
     ...(s.backCrotchDrop != null ? { backCrotchDrop: s.backCrotchDrop } : {}),
-    ...(s.frontCrotchFullness != null ? { frontCrotchFullness: s.frontCrotchFullness } : {}),
-    ...(s.backCrotchFullness != null ? { backCrotchFullness: s.backCrotchFullness } : {}),
+    ...(s.frontCrotchFullness != null
+      ? { frontCrotchFullness: s.frontCrotchFullness }
+      : {}),
+    ...(s.backCrotchFullness != null
+      ? { backCrotchFullness: s.backCrotchFullness }
+      : {}),
   };
-  const draftWaistDepth =
+  const depth =
     s.waistbandMode === "darted"
       ? s.dartedWaistFinish === "facing"
         ? 0
         : s.dartedBandDepth
       : s.waistbandDepth;
   if (s.waistbandMode === "darted") {
-    return withWaistband(style, draftWaistDepth, "darted", body);
+    return withWaistband(base, depth, "darted", body);
   }
-  return draftWaistDepth > 0
-    ? withWaistband(style, draftWaistDepth, "shaped", body)
-    : style;
+  return depth > 0 ? withWaistband(base, depth, "shaped", body) : base;
 }
 
-// collapseDuplicateVertices mirror (not exported) — so our indices line up with
-// addSeamAllowance's cuttingOutline, which is built from the collapsed outline.
-const DUP_TOL = 0.01;
-function collapse(outline: OutlinePoint[]): OutlinePoint[] {
-  if (outline.length === 0) return outline;
-  const out: OutlinePoint[] = [];
-  for (const p of outline) {
-    const last = out[out.length - 1];
-    if (last && Math.hypot(p.at.x - last.at.x, p.at.y - last.at.y) < DUP_TOL) continue;
-    out.push(p);
+function findHemCorners(outline: OutlinePoint[]): {
+  sideIdx: number;
+  inseamIdx: number;
+} {
+  const hemIndices = outline
+    .map((p, i) => (p.edge === "hem" ? i : -1))
+    .filter((i) => i >= 0);
+  if (hemIndices.length === 0) {
+    throw new Error("piece has no hem edge");
   }
-  if (out.length > 1) {
-    const f = out[0];
-    const l = out[out.length - 1];
-    if (Math.hypot(f.at.x - l.at.x, f.at.y - l.at.y) < DUP_TOL) out.pop();
-  }
-  return out;
+  const sideIdx = hemIndices[0]!;
+  const inseamIdx = (hemIndices[hemIndices.length - 1]! + 1) % outline.length;
+  return { sideIdx, inseamIdx };
 }
 
-function seamFromVertical(corner: Point, up: Point): number {
-  const dx = up.x - corner.x;
-  const dy = up.y - corner.y;
-  return Math.atan2(dx, -dy) * DEG;
-}
-function hemFromHorizontal(a: Point, b: Point): number {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  return Math.atan2(-dy, dx) * DEG;
-}
-const f2 = (n: number) => n.toFixed(3);
-const pt = (p: Point) => `(${f2(p.x)}, ${f2(p.y)})`;
-
-function reportPiece(label: string, piece: PatternPiece) {
-  const net = collapse(piece.outline);
-  const withSA = addSeamAllowance(piece, DEFAULT_SEAM_ALLOWANCE);
-  const cutting = withSA.cuttingOutline!;
-  const n = net.length;
-
-  console.log(`\n########## ${label} — ${piece.name} ##########`);
-  console.log(`  net outline pts: ${n}   cutting pts: ${cutting.length}   (must match)`);
-
-  // Maximal contiguous run of hem-tagged outline points.
-  const hemIdx = net.map((p, i) => (p.edge === "hem" ? i : -1)).filter((i) => i >= 0);
-  if (hemIdx.length === 0) {
-    console.log("  (no hem edge on this piece)");
-    return;
+function pointAtYOnRun(
+  outline: OutlinePoint[],
+  cornerIdx: number,
+  direction: -1 | 1,
+  targetY: number,
+): Point {
+  const n = outline.length;
+  let prev = outline[cornerIdx]!.at;
+  for (let step = 1; step < n; step++) {
+    const idx = (cornerIdx + step * direction + n) % n;
+    const curr = outline[idx]!.at;
+    const minY = Math.min(prev.y, curr.y);
+    const maxY = Math.max(prev.y, curr.y);
+    if (targetY >= minY && targetY <= maxY && Math.abs(curr.y - prev.y) > 1e-9) {
+      const t = (targetY - prev.y) / (curr.y - prev.y);
+      return {
+        x: prev.x + (curr.x - prev.x) * t,
+        y: targetY,
+      };
+    }
+    prev = curr;
   }
-  const runStart = hemIdx[0];
-  const runEnd = hemIdx[hemIdx.length - 1];
-  // Physical hem-edge end corners: the first tagged point (side-hem) and the
-  // point one past the last tagged point (the hem→inseam junction, inseam-hem).
-  const sideCorner = runStart;
-  const inseamCorner = (runEnd + 1) % n;
+  throw new Error(`could not find y=${targetY} on seam run from idx ${cornerIdx}`);
+}
 
-  const corners: { name: string; idx: number; seamDir: "back" | "fwd" }[] = [
-    { name: "side-hem", idx: sideCorner, seamDir: "back" },
-    { name: "inseam-hem", idx: inseamCorner, seamDir: "fwd" },
-  ];
+function seamSpanIndices(
+  outline: OutlinePoint[],
+  cornerIdx: number,
+  direction: -1 | 1,
+  depth: number,
+): number[] {
+  const indices = [cornerIdx];
+  const hemY = outline[cornerIdx]!.at.y;
+  const n = outline.length;
+  for (let step = 1; step < n; step++) {
+    const idx = (cornerIdx + step * direction + n) % n;
+    indices.push(idx);
+    if (outline[idx]!.at.y <= hemY - depth) {
+      break;
+    }
+  }
+  return indices;
+}
 
-  for (const c of corners) {
-    const i = c.idx;
-    const netP = net[i].at;
-    const cutP = cutting[i];
-    const dx = cutP.x - netP.x;
-    const dy = cutP.y - netP.y;
-
-    // Adjoining seam tangent, sampled up the seam away from the hem.
-    const step = c.seamDir === "back" ? -1 : 1;
-    const s1 = net[(i + step + n) % n].at;
-    const s2 = net[(i + 2 * step + n) % n].at;
-    const s3 = net[(i + 3 * step + n) % n].at;
-    const angSeam1 = seamFromVertical(netP, s1);
-    const angSeam2 = seamFromVertical(netP, s2);
-    const angSeam3 = seamFromVertical(netP, s3);
-
-    // Local hem tangent at the corner (along the hem edge).
-    const hemNeighbour =
-      c.seamDir === "back" ? net[(i + 1) % n].at : net[(i - 1 + n) % n].at;
-    const hemA = c.seamDir === "back" ? netP : hemNeighbour;
-    const hemB = c.seamDir === "back" ? hemNeighbour : netP;
-    const angHem = hemFromHorizontal(hemA, hemB);
-
-    console.log(`\n  --- ${c.name} corner (outline idx ${i}, role "${net[i].role ?? "?"}") ---`);
-    console.log(`    net corner     : ${pt(netP)}`);
-    console.log(`    cutting corner : ${pt(cutP)}`);
-    console.log(`    delta (cut−net): dx ${f2(dx)}   dy ${f2(dy)}   |Δ| ${f2(Math.hypot(dx, dy))}`);
+function printSpan(
+  label: string,
+  indices: number[],
+  outline: OutlinePoint[],
+  cutting: Point[],
+) {
+  console.log(`  ${label} (hem toward ${DEFAULT_SEAM_ALLOWANCE.hem} mm above):`);
+  for (const idx of indices) {
+    const net = outline[idx]!;
     console.log(
-      `    seam tangent (from vertical): ${f2(angSeam1)}° / ${f2(angSeam2)}° / ${f2(angSeam3)}°  (1,2,3 pts up the seam)`,
+      `    idx ${idx}: net ${point(net.at)} edge=${net.edge} role=${net.role ?? "(none)"} | cutting ${point(cutting[idx]!)}`,
     );
-    console.log(`    hem tangent (from horizontal): ${f2(angHem)}°`);
   }
 }
 
-// --- Bodies & styles ------------------------------------------------------
-const base = bodyForSizeCode(DEFAULT_SIZE_CODE)!;
-
-const cases: { label: string; settings: TrouserStyleSettings }[] = [
-  { label: "Aldrich block (waistDrop 0)", settings: { ...BLOCK_TROUSER_STYLE, waistDrop: 0 } },
-  { label: "Production (waistDrop 50)", settings: { ...BLOCK_TROUSER_STYLE, waistDrop: 50 } },
-  { label: "Izzy preset", settings: IZZY_TROUSER_STYLE },
-];
-
-console.log("SEAM-ALLOWANCE POLICY:", JSON.stringify(DEFAULT_SEAM_ALLOWANCE), "(seam, hem in mm)");
-console.log(`BASE BODY: size ${DEFAULT_SIZE_CODE} ${JSON.stringify(base)}`);
-
-for (const c of cases) {
-  const body = applyEase(base, c.settings.ease);
-  console.log(
-    `\n==================== ${c.label} ====================\n  ease ${JSON.stringify(
-      c.settings.ease,
-    )} → drafted body hip ${body.hip}, waist ${body.waist}`,
+function reportPiece(name: string, outlineRaw: OutlinePoint[]) {
+  const outline = collapse(outlineRaw);
+  const withAllowance = addSeamAllowance(
+    { name, cutCount: 2, onFold: false, outline, markings: [] },
+    DEFAULT_SEAM_ALLOWANCE,
   );
-  const style = resolveStyle(c.settings, body);
-  const pattern = draftTrousers(body, style);
-  const front = pattern.pieces.find((p) => p.name === "Trouser front")!;
-  const back = pattern.pieces.find((p) => p.name === "Trouser back")!;
-  reportPiece(c.label, front);
-  reportPiece(c.label, back);
+  const cutting = withAllowance.cuttingOutline!;
+  const { sideIdx, inseamIdx } = findHemCorners(outline);
+  const sideHem = outline[sideIdx]!.at;
+  const inseamHem = outline[inseamIdx]!.at;
+  const sideAbove = pointAtYOnRun(outline, sideIdx, -1, sideHem.y - 20);
+  const inseamAbove = pointAtYOnRun(outline, inseamIdx, 1, inseamHem.y - 20);
+  const sideCut = cutting[sideIdx]!;
+  const inseamCut = cutting[inseamIdx]!;
+
+  console.log(`\n=== ${name} ===`);
+  console.log(`net outline points: ${outline.length}; cutting outline points: ${cutting.length}`);
+  console.log("net hemline corners:");
+  console.log(`  side-seam/hem : idx ${sideIdx} ${point(sideHem)}`);
+  console.log(`  inseam/hem    : idx ${inseamIdx} ${point(inseamHem)}`);
+  console.log("net seam direction just above hem (at hem -> at y=hemY-20):");
+  console.log(`  side seam : ${point(sideHem)} -> ${point(sideAbove)}  delta (${fmt(sideAbove.x - sideHem.x)}, ${fmt(sideAbove.y - sideHem.y)})`);
+  console.log(`  inseam    : ${point(inseamHem)} -> ${point(inseamAbove)}  delta (${fmt(inseamAbove.x - inseamHem.x)}, ${fmt(inseamAbove.y - inseamHem.y)})`);
+  console.log("current allowance raw-edge/cutting corners below hemline:");
+  console.log(`  side-seam raw corner : ${point(sideCut)}  delta from net (${fmt(sideCut.x - sideHem.x)}, ${fmt(sideCut.y - sideHem.y)})`);
+  console.log(`  inseam raw corner    : ${point(inseamCut)}  delta from net (${fmt(inseamCut.x - inseamHem.x)}, ${fmt(inseamCut.y - inseamHem.y)})`);
+  console.log("cutting-outline representation around the hem:");
+  console.log(
+    `  side allowance is only the lower part of segment cut[${(sideIdx - 1 + outline.length) % outline.length}] -> cut[${sideIdx}]; there is no cutting vertex at the fold`,
+  );
+  console.log(
+    `  raw bottom is segment cut[${sideIdx}] -> cut[${inseamIdx}]`,
+  );
+  console.log(
+    `  inseam allowance is only the lower part of segment cut[${inseamIdx}] -> cut[${(inseamIdx + 1) % outline.length}]; there is no cutting vertex at the fold`,
+  );
+  printSpan(
+    "side-seam vertices",
+    seamSpanIndices(outline, sideIdx, -1, DEFAULT_SEAM_ALLOWANCE.hem),
+    outline,
+    cutting,
+  );
+  printSpan(
+    "inseam vertices",
+    seamSpanIndices(outline, inseamIdx, 1, DEFAULT_SEAM_ALLOWANCE.hem),
+    outline,
+    cutting,
+  );
+}
+
+const baseBody = bodyForSizeCode(DEFAULT_SIZE_CODE)!;
+const body = applyEase(baseBody, IZZY_TROUSER_STYLE.ease);
+const style = resolveStyle(IZZY_TROUSER_STYLE, body);
+const pattern = draftTrousers(body, style);
+
+console.log("DIAGNOSTIC — Izzy hem allowance geometry");
+console.log(`body: default size ${DEFAULT_SIZE_CODE} + Izzy ease => waist ${body.waist} mm, hip ${body.hip} mm`);
+console.log(`back hem shape: ${style.backHemShape ?? "curved(default)"}`);
+console.log(`allowance policy: seam ${DEFAULT_SEAM_ALLOWANCE.seam} mm; hem ${DEFAULT_SEAM_ALLOWANCE.hem} mm`);
+console.log(
+  DEFAULT_SEAM_ALLOWANCE.hem === DEFAULT_SEAM_ALLOWANCE.seam
+    ? "hem uses the same numeric value as the global seam allowance"
+    : "hem uses a separate hem value, not the global 10 mm seam allowance",
+);
+console.log(
+  "builder path: app calls withSeamAllowance(), which maps pieces through addSeamAllowance(); addSeamAllowance uses allowanceFor(edge) and one shared offset/miter loop for seam and hem edges. There is no dedicated hem-turnback/mirroring path.",
+);
+
+for (const piece of pattern.pieces) {
+  if (piece.name === "Trouser front" || piece.name === "Trouser back") {
+    reportPiece(piece.name, piece.outline);
+  }
 }

@@ -66,12 +66,13 @@ import {
   DEFAULT_SEAM_ALLOWANCE,
   withSeamAllowance,
 } from "@/lib/geometry/seamAllowance";
+import { applyTrouserHemTurnbackToPattern } from "@/lib/geometry/trouserHemTurnback";
 import {
   edgeRunsForRoles,
   findPieceHighlight,
   isWholePieceTarget,
   runToNetPolyline,
-  runToPolyline,
+  runToCuttingPolyline,
 } from "@/lib/patternHighlight";
 import { mirrorConstructionX, mirrorPieceX } from "@/lib/pattern/mirrorPiece";
 import { referenceGridLines } from "@/lib/render/referenceGrid";
@@ -114,6 +115,7 @@ function styleMatchesPreset(
     style.legBottomWidth === defaults.legBottomWidth &&
     style.frontInseamKneeInset === defaults.frontInseamKneeInset &&
     style.backInseamKneeInset === defaults.backInseamKneeInset &&
+    style.backHemShape === defaults.backHemShape &&
     style.waistDrop === defaults.waistDrop &&
     style.waistbandDepth === defaults.waistbandDepth &&
     style.waistbandMode === defaults.waistbandMode &&
@@ -153,6 +155,8 @@ function TrousersViewInner({
     setFrontInseamKneeInset,
     backInseamKneeInset,
     setBackInseamKneeInset,
+    backHemShape,
+    setBackHemShape,
     waistDrop,
     setWaistDrop,
     waistbandDepth,
@@ -213,6 +217,7 @@ function TrousersViewInner({
     bottomWidth: legBottomWidth,
     block,
     waistDrop,
+    backHemShape,
     ...(frontInseamKneeInset != null
       ? { frontInseamKneeInset }
       : {}),
@@ -323,6 +328,7 @@ function TrousersViewInner({
     backCrotchDrop === null &&
     frontCrotchFullness === null &&
     backCrotchFullness === null &&
+    backHemShape === "curved" &&
     waistbandMode === "darted" &&
     dartedWaistFinish === "facing";
 
@@ -331,6 +337,7 @@ function TrousersViewInner({
       legBottomWidth,
       frontInseamKneeInset,
       backInseamKneeInset,
+      backHemShape,
       waistDrop,
       waistbandDepth,
       waistbandMode,
@@ -424,7 +431,9 @@ function TrousersViewInner({
     dartedWaistFinish,
   ]);
   const construction = validation.valid ? trouserConstruction(draftBody, tstyle) : [];
-  const pattern = withSeamAllowance(net, DEFAULT_SEAM_ALLOWANCE);
+  const pattern = applyTrouserHemTurnbackToPattern(
+    withSeamAllowance(net, DEFAULT_SEAM_ALLOWANCE),
+  );
   const patternSpec = useMemo<PatternSpec>(
     () => {
       const baseLabel = "Trouser block";
@@ -1040,6 +1049,34 @@ function TrousersViewInner({
                   onChange={(e) => setLegBottomWidth(Number(e.target.value))}
                 />
                 <span className={styles.rangeValue}>{legBottomWidth} mm</span>
+              </div>
+            </div>
+            <div className={styles.field}>
+              <label className={styles.fieldLabel}>Back hem shape</label>
+              <span className={styles.fieldHint}>
+                Aldrich uses a curved hem with its control point 20 mm below
+                the endpoints; Izzy uses a straight hem.
+              </span>
+              <div
+                className={styles.fitPresetList}
+                role="group"
+                aria-label="Back hem shape"
+              >
+                {(["curved", "straight"] as const).map((shape) => (
+                  <button
+                    key={shape}
+                    type="button"
+                    className={
+                      backHemShape === shape
+                        ? styles.fitPresetActive
+                        : styles.fitPreset
+                    }
+                    onClick={() => setBackHemShape(shape)}
+                    aria-pressed={backHemShape === shape}
+                  >
+                    {shape === "curved" ? "Curved" : "Straight"}
+                  </button>
+                ))}
               </div>
             </div>
             <div className={styles.field}>
@@ -1913,7 +1950,13 @@ function TrousersViewInner({
               {!constructionMode &&
                 stepSelectionActive &&
                 edgeRuns.map((run) => {
-                  const cutSegment = runToPolyline(boundary, run, dx, dy);
+                  const cutSegment = runToCuttingPolyline(
+                    boundary,
+                    run,
+                    piece.netToCutIndex,
+                    dx,
+                    dy,
+                  );
                   const netSegment = runToNetPolyline(piece, run, dx, dy);
                   return (
                     <g key={`${run.role}-${run.startIndex}`}>

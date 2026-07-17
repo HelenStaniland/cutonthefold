@@ -111,6 +111,12 @@ export type PatternPiece = {
   onFold: boolean;
   outline: OutlinePoint[]; // net / stitching line
   cuttingOutline?: Point[]; // derived; the solid cut edge (set by the transform)
+  /**
+   * Optional map net-vertex-index → cuttingOutline index.
+   * Set by trouser hem turn-back when cutting.length > net.length; used so
+   * highlight runs derived from the net outline can address the cutting edge.
+   */
+  netToCutIndex?: number[];
   markings: Marking[];
 };
 

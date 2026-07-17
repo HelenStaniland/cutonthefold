@@ -37,6 +37,7 @@ const style: TrouserFrontStyle = withWaistband(
     backCrotchFullness: m.backCrotchFullness,
     frontInseamKneeInset: m.frontInseamKneeInset,
     backInseamKneeInset: m.backInseamKneeInset,
+    backHemShape: m.backHemShape,
     waistlineCurveFront: pr.waistlineCurveFront,
   },
   m.waistbandDepth,

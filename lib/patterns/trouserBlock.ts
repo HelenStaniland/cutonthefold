@@ -65,6 +65,7 @@ const TROUSER_BLOCKS: Record<TrouserBlock, TrouserBlockSpec> = {
 // Leg length F−R = waistToFloor−bodyRise is drop-invariant; knee follows from dropped R/F.
 
 export type WaistbandMode = "darted" | "shaped";
+export type BackHemShape = "curved" | "straight";
 const DART_TAKEUP = 20;
 
 /** Aldrich back CB step 20→21 — 2 cm up from point 20 (mm). */
@@ -381,6 +382,12 @@ export type TrouserFrontStyle = {
    * Signed back inseam knee inset (mm). Absent → back knee = front ±10.
    */
   backInseamKneeInset?: Millimetres;
+  /**
+   * Back hem finish. Absent defaults to Aldrich's curved hem, whose quadratic
+   * control point is 20 mm below the endpoint line.
+   * Garments may choose a straight line between the unchanged hem endpoints.
+   */
+  backHemShape?: BackHemShape;
   block?: TrouserBlock;
   /** Waist height drop (mm), 0 = classic / natural waist, 50 = production / low waist. */
   waistDrop?: Millimetres;
@@ -2179,13 +2186,18 @@ export function trouserConstruction(
   const frontCrotchControls = crotchCurveControls(frontGuide);
 
   const backCrotchControls = crotchCurveControls(b.guide);
+  const curvedBackHem = style.backHemShape !== "straight";
   const backHemCtrl = { x: 0, y: F + 20 };
   const backHemControls = {
-    points: [{ id: "hemCtrl", at: backHemCtrl, kind: "curveControl" as const }],
-    lines: [
-      draftLine(b.p26, backHemCtrl, "curveControl"),
-      draftLine(backHemCtrl, b.p28, "curveControl"),
-    ],
+    points: curvedBackHem
+      ? [{ id: "hemCtrl", at: backHemCtrl, kind: "curveControl" as const }]
+      : [],
+    lines: curvedBackHem
+      ? [
+          draftLine(b.p26, backHemCtrl, "curveControl"),
+          draftLine(backHemCtrl, b.p28, "curveControl"),
+        ]
+      : [],
   };
   const framePoints = trouserFramePoints(body, style);
   const frame = frameConstruction(framePoints);
@@ -2493,7 +2505,10 @@ export function draftTrouserBack(
       role: "side-seam",
     },
     {
-      points: quadBezier(p26, { x: 0, y: F + 20 }, p28),
+      points:
+        style.backHemShape === "straight"
+          ? [p26, p28]
+          : quadBezier(p26, { x: 0, y: F + 20 }, p28),
       edge: "hem",
       role: "hem",
     },
