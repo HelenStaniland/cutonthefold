@@ -1,5 +1,6 @@
 import {
   Marking,
+  NotchMarking,
   OutlinePoint,
   Pattern,
   PatternPiece,
@@ -191,11 +192,11 @@ function findEdgeOffsetForPoint(
 
 
 function relocateNotchOntoCuttingLine(
-  marking: Extract<Marking, { kind: "notch" }>,
+  marking: NotchMarking,
   outline: OutlinePoint[],
   edgeOffsets: EdgeOffset[],
   cuttingOutline: Point[],
-): Extract<Marking, { kind: "notch" }> {
+): NotchMarking {
   const vertexIndex = findVertexIndex(outline, marking.at);
   const edge =
     vertexIndex !== null

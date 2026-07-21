@@ -100,6 +100,7 @@ function addOpeningNotch(
   const dir = notchDirAt(seam, at);
   const notch: Marking = {
     kind: "notch",
+    role: "zip",
     at,
     label: "zip",
     dir,

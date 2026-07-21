@@ -4,7 +4,7 @@
  */
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { applyEase, type Point } from "../lib/types/measurements";
+import { applyEase, notchCount, type Point } from "../lib/types/measurements";
 import { bodyForSizeCode } from "../lib/data/standardSizes";
 import {
   draftTrouserFront,
@@ -34,7 +34,7 @@ function serializePiece(piece: ReturnType<typeof draftTrouserFront>): string {
   const marks = piece.markings
     .map((m) => {
       if (m.kind === "notch") {
-        return `notch:${m.at.x.toFixed(6)},${m.at.y.toFixed(6)}:${m.count}`;
+        return `notch:${m.at.x.toFixed(6)},${m.at.y.toFixed(6)}:${m.role}:${notchCount(m)}`;
       }
       if (m.kind === "grainline") {
         return `grain:${m.line.from.x.toFixed(6)},${m.line.from.y.toFixed(6)}-${m.line.to.x.toFixed(6)},${m.line.to.y.toFixed(6)}`;

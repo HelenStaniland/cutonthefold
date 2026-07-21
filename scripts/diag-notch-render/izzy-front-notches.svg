@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-255.0 37.0 630.0 1093.0"
+  width="720" height="1249">
+  <rect x="-255" y="37.02398601273211" width="630" height="1092.9760139872678" fill="#faf8f5"/>
+  <text x="-239" y="65.02398601273211" font-size="16" font-family="system-ui,sans-serif" fill="#111" font-weight="700">Trouser front — notches</text>
+  <text x="-239" y="81.02398601273211" font-size="10" font-family="system-ui,sans-serif" fill="#555">Izzy · net outline · notches in place (no geometry change)</text>
+  <path d="M-107.50,132.00 L-104.83,131.97 L-102.16,131.93 L-99.48,131.88 L-96.81,131.82 L-94.14,131.76 L-91.47,131.70 L-88.80,131.63 L-86.13,131.55 L-83.45,131.46 L-80.78,131.37 L-78.11,131.27 L-75.44,131.17 L-72.77,131.06 L-70.09,130.95 L-67.42,130.83 L-64.75,130.70 L-62.08,130.57 L-59.41,130.43 L-56.74,130.29 L-54.06,130.14 L-51.39,129.99 L-48.72,129.83 L-46.05,129.67 L-43.38,129.50 L-40.70,129.33 L-38.03,129.15 L-35.36,128.97 L-32.69,128.78 L-30.02,128.60 L-27.35,128.40 L-24.67,128.21 L-22.00,128.01 L-19.33,127.81 L-16.66,127.60 L-13.99,127.39 L-11.31,127.18 L-8.64,126.97 L-5.97,126.75 L-3.30,126.53 L-0.63,126.31 L2.04,126.09 L4.72,125.87 L7.39,125.64 L10.06,125.42 L12.73,125.19 L15.40,124.97 L18.08,124.74 L20.75,124.51 L23.42,124.28 L26.09,124.06 L28.76,123.83 L31.43,123.60 L34.11,123.38 L36.78,123.16 L39.45,122.93 L42.12,122.71 L44.79,122.49 L47.47,122.27 L50.14,122.06 L52.81,121.84 L55.48,121.63 L58.15,121.42 L60.82,121.22 L63.50,121.02 L66.17,120.82 L68.84,120.62 L71.51,120.43 L74.18,120.24 L76.86,120.05 L79.53,119.87 L82.20,119.70 L84.87,119.53 L87.54,119.36 L90.21,119.19 L92.89,119.04 L95.56,118.88 L98.23,118.74 L100.90,118.59 L103.57,118.46 L106.25,118.32 L108.92,118.20 L111.59,118.08 L114.26,117.96 L116.93,117.85 L119.60,117.75 L122.28,117.65 L124.95,117.56 L127.62,117.48 L130.29,117.40 L132.96,117.33 L135.64,117.26 L138.31,117.20 L140.98,117.15 L143.65,117.10 L146.32,117.06 L148.99,117.02 L150.65,128.52 L152.38,140.02 L154.10,151.51 L155.74,163.01 L157.23,174.51 L158.48,186.01 L159.43,197.50 L160.00,209.00 L161.36,260.19 L162.35,311.38 L163.08,362.56 L163.63,413.75 L164.09,464.94 L164.55,516.13 L165.12,567.31 L165.86,618.50 L166.82,672.44 L167.83,726.38 L168.90,780.31 L170.02,834.25 L171.20,888.19 L172.42,942.13 L173.69,996.06 L175.00,1050.00 L-175.00,1050.00 L-172.28,1014.04 L-169.66,978.08 L-167.14,942.13 L-164.74,906.17 L-162.49,870.21 L-160.41,834.25 L-158.50,798.29 L-156.80,762.33 L-155.31,726.38 L-154.06,690.42 L-153.07,654.46 L-152.35,618.50 L-151.91,590.88 L-151.49,563.25 L-151.09,535.63 L-150.72,508.00 L-150.37,480.38 L-150.06,452.75 L-149.78,425.13 L-149.54,397.50 L-149.35,369.88 L-149.21,342.25 L-149.12,314.63 L-149.09,287.00 L-145.61,284.83 L-142.32,282.76 L-139.20,280.80 L-136.26,278.93 L-133.49,277.14 L-130.88,275.42 L-128.44,273.76 L-126.15,272.15 L-124.01,270.58 L-122.02,269.04 L-120.17,267.52 L-118.46,266.01 L-116.88,264.50 L-115.43,262.98 L-114.10,261.44 L-112.89,259.86 L-111.79,258.25 L-110.80,256.58 L-109.91,254.85 L-109.12,253.05 L-108.42,251.17 L-107.81,249.19 L-107.29,247.11 L-106.85,244.92 L-106.48,242.61 L-106.18,240.16 L-105.94,237.57 L-105.77,234.82 L-105.65,231.92 L-105.58,228.84 L-105.55,225.57 L-105.57,222.11 L-105.63,218.44 L-105.71,214.56 L-105.82,210.46 L-105.87,209.00 L-105.95,206.12 L-106.11,201.54 L-106.27,196.70 L-106.44,191.59 L-106.61,186.21 L-106.78,180.54 L-106.94,174.58 L-107.09,168.31 L-107.23,161.72 L-107.34,154.80 L-107.43,147.55 L-107.48,139.96 L-107.50,132.00 Z" fill="#fff" fill-opacity="0.6" stroke="#1f2937" stroke-width="1.6"/>
+  
+    <!-- hipline -->
+    <line x1="-245" y1="209" x2="365" y2="209"
+      stroke="#64748b" stroke-width="1" stroke-dasharray="8 5"/>
+    <text x="-241" y="205" font-size="10" fill="#64748b">hipline y=209.0</text>
+    <!-- crotch / fork level -->
+    <line x1="-245" y1="287" x2="365" y2="287"
+      stroke="#0ea5e9" stroke-width="1" stroke-dasharray="3 4"/>
+    <text x="-241" y="283" font-size="10" fill="#0284c7">crotch/fork level y=287.0</text>
+    <!-- zip endpoint -->
+    <circle cx="162.06112251519122" cy="296.28951003682954" r="5" fill="none" stroke="#dc2626" stroke-width="1.5"/>
+    <circle cx="162.06112251519122" cy="296.28951003682954" r="1.5" fill="#dc2626"/>
+    <text x="172.1" y="288.3" font-size="10" fill="#dc2626" font-weight="600">zip endpoint (180 mm from waist)</text>
+  
+  <line x1="-152.35" y1="618.50" x2="-166.35" y2="618.28" stroke="#b45309" stroke-width="2.2" stroke-linecap="round"/>
+<circle cx="-152.35" cy="618.50" r="2.5" fill="#b45309"/>
+<line x1="165.86" y1="618.50" x2="179.86" y2="618.30" stroke="#1d4ed8" stroke-width="2.2" stroke-linecap="round"/>
+<circle cx="165.86" cy="618.50" r="2.5" fill="#1d4ed8"/>
+<line x1="160.00" y1="209.00" x2="173.98" y2="208.31" stroke="#be123c" stroke-width="2.2" stroke-linecap="round"/>
+<circle cx="160.00" cy="209.00" r="2.5" fill="#be123c"/>
+<line x1="-149.12" y1="313.45" x2="-163.12" y2="313.40" stroke="#047857" stroke-width="2.2" stroke-linecap="round"/>
+<circle cx="-149.12" cy="313.45" r="2.5" fill="#047857"/>
+<line x1="20.75" y1="124.51" x2="19.56" y2="110.56" stroke="#7c3aed" stroke-width="2.2" stroke-linecap="round"/>
+<circle cx="20.75" cy="124.51" r="2.5" fill="#7c3aed"/>
+<line x1="-105.87" y1="209.00" x2="-119.86" y2="209.43" stroke="#0f766e" stroke-width="2.2" stroke-linecap="round"/>
+<circle cx="-105.87" cy="209.00" r="2.5" fill="#0f766e"/>
+<line x1="162.06" y1="296.29" x2="176.06" y2="296.02" stroke="#b45309" stroke-width="2.2" stroke-linecap="round"/>
+<circle cx="162.06" cy="296.29" r="2.5" fill="#b45309"/>
+  
+      <line x1="-152.34921772608126" y1="618.5" x2="-180.3457156009024" y2="618.0571605876438" stroke="#b45309" stroke-width="0.8" opacity="0.5"/>
+      <text x="-180.3" y="618.1" font-size="11" font-family="system-ui,sans-serif" fill="#b45309" font-weight="600">knee</text>
+      <text x="-180.3" y="630.1" font-size="9" font-family="system-ui,sans-serif" fill="#444">role=balance · single · inseam</text>
+      <text x="-180.3" y="641.1" font-size="8" font-family="system-ui,sans-serif" fill="#666">mate Trouser back/inseam · arc 303.9 from tip</text>
+    
+
+      <line x1="165.8638049940547" y1="618.5" x2="201.8599547934646" y2="617.9735024991099" stroke="#1d4ed8" stroke-width="0.8" opacity="0.5"/>
+      <text x="201.9" y="618.0" font-size="11" font-family="system-ui,sans-serif" fill="#1d4ed8" font-weight="600">side-knee</text>
+      <text x="201.9" y="630.0" font-size="9" font-family="system-ui,sans-serif" fill="#444">role=balance · single · side-seam</text>
+      <text x="201.9" y="641.0" font-size="8" font-family="system-ui,sans-serif" fill="#666">mate Trouser back/side-seam · arc 502.2 from waist</text>
+    
+
+      <line x1="160" y1="209" x2="203.9463895846338" y2="206.828631197703" stroke="#be123c" stroke-width="0.8" opacity="0.5"/>
+      <text x="203.9" y="206.8" font-size="11" font-family="system-ui,sans-serif" fill="#be123c" font-weight="600">side-hip</text>
+      <text x="203.9" y="218.8" font-size="9" font-family="system-ui,sans-serif" fill="#444">role=balance · single · side-seam</text>
+      <text x="203.9" y="229.8" font-size="8" font-family="system-ui,sans-serif" fill="#666">mate Trouser back/side-seam · arc 92.7 from waist</text>
+    
+
+      <line x1="-149.12261813083953" y1="313.447380970226" x2="-177.12247698000195" y2="313.35847412582774" stroke="#047857" stroke-width="0.8" opacity="0.5"/>
+      <text x="-177.1" y="313.4" font-size="11" font-family="system-ui,sans-serif" fill="#047857" font-weight="600">inseam-high</text>
+      <text x="-177.1" y="325.4" font-size="9" font-family="system-ui,sans-serif" fill="#444">role=balance · single · inseam</text>
+      <text x="-177.1" y="336.4" font-size="8" font-family="system-ui,sans-serif" fill="#666">mate Trouser back/inseam · arc 0.0 from tip</text>
+    
+
+      <line x1="20.74746314732702" y1="124.51199300636605" x2="17.695661943388217" y2="88.64158027649023" stroke="#7c3aed" stroke-width="0.8" opacity="0.5"/>
+      <text x="17.7" y="88.6" font-size="11" font-family="system-ui,sans-serif" fill="#7c3aed" font-weight="600">mid-waist</text>
+      <text x="17.7" y="100.6" font-size="9" font-family="system-ui,sans-serif" fill="#444">role=balance · single · waist</text>
+      <text x="17.7" y="111.6" font-size="8" font-family="system-ui,sans-serif" fill="#666">mate Front waistband/waist · arc 128.5 from waist[0]</text>
+    
+
+      <line x1="-105.86666561926086" y1="209" x2="-149.8459795252036" y2="210.34905461807568" stroke="#0f766e" stroke-width="0.8" opacity="0.5"/>
+      <text x="-149.8" y="210.3" font-size="11" font-family="system-ui,sans-serif" fill="#0f766e" font-weight="600">hipline</text>
+      <text x="-149.8" y="222.3" font-size="9" font-family="system-ui,sans-serif" fill="#444">role=fold · single · centre-front</text>
+      <text x="-149.8" y="233.3" font-size="8" font-family="system-ui,sans-serif" fill="#666">mate — · arc 0.0 from tip</text>
+    
+
+      <line x1="162.06112251519122" y1="296.28951003682954" x2="190.05581832582985" y2="295.7445270372676" stroke="#b45309" stroke-width="0.8" opacity="0.5"/>
+      <text x="190.1" y="295.7" font-size="11" font-family="system-ui,sans-serif" fill="#b45309" font-weight="600">zip</text>
+      <text x="190.1" y="307.7" font-size="9" font-family="system-ui,sans-serif" fill="#444">role=zip · single · side-seam</text>
+      <text x="190.1" y="318.7" font-size="8" font-family="system-ui,sans-serif" fill="#666">mate — · arc 180.0 from waist</text>
+    
+</svg>

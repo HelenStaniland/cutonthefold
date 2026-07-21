@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-40.0 321.2 419.5 292.2"
+  width="640" height="446">
+  <rect x="-39.99999999999997" y="321.1690206876836" width="419.45636871372733" height="292.20424534411944" fill="#faf8f5"/>
+  <text x="-27.99999999999997" y="343.1690206876836" font-size="14" font-family="system-ui,sans-serif" fill="#111" font-weight="700">Back waistband — notch</text>
+  <path d="M0.00,413.37 L8.75,413.28 L17.49,413.00 L26.23,412.54 L34.96,411.89 L43.67,411.06 L52.36,410.04 L61.03,408.84 L69.67,407.46 L78.27,405.89 L86.85,404.15 L95.38,402.22 L103.87,400.11 L112.32,397.82 L120.71,395.35 L129.06,392.71 L137.34,389.89 L145.56,386.90 L153.72,383.73 L161.80,380.39 L169.82,376.88 L177.76,373.20 L185.62,369.36 L193.39,365.34 L201.08,361.17 L259.46,466.01 L249.53,471.40 L239.50,476.58 L229.36,481.54 L219.12,486.29 L208.78,490.82 L198.34,495.12 L187.82,499.21 L177.21,503.08 L166.52,506.71 L155.76,510.12 L144.93,513.31 L134.03,516.26 L123.07,518.98 L112.06,521.47 L101.00,523.72 L89.89,525.74 L78.74,527.53 L67.56,529.08 L56.35,530.39 L45.11,531.46 L33.85,532.30 L22.57,532.90 L11.29,533.25 L0.00,533.37 Z" fill="#fff" fill-opacity="0.7" stroke="#1f2937" stroke-width="1.4"/>
+  <line x1="134.03" y1="516.26" x2="130.37" y2="502.75" stroke="#b45309" stroke-width="2.2" stroke-linecap="round"/>
+<circle cx="134.03" cy="516.26" r="2.5" fill="#b45309"/>
+<line x1="81.95" y1="405.15" x2="84.75" y2="418.86" stroke="#1d4ed8" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="77.05" y1="406.14" x2="79.85" y2="419.86" stroke="#1d4ed8" stroke-width="2.2" stroke-linecap="round"/>
+<circle cx="79.50" cy="405.64" r="2.5" fill="#1d4ed8"/>
+  
+      <text x="142.0287490350628" y="498.25898088994893" font-size="11" font-family="system-ui,sans-serif" fill="#b45309" font-weight="600">mid-waist</text>
+      <text x="142.0287490350628" y="510.25898088994893" font-size="9" fill="#444">single · waist</text>
+    
+
+      <text x="87.50077764440842" y="387.64479466862343" font-size="11" font-family="system-ui,sans-serif" fill="#1d4ed8" font-weight="600">identity</text>
+      <text x="87.50077764440842" y="399.64479466862343" font-size="9" fill="#444">DOUBLE · band-top</text>
+    
+</svg>

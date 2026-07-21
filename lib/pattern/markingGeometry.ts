@@ -1,4 +1,10 @@
-import type { Line, Marking, PatternPiece, Point } from "@/lib/types/measurements";
+import type {
+  Line,
+  NotchMarking,
+  PatternPiece,
+  Point,
+} from "@/lib/types/measurements";
+import { notchCount } from "@/lib/types/measurements";
 
 export function unit(dx: number, dy: number): { x: number; y: number } {
   const m = Math.hypot(dx, dy) || 1;
@@ -87,10 +93,10 @@ export function inwardNormalAt(
  *  can't drift on count or shape. */
 export function notchSegments(
   piece: PatternPiece,
-  m: Extract<Marking, { kind: "notch" }>,
+  m: NotchMarking,
 ): Line[] {
   const depth = m.depth ?? 5;
-  const count = m.count ?? 1;
+  const count = notchCount(m);
   const n = m.dir ? unit(m.dir.x, m.dir.y) : inwardNormalAt(piece, m.at);
   const tangent = { x: -n.y, y: n.x };
   const gap = 4;

@@ -22,6 +22,11 @@ import {
   polylineLength,
   quadBezier,
 } from "@/lib/geometry/curves";
+import {
+  INSEAM_HIGH_TIP_OFFSET_BACK,
+  inseamHighNotches,
+  sideKneeNotches,
+} from "@/lib/geometry/notchPlacement";
 
 export type TrouserBlock = "classic" | "production";
 
@@ -2387,9 +2392,10 @@ export function draftTrouserFront(
     const onSeam = pointOnPolylineAtY(crotchFromWaist, D);
     markingsHip.push({
       kind: "notch",
+      role: "fold",
       at: onSeam.at,
       dir: crotchNotchDir(onSeam.before, onSeam.after),
-      count: 1,
+      label: "hipline",
     });
   } catch (err) {
     throw new Error(
@@ -2398,6 +2404,22 @@ export function draftTrouserFront(
       }`,
     );
   }
+
+  const bPts = trouserBackPoints(body, style);
+  const high = inseamHighNotches(
+    { tip: p9, knee: p15, hem: p14 },
+    { tip: bPts.p24, knee: bPts.p29, hem: bPts.p28 },
+    INSEAM_HIGH_TIP_OFFSET_BACK,
+  );
+  const sides = sideKneeNotches(
+    { sideHip: p8, sideKnee: p13, sideHem: p12, kneeY: p15.y },
+    {
+      sideHip: bPts.p25,
+      sideKnee: bPts.p27,
+      sideHem: bPts.p26,
+      kneeY: bPts.p29.y,
+    },
+  );
 
   const crotchCfSegments: TaggedSegment[] = [
     {
@@ -2441,13 +2463,6 @@ export function draftTrouserFront(
 
   const outline = segmentsToOutline(segments);
 
-  const waistMidF = wr.waistSeam[Math.floor(wr.waistSeam.length / 2)];
-  const waistTangentF = waistPointTangent(wr.curveSpec, 0.5);
-  let waistInwardF = { x: -waistTangentF.y, y: waistTangentF.x };
-  if (waistInwardF.y < 0) {
-    waistInwardF = { x: -waistInwardF.x, y: -waistInwardF.y };
-  }
-
   const markings: Marking[] = [
     {
       kind: "grainline",
@@ -2456,9 +2471,44 @@ export function draftTrouserFront(
     ...(wr.keep[0]
       ? [waistDartMarking(wr.curveSpec, FRONT_DART_APEX_X, wr.dartLengths[0])]
       : []),
-    { kind: "notch", at: waistMidF, dir: waistInwardF, count: 1 },
-    { kind: "notch", at: p8, count: 1 },
-    { kind: "notch", at: p15, count: 1 },
+    {
+      kind: "notch",
+      role: "balance",
+      mates: { piece: "Trouser back", seam: "inseam" },
+      at: p15,
+      label: "knee",
+    },
+    {
+      kind: "notch",
+      role: "balance",
+      mates: { piece: "Trouser back", seam: "side-seam" },
+      at: sides.front,
+      label: "side-knee",
+    },
+    {
+      kind: "notch",
+      role: "balance",
+      mates: { piece: "Trouser back", seam: "side-seam" },
+      at: p8,
+      label: "side-hip",
+    },
+    {
+      kind: "notch",
+      role: "balance",
+      mates: { piece: "Trouser back", seam: "inseam" },
+      at: high.front,
+      label: "inseam-high",
+    },
+    {
+      kind: "notch",
+      role: "balance",
+      mates: { piece: "Front waistband", seam: "waist" },
+      at: pointAtArcDistanceFromStart(
+        wr.waistSeam,
+        polylineLength(wr.waistSeam) / 2,
+      ),
+      label: "mid-waist",
+    },
     ...markingsHip,
   ];
 
@@ -2489,6 +2539,22 @@ export function draftTrouserBack(
   const crotch = backCrotchBelowHip(b, style);
   const cbTop = crotch[crotch.length - 1]!;
   const hipOnCrotch = pointOnPolylineAtY(crotch, b.p17.y);
+
+  const fPts = trouserFrontPoints(body, style);
+  const high = inseamHighNotches(
+    { tip: fPts.p9, knee: fPts.p15, hem: fPts.p14 },
+    { tip: p24, knee: p29, hem: p28 },
+    INSEAM_HIGH_TIP_OFFSET_BACK,
+  );
+  const sides = sideKneeNotches(
+    {
+      sideHip: fPts.p8,
+      sideKnee: fPts.p13,
+      sideHem: fPts.p12,
+      kneeY: fPts.p15.y,
+    },
+    { sideHip: p25, sideKnee: p27, sideHem: p26, kneeY: p29.y },
+  );
 
   const facingFinish = isDartedFacingFinish(style);
 
@@ -2534,27 +2600,56 @@ export function draftTrouserBack(
     );
   }
 
-  const waistMidB = wr.waistSeam[Math.floor(wr.waistSeam.length / 2)];
-  const waistTangentB = waistPointTangent(wr.curveSpec, 0.5);
-  let waistInwardB = { x: -waistTangentB.y, y: waistTangentB.x };
-  if (waistInwardB.y < 0) {
-    waistInwardB = { x: -waistInwardB.x, y: -waistInwardB.y };
-  }
-
   const markings: Marking[] = [
     {
       kind: "grainline",
       line: { from: { x: 0, y: r + 20 }, to: { x: 0, y: F - 20 } },
     },
     ...dartMarks,
-    { kind: "notch", at: waistMidB, dir: waistInwardB, count: 2 },
-    { kind: "notch", at: p25, count: 2 },
-    { kind: "notch", at: p29, count: 2 },
     {
       kind: "notch",
+      role: "balance",
+      mates: { piece: "Trouser front", seam: "inseam" },
+      at: p29,
+      label: "knee",
+    },
+    {
+      kind: "notch",
+      role: "balance",
+      mates: { piece: "Trouser front", seam: "side-seam" },
+      at: sides.back,
+      label: "side-knee",
+    },
+    {
+      kind: "notch",
+      role: "balance",
+      mates: { piece: "Trouser front", seam: "side-seam" },
+      at: p25,
+      label: "side-hip",
+    },
+    {
+      kind: "notch",
+      role: "balance",
+      mates: { piece: "Trouser front", seam: "inseam" },
+      at: high.back,
+      label: "inseam-high",
+    },
+    {
+      kind: "notch",
+      role: "balance",
+      mates: { piece: "Back waistband", seam: "waist" },
+      at: pointAtArcDistanceFromStart(
+        wr.waistSeam,
+        polylineLength(wr.waistSeam) / 2,
+      ),
+      label: "mid-waist",
+    },
+    {
+      kind: "notch",
+      role: "fold",
       at: hipOnCrotch.at,
       dir: crotchNotchDir(hipOnCrotch.before, hipOnCrotch.after),
-      count: 2,
+      label: "hipline",
     },
   ];
 

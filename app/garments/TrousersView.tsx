@@ -1758,6 +1758,7 @@ function TrousersViewInner({
                     );
                   }
                   case "notch": {
+                    // Production: ticks only. Labels stay on Marking for diag-notch-render.
                     const segs = notchSegments(piece, m);
                     return (
                       <g key={i}>
@@ -1773,16 +1774,6 @@ function TrousersViewInner({
                             className={styles.notch}
                           />
                         ))}
-                        {m.label && (
-                          <text
-                            x={svgCoord(m.at.x + dx)}
-                            y={svgCoord(m.at.y + dy - 8)}
-                            className={styles.patternLabel}
-                            textAnchor="middle"
-                          >
-                            {m.label}
-                          </text>
-                        )}
                       </g>
                     );
                   }

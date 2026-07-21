@@ -92,6 +92,31 @@ export type OutlinePoint = {
 export type SeamAllowancePolicy = { seam: Millimetres; hem: Millimetres };
 // fold is always 0 — not part of the policy.
 
+/**
+ * Declared purpose of a notch. Render tick-count is derived from role
+ * (identity → 2, else 1) — never set per-notch.
+ */
+export type NotchRole = "balance" | "fold" | "identity" | "zip";
+
+/** Named mate for a balance notch (piece + seam). */
+export type NotchMate = { piece: string; seam: string };
+
+export type NotchMarking = {
+  kind: "notch";
+  at: Point;
+  role: NotchRole;
+  /** Required when role is "balance" — what this notch matches. */
+  mates?: NotchMate;
+  label?: string;
+  dir?: { x: number; y: number };
+  depth?: Millimetres;
+};
+
+/** Tick count for rendering: identity is doubled; all other roles are single. */
+export function notchCount(m: NotchMarking): 1 | 2 {
+  return m.role === "identity" ? 2 : 1;
+}
+
 // The standard markings, as a tagged union. The renderer draws each `kind`
 // exactly once; a piece just lists the markings it carries.
 export type Marking =
@@ -100,7 +125,7 @@ export type Marking =
   | { kind: "placeOnFold"; line: Line; inward: { x: number; y: number }; label?: string }
   | { kind: "gather"; line: Line }
   | { kind: "constructionLine"; line: Line }
-  | { kind: "notch"; at: Point; label?: string; dir?: { x: number; y: number }; depth?: Millimetres; count?: 1 | 2 | 3 }
+  | NotchMarking
   | { kind: "button"; at: Point }
   | { kind: "buttonhole"; at: Point }
   | { kind: "dart"; apex: Point; legs: [Point, Point] };

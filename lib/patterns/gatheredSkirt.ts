@@ -32,8 +32,20 @@ function skirtPanelMarkings(
       kind: "gather",
       line: { from: { x: 0, y: 0 }, to: { x: width, y: -WAIST_RISE } },
     },
-    { kind: "notch", at: { x: width, y: 200 }, dir: { x: -1, y: 0 } },
-    { kind: "notch", at: { x: width, y: 400 }, dir: { x: -1, y: 0 } },
+    {
+      kind: "notch",
+      role: "balance",
+      mates: { piece: "Skirt panel", seam: "side" },
+      at: { x: width, y: 200 },
+      dir: { x: -1, y: 0 },
+    },
+    {
+      kind: "notch",
+      role: "balance",
+      mates: { piece: "Skirt panel", seam: "side" },
+      at: { x: width, y: 400 },
+      dir: { x: -1, y: 0 },
+    },
   ];
 }
 

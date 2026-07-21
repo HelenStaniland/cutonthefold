@@ -6,6 +6,7 @@ import type {
   Millimetres,
   ConstructionStep,
 } from "@/lib/types/measurements";
+import { pointAtArcDistanceFromStart } from "@/lib/geometry/curves";
 
 export type WaistbandSpec = {
   innerLen: Millimetres;
@@ -16,6 +17,13 @@ export type WaistbandSpec = {
 };
 
 const SAMPLES = 24;
+
+/**
+ * Back-band identity notch: arc distance from the fold along the upper (band-top)
+ * edge toward the side-seam end. Keeps both ticks of the double clear of the fold
+ * on solid paper. Front band has no identity notch.
+ */
+export const WAISTBAND_IDENTITY_FROM_FOLD_MM: Millimetres = 80;
 
 function arc(radius: number, a0: number, a1: number, n: number): Point[] {
   const pts: Point[] = [];
@@ -91,8 +99,8 @@ export function draftWaistband(spec: WaistbandSpec): {
     });
   }
 
-  const foldFrom = topEdge[0];
-  const foldTo = bottomEdge[0];
+  const foldFrom = topEdge[0]!;
+  const foldTo = bottomEdge[0]!;
   const markings: Marking[] = [
     {
       kind: "placeOnFold",
@@ -103,11 +111,38 @@ export function draftWaistband(spec: WaistbandSpec): {
     { kind: "grainline", line: { from: foldFrom, to: foldTo } },
     {
       kind: "notch",
+      role: "balance",
+      mates: {
+        piece: foldSide === "CF" ? "Trouser front" : "Trouser back",
+        seam: "waist",
+      },
       at: notchAt,
       dir: { x: ndx / nlen, y: ndy / nlen },
-      count: foldSide === "CB" ? 2 : 1,
+      label: "mid-waist",
     },
   ];
+  if (foldSide === "CB") {
+    // Identity on upper (band-top) edge, offset from the fold toward the
+    // side-seam end — on the drafted half only (piece is cut on fold).
+    const idAt = pointAtArcDistanceFromStart(
+      topEdge,
+      WAISTBAND_IDENTITY_FROM_FOLD_MM,
+    );
+    const idToward = pointAtArcDistanceFromStart(
+      bottomEdge,
+      WAISTBAND_IDENTITY_FROM_FOLD_MM,
+    );
+    const idx = idToward.x - idAt.x;
+    const idy = idToward.y - idAt.y;
+    const idlen = Math.hypot(idx, idy) || 1;
+    markings.push({
+      kind: "notch",
+      role: "identity",
+      at: idAt,
+      dir: { x: idx / idlen, y: idy / idlen },
+      label: "identity",
+    });
+  }
 
   const steps: ConstructionStep[] = [
     {

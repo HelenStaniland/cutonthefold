@@ -5,6 +5,7 @@
  */
 import {
   applyEase,
+  notchCount,
   type Point,
   type PatternPiece,
 } from "../lib/types/measurements";
@@ -191,10 +192,10 @@ function classifyNotches(piece: PatternPiece): NotchInfo[] {
     }
     const label =
       m.label ??
-      (m.count === 2 ? "double" : m.count === 1 ? "single" : "notch");
+      (notchCount(m) === 2 ? "double" : "single");
     out.push({
       label,
-      count: m.count,
+      count: notchCount(m),
       at: m.at,
       seam: bestRole,
       alongFromRef: along,
