@@ -78,6 +78,7 @@ import { mirrorConstructionX, mirrorPieceX } from "@/lib/pattern/mirrorPiece";
 import { referenceGridLines } from "@/lib/render/referenceGrid";
 import { svgCoord, svgLineProps, svgPolygonPoints } from "@/lib/render/svgCoords";
 import styles from "@/app/shell.module.css";
+import { SidebarSection, SidebarSubsection } from "@/app/garments/SidebarSection";
 import type { DraftingLineKind } from "@/lib/types/measurements";
 import { applyEase, cutLabel, type ConstructionStep, type PatternSpec } from "@/lib/types/measurements";
 
@@ -619,127 +620,61 @@ function TrousersViewInner({
 
       <div className={styles.workspace}>
         <aside className={styles.sidebar}>
-          {showResetToBlock && (
-            <section className={styles.section}>
-              <h2 className={styles.sectionTitle}>Block foundation</h2>
-              <p className={styles.fieldHint}>
-                The trouser block is a fitting foundation — darted waist, no
-                waistband, Aldrich geometry. Garments add modifications on top.
-              </p>
-              <div
-                className={styles.fitPresetList}
-                role="group"
-                aria-label="Reset to block"
-              >
-                <button
-                  type="button"
-                  className={
-                    atBlockFoundation
-                      ? styles.fitPresetActive
-                      : styles.fitPreset
-                  }
-                  onClick={resetToBlock}
+          <SidebarSection title="Preset">
+            <p className={styles.presetName}>{title}</p>
+            {showResetToBlock && (
+              <>
+                <p className={styles.fieldHint}>
+                  The trouser block is a fitting foundation — darted waist, no
+                  waistband, Aldrich geometry. Garments add modifications on top.
+                </p>
+                <div
+                  className={styles.fitPresetList}
+                  role="group"
+                  aria-label="Reset to block"
                 >
-                  Reset to block
-                </button>
-              </div>
-            </section>
-          )}
-
-          {showResetToPreset && (
-            <section className={styles.section}>
-              <h2 className={styles.sectionTitle}>Garment preset</h2>
-              <p className={styles.fieldHint}>
-                Reloads this garment&apos;s named defaults (overrides any saved
-                dialled-in values). Measurements are not changed.
-              </p>
-              <div
-                className={styles.fitPresetList}
-                role="group"
-                aria-label="Reset to preset"
-              >
-                <button
-                  type="button"
-                  className={
-                    atPresetDefaults
-                      ? styles.fitPresetActive
-                      : styles.fitPreset
-                  }
-                  onClick={resetToPreset}
-                >
-                  Reset to preset
-                </button>
-              </div>
-            </section>
-          )}
-
-          <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>Fit</h2>
-            <div className={styles.fitPresetList} role="group" aria-label="Fit preset">
-              {FIT_PRESETS.map((preset) => (
-                <button
-                  key={preset.name}
-                  type="button"
-                  className={
-                    activeFit === preset.name
-                      ? styles.fitPresetActive
-                      : styles.fitPreset
-                  }
-                  onClick={() => setEase(easeForFit(preset.name)!)}
-                >
-                  {preset.label}
-                </button>
-              ))}
-            </div>
-            {activeFit === "custom" && (
-              <p className={styles.fitCustomHint}>Custom ease</p>
+                  <button
+                    type="button"
+                    className={
+                      atBlockFoundation
+                        ? styles.fitPresetActive
+                        : styles.fitPreset
+                    }
+                    onClick={resetToBlock}
+                  >
+                    Reset to block
+                  </button>
+                </div>
+              </>
             )}
-            <div className={styles.field}>
-              <label className={styles.fieldLabel} htmlFor="hip-ease">
-                Hip ease
-              </label>
-              <span className={styles.fieldHint}>
-                Added to body hip before drafting.
-              </span>
-              <div className={styles.rangeRow}>
-                <input
-                  id="hip-ease"
-                  type="range"
-                  className={styles.rangeInput}
-                  min={0}
-                  max={150}
-                  step={5}
-                  value={ease.hip}
-                  onChange={(e) =>
-                    setEase({ ...ease, hip: Number(e.target.value) })
-                  }
-                />
-                <span className={styles.rangeValue}>{ease.hip} mm</span>
-              </div>
-            </div>
-            <div className={styles.field}>
-              <label className={styles.fieldLabel} htmlFor="waist-ease">
-                Waist ease
-              </label>
-              <span className={styles.fieldHint}>
-                Added to body waist before drafting.
-              </span>
-              <div className={styles.rangeRow}>
-                <input
-                  id="waist-ease"
-                  type="range"
-                  className={styles.rangeInput}
-                  min={0}
-                  max={100}
-                  step={5}
-                  value={ease.waist}
-                  onChange={(e) =>
-                    setEase({ ...ease, waist: Number(e.target.value) })
-                  }
-                />
-                <span className={styles.rangeValue}>{ease.waist} mm</span>
-              </div>
-            </div>
+            {showResetToPreset && (
+              <>
+                <p className={styles.fieldHint}>
+                  Reloads this garment&apos;s named defaults (overrides any saved
+                  dialled-in values). Measurements are not changed.
+                </p>
+                <div
+                  className={styles.fitPresetList}
+                  role="group"
+                  aria-label="Reset to preset"
+                >
+                  <button
+                    type="button"
+                    className={
+                      atPresetDefaults
+                        ? styles.fitPresetActive
+                        : styles.fitPreset
+                    }
+                    onClick={resetToPreset}
+                  >
+                    Reset to preset
+                  </button>
+                </div>
+              </>
+            )}
+          </SidebarSection>
+
+          <SidebarSection title="Style">
             <div className={styles.field}>
               <label className={styles.fieldLabel} htmlFor="waist-drop">
                 Waist drop
@@ -790,246 +725,6 @@ function TrousersViewInner({
               </div>
             </div>
             <div className={styles.field}>
-              <label
-                className={styles.fieldLabel}
-                htmlFor="front-crotch-extension"
-              >
-                Front crotch extension
-              </label>
-              <span className={styles.fieldHint}>
-                How far the front crotch point extends. Aldrich 1.0, Cleo 0.55.
-                Lower = less fabric between the legs.
-              </span>
-              <div className={styles.rangeRow}>
-                <input
-                  id="front-crotch-extension"
-                  type="range"
-                  className={styles.rangeInput}
-                  min={CROTCH_EXTENSION_SCALE_MIN}
-                  max={CROTCH_EXTENSION_SCALE_MAX}
-                  step={0.01}
-                  value={frontExtShown}
-                  onChange={(e) =>
-                    setFrontCrotchExtensionScale(Number(e.target.value))
-                  }
-                />
-                <span className={styles.rangeValue}>
-                  {frontExtShown.toFixed(2)}
-                </span>
-              </div>
-            </div>
-            <div className={styles.field}>
-              <label
-                className={styles.fieldLabel}
-                htmlFor="back-crotch-extension"
-              >
-                Back crotch extension
-              </label>
-              <span className={styles.fieldHint}>
-                How far the back crotch point extends. Aldrich 1.0, Cleo ~0.875.
-              </span>
-              <div className={styles.rangeRow}>
-                <input
-                  id="back-crotch-extension"
-                  type="range"
-                  className={styles.rangeInput}
-                  min={CROTCH_EXTENSION_SCALE_MIN}
-                  max={CROTCH_EXTENSION_SCALE_MAX}
-                  step={0.01}
-                  value={backExtShown}
-                  onChange={(e) =>
-                    setBackCrotchExtensionScale(Number(e.target.value))
-                  }
-                />
-                <span className={styles.rangeValue}>
-                  {backExtShown.toFixed(2)}
-                </span>
-              </div>
-            </div>
-            <div className={styles.field}>
-              <label className={styles.fieldLabel} htmlFor="crotch-straight-run">
-                Crotch departure on CF
-              </label>
-              <span className={styles.fieldHint}>
-                How far below the waist the crotch curve leaves the centre front.
-                Default = hipline (Aldrich 10–6). 0 = curve from the waist.
-              </span>
-              <div className={styles.rangeRow}>
-                <input
-                  id="crotch-straight-run"
-                  type="range"
-                  className={styles.rangeInput}
-                  min={CROTCH_STRAIGHT_RUN_MIN}
-                  max={straightRunMax}
-                  step={5}
-                  value={straightRun}
-                  onChange={(e) =>
-                    setCrotchStraightRun(Number(e.target.value))
-                  }
-                />
-                <span className={styles.rangeValue}>{straightRun} mm</span>
-              </div>
-            </div>
-            <div className={styles.field}>
-              <label className={styles.fieldLabel} htmlFor="crotch-arrival">
-                Crotch arrival angle
-              </label>
-              <span className={styles.fieldHint}>
-                How steeply the curve meets the crotch point. Higher = smoother
-                sweep, less hook.
-              </span>
-              <div className={styles.rangeRow}>
-                <input
-                  id="crotch-arrival"
-                  type="range"
-                  className={styles.rangeInput}
-                  min={CROTCH_ARRIVAL_ANGLE_MIN}
-                  max={CROTCH_ARRIVAL_ANGLE_MAX}
-                  step={1}
-                  value={arrivalShown}
-                  onChange={(e) =>
-                    setCrotchArrivalAngle(Number(e.target.value))
-                  }
-                />
-                <span className={styles.rangeValue}>
-                  {arrivalShown}°
-                </span>
-              </div>
-            </div>
-            <div className={styles.field}>
-              <label className={styles.fieldLabel} htmlFor="back-crotch-drop">
-                Back crotch drop
-              </label>
-              <span className={styles.fieldHint}>
-                Aldrich 23–24: how far below the crotch line the back curve ends
-                (5 mm = hook; 0 = flat Cleo-style).
-              </span>
-              <div className={styles.rangeRow}>
-                <input
-                  id="back-crotch-drop"
-                  type="range"
-                  className={styles.rangeInput}
-                  min={BACK_CROTCH_DROP_MIN}
-                  max={BACK_CROTCH_DROP_MAX}
-                  step={1}
-                  value={dropShown}
-                  onChange={(e) => setBackCrotchDrop(Number(e.target.value))}
-                />
-                <span className={styles.rangeValue}>{dropShown} mm</span>
-              </div>
-            </div>
-            <div className={styles.field}>
-              <label
-                className={styles.fieldLabel}
-                htmlFor="front-crotch-fullness"
-              >
-                Front crotch fullness
-              </label>
-              <span className={styles.fieldHint}>
-                How full the front crotch curve is. Lower = flatter/scooped;
-                higher = fuller. Aldrich 0.62, Cleo 0.84.
-              </span>
-              <div className={styles.rangeRow}>
-                <input
-                  id="front-crotch-fullness"
-                  type="range"
-                  className={styles.rangeInput}
-                  min={CROTCH_FULLNESS_MIN}
-                  max={CROTCH_FULLNESS_MAX}
-                  step={0.01}
-                  value={frontFullShown}
-                  onChange={(e) =>
-                    setFrontCrotchFullness(Number(e.target.value))
-                  }
-                />
-                <span className={styles.rangeValue}>
-                  {frontFullShown.toFixed(2)}
-                </span>
-              </div>
-            </div>
-            <div className={styles.field}>
-              <label
-                className={styles.fieldLabel}
-                htmlFor="back-crotch-fullness"
-              >
-                Back crotch fullness
-              </label>
-              <span className={styles.fieldHint}>
-                How full the back crotch curve is. Aldrich 0.87.
-              </span>
-              <div className={styles.rangeRow}>
-                <input
-                  id="back-crotch-fullness"
-                  type="range"
-                  className={styles.rangeInput}
-                  min={CROTCH_FULLNESS_MIN}
-                  max={CROTCH_FULLNESS_MAX}
-                  step={0.01}
-                  value={backFullShown}
-                  onChange={(e) =>
-                    setBackCrotchFullness(Number(e.target.value))
-                  }
-                />
-                <span className={styles.rangeValue}>
-                  {backFullShown.toFixed(2)}
-                </span>
-              </div>
-            </div>
-            <div className={styles.field}>
-              <label className={styles.fieldLabel} htmlFor="waistline-curve-front">
-                Front waist curve
-              </label>
-              <span className={styles.fieldHint}>
-                Aldrich §2a: how far the waistline dips at centre front. 0 =
-                straight waist.
-              </span>
-              <div className={styles.rangeRow}>
-                <input
-                  id="waistline-curve-front"
-                  type="range"
-                  className={styles.rangeInput}
-                  min={WAISTLINE_CURVE_FRONT_MIN}
-                  max={WAISTLINE_CURVE_FRONT_MAX}
-                  step={1}
-                  value={scoopShown}
-                  onChange={(e) =>
-                    setWaistlineCurveFront(Number(e.target.value))
-                  }
-                />
-                <span className={styles.rangeValue}>
-                  {scoopShown} mm
-                </span>
-              </div>
-            </div>
-            <div className={styles.field}>
-              <label className={styles.fieldLabel} htmlFor="front-waist-inset">
-                Front waist inset
-              </label>
-              <span className={styles.fieldHint}>
-                Aldrich 7–10: how far the waist is set in from the centre front.
-                0 = vertical CF (Cleo-style).
-              </span>
-              <div className={styles.rangeRow}>
-                <input
-                  id="front-waist-inset"
-                  type="range"
-                  className={styles.rangeInput}
-                  min={FRONT_WAIST_INSET_MIN}
-                  max={FRONT_WAIST_INSET_MAX}
-                  step={1}
-                  value={insetShown}
-                  onChange={(e) =>
-                    setFrontWaistInset(Number(e.target.value))
-                  }
-                />
-                <span className={styles.rangeValue}>{insetShown} mm</span>
-              </div>
-            </div>
-          </section>
-
-          <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>Style</h2>
-            <div className={styles.field}>
               <label className={styles.fieldLabel} htmlFor="leg-bottom-width">
                 Hem width (both)
               </label>
@@ -1077,69 +772,6 @@ function TrousersViewInner({
                     {shape === "curved" ? "Curved" : "Straight"}
                   </button>
                 ))}
-              </div>
-            </div>
-            <div className={styles.field}>
-              <label
-                className={styles.fieldLabel}
-                htmlFor="front-inseam-knee-inset"
-              >
-                Front inseam knee inset
-              </label>
-              <span className={styles.fieldHint}>
-                Signed inset from the crotch→hem chord. Negative = inboard
-                (flare); positive = outboard. Unset = Aldrich block knee.
-              </span>
-              <div className={styles.rangeRow}>
-                <input
-                  id="front-inseam-knee-inset"
-                  type="range"
-                  className={styles.rangeInput}
-                  min={INSEAM_KNEE_INSET_MIN}
-                  max={INSEAM_KNEE_INSET_MAX}
-                  step={1}
-                  value={frontInseamKneeInset ?? 0}
-                  onChange={(e) =>
-                    setFrontInseamKneeInset(Number(e.target.value))
-                  }
-                />
-                <span className={styles.rangeValue}>
-                  {frontInseamKneeInset == null
-                    ? "Aldrich"
-                    : `${frontInseamKneeInset} mm`}
-                </span>
-              </div>
-            </div>
-            <div className={styles.field}>
-              <label
-                className={styles.fieldLabel}
-                htmlFor="back-inseam-knee-inset"
-              >
-                Back inseam knee inset
-              </label>
-              <span className={styles.fieldHint}>
-                Signed inset from the crotch→hem chord. Negative = inboard
-                (flare); positive = outboard. Unset = Aldrich block knee
-                (front ±10 mm).
-              </span>
-              <div className={styles.rangeRow}>
-                <input
-                  id="back-inseam-knee-inset"
-                  type="range"
-                  className={styles.rangeInput}
-                  min={INSEAM_KNEE_INSET_MIN}
-                  max={INSEAM_KNEE_INSET_MAX}
-                  step={1}
-                  value={backInseamKneeInset ?? 0}
-                  onChange={(e) =>
-                    setBackInseamKneeInset(Number(e.target.value))
-                  }
-                />
-                <span className={styles.rangeValue}>
-                  {backInseamKneeInset == null
-                    ? "Aldrich"
-                    : `${backInseamKneeInset} mm`}
-                </span>
               </div>
             </div>
             <div className={styles.field}>
@@ -1304,6 +936,77 @@ function TrousersViewInner({
                 )}
               </div>
             )}
+          </SidebarSection>
+
+          <SidebarSection title="Fit">
+            <div className={styles.fitPresetList} role="group" aria-label="Fit preset">
+              {FIT_PRESETS.map((preset) => (
+                <button
+                  key={preset.name}
+                  type="button"
+                  className={
+                    activeFit === preset.name
+                      ? styles.fitPresetActive
+                      : styles.fitPreset
+                  }
+                  onClick={() => setEase(easeForFit(preset.name)!)}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+            {activeFit === "custom" && (
+              <p className={styles.fitCustomHint}>Custom ease</p>
+            )}
+            <div className={styles.field}>
+              <label className={styles.fieldLabel} htmlFor="hip-ease">
+                Hip ease
+              </label>
+              <span className={styles.fieldHint}>
+                Added to body hip before drafting.
+              </span>
+              <div className={styles.rangeRow}>
+                <input
+                  id="hip-ease"
+                  type="range"
+                  className={styles.rangeInput}
+                  min={0}
+                  max={150}
+                  step={5}
+                  value={ease.hip}
+                  onChange={(e) =>
+                    setEase({ ...ease, hip: Number(e.target.value) })
+                  }
+                />
+                <span className={styles.rangeValue}>{ease.hip} mm</span>
+              </div>
+            </div>
+            <div className={styles.field}>
+              <label className={styles.fieldLabel} htmlFor="waist-ease">
+                Waist ease
+              </label>
+              <span className={styles.fieldHint}>
+                Added to body waist before drafting.
+              </span>
+              <div className={styles.rangeRow}>
+                <input
+                  id="waist-ease"
+                  type="range"
+                  className={styles.rangeInput}
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={ease.waist}
+                  onChange={(e) =>
+                    setEase({ ...ease, waist: Number(e.target.value) })
+                  }
+                />
+                <span className={styles.rangeValue}>{ease.waist} mm</span>
+              </div>
+            </div>
+          </SidebarSection>
+
+          <SidebarSection title="Construction">
             <div className={styles.field}>
               <label className={styles.fieldLabel} htmlFor="zip-length">
                 Side zip length
@@ -1342,12 +1045,368 @@ function TrousersViewInner({
                   : "Show the outer cut line on the pattern pieces."}
               </span>
             </div>
-          </section>
+          </SidebarSection>
+
+          <SidebarSection
+            title="Advanced drafting"
+            collapsible
+            defaultOpen={false}
+          >
+            <SidebarSubsection title="Front crotch">
+              <div className={styles.field}>
+                <label
+                  className={styles.fieldLabel}
+                  htmlFor="front-crotch-extension"
+                >
+                  Front crotch extension
+                </label>
+                <span className={styles.fieldHint}>
+                  How far the front crotch point extends. Aldrich 1.0, Cleo 0.55.
+                  Lower = less fabric between the legs.
+                </span>
+                <div className={styles.rangeRow}>
+                  <input
+                    id="front-crotch-extension"
+                    type="range"
+                    className={styles.rangeInput}
+                    min={CROTCH_EXTENSION_SCALE_MIN}
+                    max={CROTCH_EXTENSION_SCALE_MAX}
+                    step={0.01}
+                    value={frontExtShown}
+                    onChange={(e) =>
+                      setFrontCrotchExtensionScale(Number(e.target.value))
+                    }
+                  />
+                  <span className={styles.rangeValue}>
+                    {frontExtShown.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+              <div className={styles.field}>
+                <label className={styles.fieldLabel} htmlFor="crotch-straight-run">
+                  Crotch departure on CF
+                </label>
+                <span className={styles.fieldHint}>
+                  How far below the waist the crotch curve leaves the centre front.
+                  Default = hipline (Aldrich 10–6). 0 = curve from the waist.
+                </span>
+                <div className={styles.rangeRow}>
+                  <input
+                    id="crotch-straight-run"
+                    type="range"
+                    className={styles.rangeInput}
+                    min={CROTCH_STRAIGHT_RUN_MIN}
+                    max={straightRunMax}
+                    step={5}
+                    value={straightRun}
+                    onChange={(e) =>
+                      setCrotchStraightRun(Number(e.target.value))
+                    }
+                  />
+                  <span className={styles.rangeValue}>{straightRun} mm</span>
+                </div>
+              </div>
+              <div className={styles.field}>
+                <label className={styles.fieldLabel} htmlFor="crotch-arrival">
+                  Crotch arrival angle
+                </label>
+                <span className={styles.fieldHint}>
+                  How steeply the curve meets the crotch point. Higher = smoother
+                  sweep, less hook.
+                </span>
+                <div className={styles.rangeRow}>
+                  <input
+                    id="crotch-arrival"
+                    type="range"
+                    className={styles.rangeInput}
+                    min={CROTCH_ARRIVAL_ANGLE_MIN}
+                    max={CROTCH_ARRIVAL_ANGLE_MAX}
+                    step={1}
+                    value={arrivalShown}
+                    onChange={(e) =>
+                      setCrotchArrivalAngle(Number(e.target.value))
+                    }
+                  />
+                  <span className={styles.rangeValue}>
+                    {arrivalShown}°
+                  </span>
+                </div>
+              </div>
+              <div className={styles.field}>
+                <label
+                  className={styles.fieldLabel}
+                  htmlFor="front-crotch-fullness"
+                >
+                  Front crotch fullness
+                </label>
+                <span className={styles.fieldHint}>
+                  How full the front crotch curve is. Lower = flatter/scooped;
+                  higher = fuller. Aldrich 0.62, Cleo 0.84.
+                </span>
+                <div className={styles.rangeRow}>
+                  <input
+                    id="front-crotch-fullness"
+                    type="range"
+                    className={styles.rangeInput}
+                    min={CROTCH_FULLNESS_MIN}
+                    max={CROTCH_FULLNESS_MAX}
+                    step={0.01}
+                    value={frontFullShown}
+                    onChange={(e) =>
+                      setFrontCrotchFullness(Number(e.target.value))
+                    }
+                  />
+                  <span className={styles.rangeValue}>
+                    {frontFullShown.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </SidebarSubsection>
+
+            <SidebarSubsection title="Back crotch">
+              <div className={styles.field}>
+                <label
+                  className={styles.fieldLabel}
+                  htmlFor="back-crotch-extension"
+                >
+                  Back crotch extension
+                </label>
+                <span className={styles.fieldHint}>
+                  How far the back crotch point extends. Aldrich 1.0, Cleo ~0.875.
+                </span>
+                <div className={styles.rangeRow}>
+                  <input
+                    id="back-crotch-extension"
+                    type="range"
+                    className={styles.rangeInput}
+                    min={CROTCH_EXTENSION_SCALE_MIN}
+                    max={CROTCH_EXTENSION_SCALE_MAX}
+                    step={0.01}
+                    value={backExtShown}
+                    onChange={(e) =>
+                      setBackCrotchExtensionScale(Number(e.target.value))
+                    }
+                  />
+                  <span className={styles.rangeValue}>
+                    {backExtShown.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+              <div className={styles.field}>
+                <label className={styles.fieldLabel} htmlFor="back-crotch-drop">
+                  Back crotch drop
+                </label>
+                <span className={styles.fieldHint}>
+                  Aldrich 23–24: how far below the crotch line the back curve ends
+                  (5 mm = hook; 0 = flat Cleo-style).
+                </span>
+                <div className={styles.rangeRow}>
+                  <input
+                    id="back-crotch-drop"
+                    type="range"
+                    className={styles.rangeInput}
+                    min={BACK_CROTCH_DROP_MIN}
+                    max={BACK_CROTCH_DROP_MAX}
+                    step={1}
+                    value={dropShown}
+                    onChange={(e) => setBackCrotchDrop(Number(e.target.value))}
+                  />
+                  <span className={styles.rangeValue}>{dropShown} mm</span>
+                </div>
+              </div>
+              <div className={styles.field}>
+                <label
+                  className={styles.fieldLabel}
+                  htmlFor="back-crotch-fullness"
+                >
+                  Back crotch fullness
+                </label>
+                <span className={styles.fieldHint}>
+                  How full the back crotch curve is. Aldrich 0.87.
+                </span>
+                <div className={styles.rangeRow}>
+                  <input
+                    id="back-crotch-fullness"
+                    type="range"
+                    className={styles.rangeInput}
+                    min={CROTCH_FULLNESS_MIN}
+                    max={CROTCH_FULLNESS_MAX}
+                    step={0.01}
+                    value={backFullShown}
+                    onChange={(e) =>
+                      setBackCrotchFullness(Number(e.target.value))
+                    }
+                  />
+                  <span className={styles.rangeValue}>
+                    {backFullShown.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </SidebarSubsection>
+
+            <SidebarSubsection title="Waist / yoke / darts">
+              <div className={styles.field}>
+                <label className={styles.fieldLabel} htmlFor="waistline-curve-front">
+                  Front waist curve
+                </label>
+                <span className={styles.fieldHint}>
+                  Aldrich §2a: how far the waistline dips at centre front. 0 =
+                  straight waist.
+                </span>
+                <div className={styles.rangeRow}>
+                  <input
+                    id="waistline-curve-front"
+                    type="range"
+                    className={styles.rangeInput}
+                    min={WAISTLINE_CURVE_FRONT_MIN}
+                    max={WAISTLINE_CURVE_FRONT_MAX}
+                    step={1}
+                    value={scoopShown}
+                    onChange={(e) =>
+                      setWaistlineCurveFront(Number(e.target.value))
+                    }
+                  />
+                  <span className={styles.rangeValue}>
+                    {scoopShown} mm
+                  </span>
+                </div>
+              </div>
+              <div className={styles.field}>
+                <label className={styles.fieldLabel} htmlFor="front-waist-inset">
+                  Front waist inset
+                </label>
+                <span className={styles.fieldHint}>
+                  Aldrich 7–10: how far the waist is set in from the centre front.
+                  0 = vertical CF (Cleo-style).
+                </span>
+                <div className={styles.rangeRow}>
+                  <input
+                    id="front-waist-inset"
+                    type="range"
+                    className={styles.rangeInput}
+                    min={FRONT_WAIST_INSET_MIN}
+                    max={FRONT_WAIST_INSET_MAX}
+                    step={1}
+                    value={insetShown}
+                    onChange={(e) =>
+                      setFrontWaistInset(Number(e.target.value))
+                    }
+                  />
+                  <span className={styles.rangeValue}>{insetShown} mm</span>
+                </div>
+              </div>
+            </SidebarSubsection>
+
+            <SidebarSubsection title="Leg shaping">
+              <div className={styles.field}>
+                <label
+                  className={styles.fieldLabel}
+                  htmlFor="front-inseam-knee-inset"
+                >
+                  Front inseam knee inset
+                </label>
+                <span className={styles.fieldHint}>
+                  Signed inset from the crotch→hem chord. Negative = inboard
+                  (flare); positive = outboard. Unset = Aldrich block knee.
+                </span>
+                <div className={styles.rangeRow}>
+                  <input
+                    id="front-inseam-knee-inset"
+                    type="range"
+                    className={styles.rangeInput}
+                    min={INSEAM_KNEE_INSET_MIN}
+                    max={INSEAM_KNEE_INSET_MAX}
+                    step={1}
+                    value={frontInseamKneeInset ?? 0}
+                    onChange={(e) =>
+                      setFrontInseamKneeInset(Number(e.target.value))
+                    }
+                  />
+                  <span className={styles.rangeValue}>
+                    {frontInseamKneeInset == null
+                      ? "Aldrich"
+                      : `${frontInseamKneeInset} mm`}
+                  </span>
+                </div>
+              </div>
+              <div className={styles.field}>
+                <label
+                  className={styles.fieldLabel}
+                  htmlFor="back-inseam-knee-inset"
+                >
+                  Back inseam knee inset
+                </label>
+                <span className={styles.fieldHint}>
+                  Signed inset from the crotch→hem chord. Negative = inboard
+                  (flare); positive = outboard. Unset = Aldrich block knee
+                  (front ±10 mm).
+                </span>
+                <div className={styles.rangeRow}>
+                  <input
+                    id="back-inseam-knee-inset"
+                    type="range"
+                    className={styles.rangeInput}
+                    min={INSEAM_KNEE_INSET_MIN}
+                    max={INSEAM_KNEE_INSET_MAX}
+                    step={1}
+                    value={backInseamKneeInset ?? 0}
+                    onChange={(e) =>
+                      setBackInseamKneeInset(Number(e.target.value))
+                    }
+                  />
+                  <span className={styles.rangeValue}>
+                    {backInseamKneeInset == null
+                      ? "Aldrich"
+                      : `${backInseamKneeInset} mm`}
+                  </span>
+                </div>
+              </div>
+            </SidebarSubsection>
+          </SidebarSection>
+
+          <SidebarSection title="View">
+            <div className={styles.field}>
+              <span className={styles.fieldLabel}>Pattern view</span>
+              <span className={styles.fieldHint}>
+                Pattern shows cut lines and seam allowance; Construction shows
+                internal drafting lines.
+              </span>
+              <div
+                className={styles.fitPresetList}
+                role="group"
+                aria-label="View mode"
+              >
+                <button
+                  type="button"
+                  className={
+                    viewMode === "pattern"
+                      ? styles.fitPresetActive
+                      : styles.fitPreset
+                  }
+                  aria-pressed={viewMode === "pattern"}
+                  onClick={() => setViewMode("pattern")}
+                >
+                  Pattern
+                </button>
+                <button
+                  type="button"
+                  className={
+                    viewMode === "construction"
+                      ? styles.fitPresetActive
+                      : styles.fitPreset
+                  }
+                  aria-pressed={viewMode === "construction"}
+                  onClick={() => setViewMode("construction")}
+                >
+                  Construction
+                </button>
+              </div>
+            </div>
+          </SidebarSection>
 
           {validation.issues.length > 0 && (
-            <section className={styles.section} aria-live="polite">
-              <h2 className={styles.sectionTitle}>Checks</h2>
-              <ul className={styles.issueList}>
+            <SidebarSection title="Checks">
+              <ul className={styles.issueList} aria-live="polite">
                 {validation.issues.map((issue, i) => (
                   <li
                     key={i}
@@ -1361,7 +1420,7 @@ function TrousersViewInner({
                   </li>
                 ))}
               </ul>
-            </section>
+            </SidebarSection>
           )}
         </aside>
 
@@ -1459,28 +1518,6 @@ function TrousersViewInner({
               <div className={styles.cardHeader}>
                 <h2 className={styles.cardTitle}>Pattern pieces</h2>
                 <div className={styles.cardHeaderActions}>
-                  <div
-                    className={styles.segmentedControl}
-                    role="group"
-                    aria-label="View mode"
-                  >
-                    <button
-                      type="button"
-                      className={`${styles.segmentButton} ${viewMode === "pattern" ? styles.segmentButtonActive : ""}`}
-                      aria-pressed={viewMode === "pattern"}
-                      onClick={() => setViewMode("pattern")}
-                    >
-                      Pattern
-                    </button>
-                    <button
-                      type="button"
-                      className={`${styles.segmentButton} ${viewMode === "construction" ? styles.segmentButtonActive : ""}`}
-                      aria-pressed={viewMode === "construction"}
-                      onClick={() => setViewMode("construction")}
-                    >
-                      Construction
-                    </button>
-                  </div>
                   {validation.valid && (
                     <>
                       <label

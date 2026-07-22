@@ -186,6 +186,59 @@
   margin-bottom: 14px;
 }
 
+.sidebarSectionCollapsible {
+  margin-bottom: 28px;
+}
+
+.sidebarSectionCollapsible .sectionTitle {
+  cursor: pointer;
+  list-style: none;
+  margin-bottom: 0;
+  padding: 2px 0;
+}
+
+.sidebarSectionCollapsible .sectionTitle::-webkit-details-marker {
+  display: none;
+}
+
+.sidebarSectionCollapsible .sectionTitle::before {
+  content: "▸ ";
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.sidebarSectionCollapsible[open] .sectionTitle::before {
+  transform: rotate(90deg);
+}
+
+.sidebarSectionBody {
+  margin-top: 14px;
+}
+
+.sidebarSubsection {
+  margin-bottom: 20px;
+}
+
+.sidebarSubsection:last-child {
+  margin-bottom: 0;
+}
+
+.sidebarSubsectionTitle {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--controls-ink-muted, var(--ink-faint));
+  margin-bottom: 12px;
+}
+
+.presetName {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--controls-ink, var(--ink));
+  margin: 0 0 12px;
+}
+
 .field {
   margin-bottom: 16px;
 }
