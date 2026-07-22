@@ -21,7 +21,7 @@ import {
 } from "../lib/patterns/trouserBlock";
 import {
   BLOCK_TROUSER_STYLE,
-  IZZY_TROUSER_STYLE,
+  CLEO_TROUSER_STYLE,
   type TrouserStyleSettings,
 } from "../lib/pattern/garmentStyles";
 import { draftGatheredSkirt } from "../lib/patterns/gatheredSkirt";
@@ -30,7 +30,7 @@ const DUP_TOL = 0.01;
 const f3 = (n: number) => n.toFixed(3);
 const pt = (p: Point) => `(${f3(p.x)}, ${f3(p.y)})`;
 
-const IZZY_EXPECTED = {
+const CLEO_EXPECTED = {
   front: {
     cut: 196,
     sideRc: { x: 184.273, y: 1080 },
@@ -204,8 +204,8 @@ console.log(
 }
 
 {
-  console.log("\n--- Straight-hem regression (Izzy) ---");
-  const { net, withTB } = draftCase(IZZY_TROUSER_STYLE);
+  console.log("\n--- Straight-hem regression (Cleo) ---");
+  const { net, withTB } = draftCase(CLEO_TROUSER_STYLE);
   for (const name of ["Trouser front", "Trouser back"] as const) {
     const after = withTB.pieces.find((p) => p.name === name)!;
     const netPiece = net.pieces.find((p) => p.name === name)!;
@@ -214,7 +214,7 @@ console.log(
       `${name}: net byte-identical`,
     );
     const key = name === "Trouser front" ? "front" : "back";
-    const exp = IZZY_EXPECTED[key];
+    const exp = CLEO_EXPECTED[key];
     const c = straightCorners(after);
     check(
       after.cuttingOutline!.length === exp.cut,

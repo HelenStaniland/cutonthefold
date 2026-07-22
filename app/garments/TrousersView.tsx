@@ -797,7 +797,7 @@ function TrousersViewInner({
                 Front crotch extension
               </label>
               <span className={styles.fieldHint}>
-                How far the front crotch point extends. Aldrich 1.0, Izzy ~0.5.
+                How far the front crotch point extends. Aldrich 1.0, Cleo 0.55.
                 Lower = less fabric between the legs.
               </span>
               <div className={styles.rangeRow}>
@@ -826,7 +826,7 @@ function TrousersViewInner({
                 Back crotch extension
               </label>
               <span className={styles.fieldHint}>
-                How far the back crotch point extends. Aldrich 1.0, Izzy ~0.875.
+                How far the back crotch point extends. Aldrich 1.0, Cleo ~0.875.
               </span>
               <div className={styles.rangeRow}>
                 <input
@@ -902,7 +902,7 @@ function TrousersViewInner({
               </label>
               <span className={styles.fieldHint}>
                 Aldrich 23–24: how far below the crotch line the back curve ends
-                (5 mm = hook; 0 = flat Izzy-style).
+                (5 mm = hook; 0 = flat Cleo-style).
               </span>
               <div className={styles.rangeRow}>
                 <input
@@ -927,7 +927,7 @@ function TrousersViewInner({
               </label>
               <span className={styles.fieldHint}>
                 How full the front crotch curve is. Lower = flatter/scooped;
-                higher = fuller. Aldrich 0.62, Izzy 0.84.
+                higher = fuller. Aldrich 0.62, Cleo 0.84.
               </span>
               <div className={styles.rangeRow}>
                 <input
@@ -1007,7 +1007,7 @@ function TrousersViewInner({
               </label>
               <span className={styles.fieldHint}>
                 Aldrich 7–10: how far the waist is set in from the centre front.
-                0 = vertical CF (Izzy-style).
+                0 = vertical CF (Cleo-style).
               </span>
               <div className={styles.rangeRow}>
                 <input
@@ -1055,7 +1055,7 @@ function TrousersViewInner({
               <label className={styles.fieldLabel}>Back hem shape</label>
               <span className={styles.fieldHint}>
                 Aldrich uses a curved hem with its control point 20 mm below
-                the endpoints; Izzy uses a straight hem.
+                the endpoints; Cleo uses a straight hem.
               </span>
               <div
                 className={styles.fitPresetList}

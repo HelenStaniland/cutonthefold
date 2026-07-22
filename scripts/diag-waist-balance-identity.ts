@@ -25,7 +25,7 @@ import {
   withWaistband,
   type TrouserFrontStyle,
 } from "../lib/patterns/trouserBlock";
-import { IZZY_TROUSER_STYLE } from "../lib/pattern/garmentStyles";
+import { CLEO_TROUSER_STYLE } from "../lib/pattern/garmentStyles";
 import {
   draftWaistband,
   WAISTBAND_IDENTITY_FROM_FOLD_MM,
@@ -59,9 +59,9 @@ function waistPts(piece: PatternPiece): Point[] {
 
 const body = applyEase(
   bodyForSizeCode(DEFAULT_SIZE_CODE)!,
-  IZZY_TROUSER_STYLE.ease,
+  CLEO_TROUSER_STYLE.ease,
 );
-const s = IZZY_TROUSER_STYLE;
+const s = CLEO_TROUSER_STYLE;
 const base: TrouserFrontStyle = {
   bottomWidth: s.legBottomWidth,
   block: blockFromWaistDrop(s.waistDrop),
@@ -221,9 +221,9 @@ const svg = `<?xml version="1.0" encoding="UTF-8"?>
   <text x="${minX + 8}" y="${minY + 16}" font-size="10" fill="#333">Back WB cutting · blue=identity double · amber=mid-waist · dashed=fold</text>
 </svg>
 `;
-writeFileSync(join(OUT, "izzy-back-wb-identity-pdf-check.svg"), svg);
+writeFileSync(join(OUT, "cleo-back-wb-identity-pdf-check.svg"), svg);
 console.log(
-  `\nWrote ${join(OUT, "izzy-back-wb-identity-pdf-check.svg")} (visual of PDF tick geometry)`,
+  `\nWrote ${join(OUT, "cleo-back-wb-identity-pdf-check.svg")} (visual of PDF tick geometry)`,
 );
 
 console.log("\n=== end ===");

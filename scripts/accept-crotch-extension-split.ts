@@ -1,12 +1,12 @@
 /**
- * Acceptance: split front/back crotch extension scales + full Izzy preset.
+ * Acceptance: split front/back crotch extension scales + full Cleo preset.
  * Run: npx tsx scripts/accept-crotch-extension-split.ts
  */
 import { writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { applyEase, type Point } from "../lib/types/measurements";
 import { bodyForSizeCode } from "../lib/data/standardSizes";
-import { IZZY_PRESET } from "../lib/pattern/blockPresets";
+import { CLEO_PRESET } from "../lib/pattern/blockPresets";
 import {
   draftTrouserFront,
   draftTrouserBack,
@@ -22,7 +22,7 @@ mkdirSync(outDir, { recursive: true });
 
 const chart = bodyForSizeCode("12")!;
 const body = applyEase({ ...chart, hip: 1100 }, { waist: 10, hip: 50 });
-const izzyBody = applyEase({ ...chart, hip: 1100 }, IZZY_PRESET.measured.ease);
+const cleoBody = applyEase({ ...chart, hip: 1100 }, CLEO_PRESET.measured.ease);
 
 function hausdorff(a: Point[], b: Point[]): number {
   const oneWay = (from: Point[], to: Point[]) => {
@@ -105,9 +105,9 @@ console.log({
   });
 }
 
-// --- Izzy preset extensions in cm ---
-const m = IZZY_PRESET.measured;
-const izzy = mk(
+// --- Cleo preset extensions in cm ---
+const m = CLEO_PRESET.measured;
+const Cleo = mk(
   {
     crotchStraightRun: m.crotchStraightRun,
     frontWaistInset: m.frontWaistInset,
@@ -118,21 +118,21 @@ const izzy = mk(
     frontCrotchExtensionScale: m.frontCrotchExtensionScale,
     backCrotchExtensionScale: m.backCrotchExtensionScale,
     waistDrop: m.waistDrop,
-    waistlineCurveFront: IZZY_PRESET.provisional.waistlineCurveFront,
+    waistlineCurveFront: CLEO_PRESET.provisional.waistlineCurveFront,
   },
-  izzyBody,
+  cleoBody,
   m.waistbandDepth,
   m.waistbandMode,
 );
-const fIzzy = trouserFrontPoints(izzyBody, izzy);
-const bIzzy = trouserBackPoints(izzyBody, izzy);
-const fork = Math.abs(fIzzy.p5.x);
-const frontExtMm = Math.abs(fIzzy.p9.x) - fork; // beyond fork
-const backExtMm = Math.abs(bIzzy.p23.x - bIzzy.p16.x); // tip to fork-line CB (p16)
+const fCleo = trouserFrontPoints(cleoBody, Cleo);
+const bCleo = trouserBackPoints(cleoBody, Cleo);
+const fork = Math.abs(fCleo.p5.x);
+const frontExtMm = Math.abs(fCleo.p9.x) - fork; // beyond fork
+const backExtMm = Math.abs(bCleo.p23.x - bCleo.p16.x); // tip to fork-line CB (p16)
 
-console.log("\n=== Izzy preset extensions (owner drafted hip) ===");
+console.log("\n=== Cleo preset extensions (owner drafted hip) ===");
 console.log({
-  draftedHipCm: (izzyBody.hip / 10).toFixed(1),
+  draftedHipCm: (cleoBody.hip / 10).toFixed(1),
   frontExtCm: (frontExtMm / 10).toFixed(2),
   backExtP16toP23Cm: (backExtMm / 10).toFixed(2),
   // Also report offset from CF fork (p5) for front — same as frontExt
@@ -178,7 +178,7 @@ for (const fs of scales) {
 console.log("\n=== Mono sweep ===");
 console.log({ combos, frontFail, backFail });
 
-// --- Renders full Izzy ---
+// --- Renders full Cleo ---
 function svgPiece(
   name: string,
   front: Point[],
@@ -221,18 +221,18 @@ function svgPiece(
   writeFileSync(join(outDir, name), svg);
 }
 
-const frontDraft = draftTrouserFront(izzyBody, izzy);
-const backDraft = draftTrouserBack(izzyBody, izzy);
+const frontDraft = draftTrouserFront(cleoBody, Cleo);
+const backDraft = draftTrouserBack(cleoBody, Cleo);
 svgPiece(
-  "izzy-full-preset.svg",
+  "cleo-full-preset.svg",
   outlinePts(frontDraft),
   outlinePts(backDraft),
   [
-    { p: fIzzy.p5, label: "p5" },
-    { p: fIzzy.p9, label: "p9" },
-    { p: bIzzy.p16, label: "p16" },
-    { p: bIzzy.p23, label: "p23" },
-    { p: bIzzy.p19, label: "p19" },
+    { p: fCleo.p5, label: "p5" },
+    { p: fCleo.p9, label: "p9" },
+    { p: bCleo.p16, label: "p16" },
+    { p: bCleo.p23, label: "p23" },
+    { p: bCleo.p19, label: "p19" },
   ],
 );
 
@@ -283,21 +283,21 @@ const backCrotch = backDraft.outline
   .filter((o) => o.role === "crotch")
   .map((o) => o.at);
 crotchOnly(
-  "izzy-front-crotch.svg",
+  "cleo-front-crotch.svg",
   frontCrotch,
   [
-    { p: fIzzy.p5, label: "p5" },
-    { p: fIzzy.p9, label: "p9" },
+    { p: fCleo.p5, label: "p5" },
+    { p: fCleo.p9, label: "p9" },
   ],
   "#1a5f7a",
 );
 crotchOnly(
-  "izzy-back-crotch.svg",
+  "cleo-back-crotch.svg",
   backCrotch,
   [
-    { p: bIzzy.p16, label: "p16" },
-    { p: bIzzy.p23, label: "p23" },
-    { p: bIzzy.p19, label: "p19" },
+    { p: bCleo.p16, label: "p16" },
+    { p: bCleo.p23, label: "p23" },
+    { p: bCleo.p19, label: "p19" },
   ],
   "#2d6a4f",
 );

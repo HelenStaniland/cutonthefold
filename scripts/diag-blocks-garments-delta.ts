@@ -1,5 +1,5 @@
 /**
- * Acceptance: block defaults + Izzy garment style deltas.
+ * Acceptance: block defaults + Cleo garment style deltas.
  * Run: npx tsx scripts/diag-blocks-garments-delta.ts
  */
 import { applyEase, type Point } from "../lib/types/measurements";
@@ -11,10 +11,10 @@ import {
   type TrouserFrontStyle,
   WAIST_DROP_MAX,
 } from "../lib/patterns/trouserBlock";
-import { IZZY_PRESET } from "../lib/pattern/blockPresets";
+import { CLEO_PRESET } from "../lib/pattern/blockPresets";
 import {
   BLOCK_TROUSER_STYLE,
-  izzyTrouserStyle,
+  cleoTrouserStyle,
   type TrouserStyleSettings,
 } from "../lib/pattern/garmentStyles";
 
@@ -104,10 +104,10 @@ for (const drop of [0, WAIST_DROP_MAX]) {
   console.log(`waistDrop=${drop}: maxΔ=${d.toFixed(6)} mm`);
 }
 
-console.log("\n=== Izzy garment style vs IZZY_PRESET measured fields ===");
-const fromFn = izzyTrouserStyle();
-const m = IZZY_PRESET.measured;
-const pr = IZZY_PRESET.provisional;
+console.log("\n=== Cleo garment style vs CLEO_PRESET measured fields ===");
+const fromFn = cleoTrouserStyle();
+const m = CLEO_PRESET.measured;
+const pr = CLEO_PRESET.provisional;
 const fromPreset: TrouserStyleSettings = {
   legBottomWidth: 220,
   frontInseamKneeInset: m.frontInseamKneeInset,
@@ -130,11 +130,11 @@ const fromPreset: TrouserStyleSettings = {
   frontCrotchFullness: m.frontCrotchFullness,
   backCrotchFullness: m.backCrotchFullness,
 };
-const dIzzy = maxDelta(
+const dCleo = maxDelta(
   pts(toDraftStyle(fromFn, fromFn.waistDrop)),
   pts(toDraftStyle(fromPreset, fromPreset.waistDrop)),
 );
-console.log(`Izzy: maxΔ=${dIzzy.toFixed(6)} mm`);
+console.log(`Cleo: maxΔ=${dCleo.toFixed(6)} mm`);
 
 console.log("\nBlock band defaults:");
 console.log({
@@ -142,7 +142,7 @@ console.log({
   finish: BLOCK_TROUSER_STYLE.dartedWaistFinish,
   depth: BLOCK_TROUSER_STYLE.waistbandDepth,
 });
-console.log("Izzy band defaults:");
+console.log("Cleo band defaults:");
 console.log({
   mode: fromFn.waistbandMode,
   depth: fromFn.waistbandDepth,

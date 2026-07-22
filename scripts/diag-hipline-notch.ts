@@ -18,7 +18,7 @@ import {
   withWaistband,
   type TrouserFrontStyle,
 } from "../lib/patterns/trouserBlock";
-import { IZZY_PRESET } from "../lib/pattern/blockPresets";
+import { CLEO_PRESET } from "../lib/pattern/blockPresets";
 import { writeFileSync } from "fs";
 
 const chart = bodyForSizeCode("12")!;
@@ -33,8 +33,8 @@ function aldrich(style: Partial<TrouserFrontStyle> = {}): TrouserFrontStyle {
   );
 }
 
-function izzyBandOff(): TrouserFrontStyle {
-  const m = IZZY_PRESET.measured;
+function cleoBandOff(): TrouserFrontStyle {
+  const m = CLEO_PRESET.measured;
   return withWaistband(
     {
       bottomWidth: 220,
@@ -48,7 +48,7 @@ function izzyBandOff(): TrouserFrontStyle {
       backCrotchFullness: m.backCrotchFullness,
       frontCrotchExtensionScale: m.frontCrotchExtensionScale,
       backCrotchExtensionScale: m.backCrotchExtensionScale,
-      waistlineCurveFront: IZZY_PRESET.provisional.waistlineCurveFront,
+      waistlineCurveFront: CLEO_PRESET.provisional.waistlineCurveFront,
     },
     0,
     "darted",
@@ -151,7 +151,7 @@ for (let i = 0; i <= 10; i++) {
 console.log("\n=== Back CB hipline notch (excludes side p25) ===");
 for (const [label, style] of [
   ["Aldrich defaults", aldrich()] as const,
-  ["Izzy (band off)", izzyBandOff()] as const,
+  ["Cleo (band off)", cleoBandOff()] as const,
 ]) {
   const back = draftTrouserBack(body, style);
   const b = trouserBackPoints(body, style);

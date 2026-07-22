@@ -13,19 +13,19 @@ import {
 } from "../lib/patterns/trouserBlock";
 import {
   BLOCK_TROUSER_STYLE,
-  IZZY_TROUSER_STYLE,
+  CLEO_TROUSER_STYLE,
   type TrouserStyleSettings,
 } from "../lib/pattern/garmentStyles";
-import { IZZY_PRESET } from "../lib/pattern/blockPresets";
+import { CLEO_PRESET } from "../lib/pattern/blockPresets";
 
 const INSEAM_SHARE = 0.85;
 const SIDE_SHARE = 0.15;
 
 const chart = bodyForSizeCode("12")!;
 const blockBody = applyEase({ ...chart, hip: 1100 }, { waist: 10, hip: 50 });
-const izzyBody = applyEase(
+const cleoBody = applyEase(
   { ...chart, hip: 1100 },
-  IZZY_PRESET.measured.ease,
+  CLEO_PRESET.measured.ease,
 );
 
 function xOn(a: Point, b: Point, y: number): number {
@@ -210,20 +210,20 @@ console.log(
   ]);
 }
 
-// --- Target B: Izzy measured widths ---
+// --- Target B: Cleo measured widths ---
 {
-  const style = toDraft(IZZY_TROUSER_STYLE, izzyBody);
-  const f = trouserFrontPoints(izzyBody, style);
-  const b = trouserBackPoints(izzyBody, style);
+  const style = toDraft(CLEO_TROUSER_STYLE, cleoBody);
+  const f = trouserFrontPoints(cleoBody, style);
+  const b = trouserBackPoints(cleoBody, style);
   printTable(
-    "TARGET B — Izzy (frontKnee/Hem 330/350, back 365/375; drafted via four-width)",
+    "TARGET B — Cleo (frontKnee/Hem 330/350, back 365/375; drafted via four-width)",
     [
       analysePiece("front", f.p9, f.p8, f.p15, f.p13, f.p14, f.p12),
       analysePiece("back", b.p24, b.p25, b.p29, b.p27, b.p28, b.p26),
     ],
   );
   console.log(
-    "\nNote: Izzy knee is placed about the crotch→hem chord mid with the measured half-piece",
+    "\nNote: Cleo knee is placed about the crotch→hem chord mid with the measured half-piece",
   );
   console.log(
     "width (current four-width construction). Offsets above are that placement vs the chords.",
@@ -234,10 +234,10 @@ console.log("\n" + "=".repeat(88));
 console.log("DECISION FRAME (do not implement — report only)");
 console.log("=".repeat(88));
 console.log(`
-If a single S per piece with 85/15 reproduces both Aldrich and Izzy within ~1–2 mm
+If a single S per piece with 85/15 reproduces both Aldrich and Cleo within ~1–2 mm
   → model works; wire next.
 
-If Aldrich needs ~50/50 (symmetric about 0 / equal edge offsets) and Izzy needs ~85/15
+If Aldrich needs ~50/50 (symmetric about 0 / equal edge offsets) and Cleo needs ~85/15
   → fixed 85/15 is wrong for both; either sign-dependent split, or accept Aldrich residual.
 
 See tables above for which case we are in.

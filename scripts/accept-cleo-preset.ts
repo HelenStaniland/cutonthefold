@@ -1,12 +1,12 @@
 /**
- * Acceptance: Izzy block preset values draft + render.
- * Run: npx tsx scripts/accept-izzy-preset.ts
+ * Acceptance: Cleo block preset values draft + render.
+ * Run: npx tsx scripts/accept-cleo-preset.ts
  */
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { applyEase, type Point } from "../lib/types/measurements";
 import { bodyForSizeCode } from "../lib/data/standardSizes";
-import { IZZY_PRESET } from "../lib/pattern/blockPresets";
+import { CLEO_PRESET } from "../lib/pattern/blockPresets";
 import {
   draftTrouserFront,
   draftTrouserBack,
@@ -15,8 +15,8 @@ import {
 } from "../lib/patterns/trouserBlock";
 
 const chart = bodyForSizeCode("12")!;
-const m = IZZY_PRESET.measured;
-const pr = IZZY_PRESET.provisional;
+const m = CLEO_PRESET.measured;
+const pr = CLEO_PRESET.provisional;
 const body = applyEase(
   { ...chart, hip: 1100 },
   m.ease,
@@ -45,8 +45,8 @@ const style: TrouserFrontStyle = withWaistband(
   body,
 );
 
-console.log("Izzy measured:", JSON.stringify(m, null, 2));
-console.log("Izzy provisional:", JSON.stringify(pr, null, 2));
+console.log("Cleo measured:", JSON.stringify(m, null, 2));
+console.log("Cleo provisional:", JSON.stringify(pr, null, 2));
 console.log("draft style waistReduction", style.waistReduction);
 
 const front = draftTrouserFront(body, style);
@@ -72,7 +72,7 @@ console.log(
   "back",
   baseBack.outline.length,
 );
-console.log("Izzy front outline pts", front.outline.length, "back", back.outline.length);
+console.log("Cleo front outline pts", front.outline.length, "back", back.outline.length);
 
 function toPts(outline: { at: Point }[]): Point[] {
   return outline.map((o) => o.at);
@@ -101,10 +101,10 @@ const svg = `<?xml version="1.0"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX - pad} ${minY - pad} ${maxX - minX + 2 * pad} ${maxY - minY + 2 * pad}">
   <path d="${pathD(fPts)}" fill="none" stroke="#1a5fb4" stroke-width="1.4"/>
   <path d="${pathD(bPts)}" fill="none" stroke="#c64600" stroke-width="1.4"/>
-  <text x="${minX}" y="${minY - 8}" font-size="14" fill="#333">Izzy preset (ext scale still 1.0) — blue front, orange back</text>
+  <text x="${minX}" y="${minY - 8}" font-size="14" fill="#333">Cleo preset (ext scale still 1.0) — blue front, orange back</text>
 </svg>`;
-writeFileSync(join("scripts", "izzy-preset.svg"), svg);
-console.log("wrote scripts/izzy-preset.svg");
+writeFileSync(join("scripts", "cleo-preset.svg"), svg);
+console.log("wrote scripts/cleo-preset.svg");
 
 // Confirm measured values land on style
 console.log("check crotchStraightRun", style.crotchStraightRun, "want", m.crotchStraightRun);

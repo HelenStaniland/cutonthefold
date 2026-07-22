@@ -183,7 +183,7 @@ function writeFrontSvg(
 
 const runs: { run: number; label: string; file: string }[] = [
   { run: 0, label: "straightRun=0 (curve from waist)", file: "crotch-straight-run-0.svg" },
-  { run: 40, label: "straightRun=40 (Izzy-ish)", file: "crotch-straight-run-40.svg" },
+  { run: 40, label: "straightRun=40 (cleo-ish)", file: "crotch-straight-run-40.svg" },
   {
     run: hiplineFromTop,
     label: `straightRun=${hiplineFromTop} (Aldrich hipline)`,

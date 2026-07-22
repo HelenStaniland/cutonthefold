@@ -2,7 +2,7 @@
  * DIAGNOSTIC — net inseam tip→knee at Helen's body (print only).
  * Run: npx tsx scripts/diag-inseam-atbody.ts
  *
- * Compares Izzy preset at Helen's verticals vs default size-12 body.
+ * Compares Cleo preset at Helen's verticals vs default size-12 body.
  * Does not change geometry.
  */
 import {
@@ -21,7 +21,7 @@ import {
   type TrouserFrontStyle,
 } from "../lib/patterns/trouserBlock";
 import {
-  IZZY_TROUSER_STYLE,
+  CLEO_TROUSER_STYLE,
   type TrouserStyleSettings,
 } from "../lib/pattern/garmentStyles";
 
@@ -149,7 +149,7 @@ type CaseReport = {
 };
 
 function runCase(label: string, baseBody: BodyMeasurements): CaseReport {
-  const settings = IZZY_TROUSER_STYLE;
+  const settings = CLEO_TROUSER_STYLE;
   const body = applyEase(baseBody, settings.ease);
   const style = resolveStyle(settings, body);
   const frontPts = trouserFrontPoints(body, style);
@@ -181,7 +181,7 @@ function runCase(label: string, baseBody: BodyMeasurements): CaseReport {
 function printCase(r: CaseReport) {
   const delta = r.tipToKneeB - r.tipToKneeF;
   console.log(`\n========== ${r.label} ==========`);
-  console.log("\n  Body (after Izzy ease on waist/hip only)");
+  console.log("\n  Body (after Cleo ease on waist/hip only)");
   console.log(
     `    waistToFloor=${r.body.waistToFloor}  hipDepth=${r.body.hipDepth}  bodyRise=${r.body.bodyRise}`,
   );
@@ -228,7 +228,7 @@ console.log("  waist-to-floor 102 cm → waistToFloor = 1020");
 console.log("  hip depth 21.5 cm     → hipDepth     = 215");
 console.log("  body rise 30.1 cm     → bodyRise     = 301");
 console.log(
-  "  Circumferences (waist/lowWaist/hip): still size-12 defaults + Izzy ease.",
+  "  Circumferences (waist/lowWaist/hip): still size-12 defaults + Cleo ease.",
 );
 console.log(
   "  applyEase only adds ease to waist/lowWaist/hip — verticals pass through unchanged.",
@@ -248,11 +248,11 @@ console.log(
   `  overridden: waistToFloor ${size12.waistToFloor}→${HELEN_VERTICALS.waistToFloor}, hipDepth ${size12.hipDepth}→${HELEN_VERTICALS.hipDepth}, bodyRise ${size12.bodyRise}→${HELEN_VERTICALS.bodyRise}`,
 );
 console.log(
-  `  Izzy insets: front=${IZZY_TROUSER_STYLE.frontInseamKneeInset}, back=${IZZY_TROUSER_STYLE.backInseamKneeInset}; ease waist=${IZZY_TROUSER_STYLE.ease.waist} hip=${IZZY_TROUSER_STYLE.ease.hip}`,
+  `  Cleo insets: front=${CLEO_TROUSER_STYLE.frontInseamKneeInset}, back=${CLEO_TROUSER_STYLE.backInseamKneeInset}; ease waist=${CLEO_TROUSER_STYLE.ease.waist} hip=${CLEO_TROUSER_STYLE.ease.hip}`,
 );
 
-const helen = runCase("Helen's body + Izzy preset", helenBase);
-const def = runCase(`Default size-${DEFAULT_SIZE_CODE} body + Izzy preset`, size12);
+const helen = runCase("Helen's body + Cleo preset", helenBase);
+const def = runCase(`Default size-${DEFAULT_SIZE_CODE} body + Cleo preset`, size12);
 
 const deltaHelen = printCase(helen);
 

@@ -235,6 +235,6 @@ writeSvg(
 );
 writeSvg(
   { ...defaults, frontWaistInset: 0, crotchStraightRun: 0 },
-  "inset=0, departure=waist (Izzy)",
+  "inset=0, departure=waist (Cleo)",
   "cf-departure-inset0-waist.svg",
 );

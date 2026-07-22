@@ -23,7 +23,7 @@ import {
 } from "../lib/patterns/trouserBlock";
 import {
   BLOCK_TROUSER_STYLE,
-  IZZY_TROUSER_STYLE,
+  CLEO_TROUSER_STYLE,
   type TrouserStyleSettings,
 } from "../lib/pattern/garmentStyles";
 import { draftGatheredSkirt } from "../lib/patterns/gatheredSkirt";
@@ -328,9 +328,9 @@ console.log(
   check(same, "skirt cutting outlines byte-identical (post-pass is a no-op)");
 }
 
-for (const label of ["Aldrich block", "Izzy preset"] as const) {
+for (const label of ["Aldrich block", "Cleo preset"] as const) {
   const settings =
-    label === "Aldrich block" ? BLOCK_TROUSER_STYLE : IZZY_TROUSER_STYLE;
+    label === "Aldrich block" ? BLOCK_TROUSER_STYLE : CLEO_TROUSER_STYLE;
   console.log(`\n--- ${label} ---`);
   const { net, withSA, withTB } = draftCase(settings);
 
@@ -369,9 +369,9 @@ for (const label of ["Aldrich block", "Izzy preset"] as const) {
 }
 
 {
-  console.log("\n--- Taper case (Izzy insets +20) ---");
+  console.log("\n--- Taper case (Cleo insets +20) ---");
   const taperSettings: TrouserStyleSettings = {
-    ...IZZY_TROUSER_STYLE,
+    ...CLEO_TROUSER_STYLE,
     frontInseamKneeInset: 20,
     backInseamKneeInset: 20,
   };
@@ -404,7 +404,7 @@ for (const label of ["Aldrich block", "Izzy preset"] as const) {
 
 {
   console.log("\n--- Highlight map (hem span includes turn-back verts) ---");
-  const { withTB } = draftCase(IZZY_TROUSER_STYLE);
+  const { withTB } = draftCase(CLEO_TROUSER_STYLE);
   const front = withTB.pieces.find((p) => p.name === "Trouser front")!;
   const collapsed = collapse(front.outline);
   const { sideIdx, inseamIdx } = findHemCorners(collapsed);

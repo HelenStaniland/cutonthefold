@@ -360,7 +360,7 @@ export function frontDartFromCentreFront(
 
 /**
  * Side-seam share of a garment inseam knee inset.
- * Measured Izzy: front ratio ~0.11, back ~0.18 — single k = 0.18 fits both
+ * Measured Cleo: front ratio ~0.11, back ~0.18 — single k = 0.18 fits both
  * within ~2 mm. Baked constant, not a style parameter.
  */
 const KNEE_INSET_SIDE_SHARE = 0.18;
@@ -402,12 +402,12 @@ export type TrouserFrontStyle = {
   waistbandMode?: WaistbandMode;
   /**
    * Scale on Aldrich's front crotch extension (H/16+10). 1.0 = Aldrich;
-   * ~0.51 ≈ Izzy (measured). Clamped [0.4, 1.0]. Independent of the back scale.
+   * ~0.51 ≈ Cleo (measured). Clamped [0.4, 1.0]. Independent of the back scale.
    */
   frontCrotchExtensionScale?: number;
   /**
    * Scale on Aldrich's back crotch span |p16 → p23|.
-   * 1.0 = Aldrich; Izzy ≈ 0.88 (approximate — see preset). Clamped [0.4, 1.0].
+   * 1.0 = Aldrich; Cleo ≈ 0.88 (approximate — see preset). Clamped [0.4, 1.0].
    * Independent of the front scale; p23 is anchored to p16, not p9.
    */
   backCrotchExtensionScale?: number;
@@ -420,7 +420,7 @@ export type TrouserFrontStyle = {
   crotchStraightRun?: Millimetres;
   /**
    * Arrival angle at p9, degrees below horizontal (curve travelling down-and-out).
-   * Default ≈ 14° (previous effective arrival). Izzy ≈ 32°.
+   * Default ≈ 14° (previous effective arrival). Cleo ≈ 32°.
    */
   crotchArrivalAngle?: number;
   /**
@@ -430,19 +430,20 @@ export type TrouserFrontStyle = {
   waistlineCurveFront?: Millimetres;
   /**
    * Aldrich 7–10: how far p10 sits inboard of the fork-line CF (mm).
-   * Default 10 (Aldrich). 0 = vertical CF (Izzy-style). Clamped [0, 20].
+   * Default 10 (Aldrich). 0 = vertical CF (Cleo-style). Clamped [0, 20].
    */
   frontWaistInset?: Millimetres;
   /**
    * How far below the crotch line (y = R) the back crotch curve ends (mm).
    * Terminus T = (p23.x, R + backCrotchDrop); the inseam starts at the same point.
-   * Default 5 (Aldrich 23–24) — curve hooks down into T. 0 = Izzy: flat run on the
+   * Default 5 (Aldrich 23–24) — curve hooks down into T. 0 = Cleo: flat run on the
    * crotch line to p23, no hook. Clamped [0, 10].
    */
   backCrotchDrop?: Millimetres;
   /**
    * Front crotch curve fullness — Bézier shape factor k1 (d1 = k1 · drop).
-   * Default 0.6175 (Aldrich). Izzy fitted ≈ 0.84. Clamped [0.2, 1.0];
+   * Default 0.6175 (Aldrich). Cleo uses 0.50 as a fitting preference (not an A0 fit).
+   * Clamped [0.2, 1.0];
    * upper bound is the loop-proof guarantee.
    */
   frontCrotchFullness?: number;
@@ -601,7 +602,7 @@ export function backCrotchTouch(hip: Millimetres): Millimetres {
 /**
  * Aldrich p.46: 5–9 = one sixteenth hip plus 1 cm. Expressed as a fraction of the
  * drafted hip so it grades correctly across bodies. Scale 1.0 is Aldrich; front and
- * back scales are independent (Izzy: front ≈ 0.51, back ≈ 0.875).
+ * back scales are independent (Cleo: front ≈ 0.51, back ≈ 0.875).
  */
 const ALDRICH_FRONT_EXTENSION = (H: Millimetres): Millimetres => H / 16 + 10;
 
@@ -695,7 +696,7 @@ export function resolveFrontWaistInset(
   return Math.max(FRONT_WAIST_INSET_MIN, Math.min(FRONT_WAIST_INSET_MAX, raw));
 }
 
-/** Aldrich 23–24 default (mm below crotch line). 0 = Izzy (no hook). */
+/** Aldrich 23–24 default (mm below crotch line). 0 = Cleo (no hook). */
 export const DEFAULT_BACK_CROTCH_DROP = 5;
 export const BACK_CROTCH_DROP_MIN = 0;
 export const BACK_CROTCH_DROP_MAX = 10;
@@ -1350,7 +1351,7 @@ function cbInteriorAngle(
 
 /**
  * Horizontal crotch-line run as a fraction of the back's horizontal crotch
- * extent (|p19.x − p23.x|). Izzy measured ≈ 22% (43 mm of ~195).
+ * extent (|p19.x − p23.x|). Cleo measured ≈ 22% (43 mm of ~195).
  */
 export const BACK_CROTCH_HORIZ_RUN_FRAC = 0.22;
 
@@ -1384,7 +1385,7 @@ function draftBackCrotchCacheKey(b: BackPoints, k1: number): string {
 /**
  * Back crotch: tangent-continuous path tip→waist, ending at terminus T.
  *
- * T = (p23.x, R + backCrotchDrop). Drop 5 → Aldrich p24 (hook); drop 0 → p23 (Izzy).
+ * T = (p23.x, R + backCrotchDrop). Drop 5 → Aldrich p24 (hook); drop 0 → p23 (Cleo).
  * The inseam starts at the same T — one continuous seam, no p23→p24 step.
  *
  * drop = 0: cubic p19→K (leave along CB, arrive horizontal), then flat run K→T

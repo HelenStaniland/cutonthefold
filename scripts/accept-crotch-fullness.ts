@@ -179,20 +179,20 @@ for (const ff of fullnesses) {
 console.log("\n=== Mono sweep (fullness × arrival × scale) ===");
 console.log({ combos, frontFail, backFail });
 
-// --- Overlay render: Aldrich vs Izzy fullness, same Izzy corner ---
-const izzyCorner = mk({
+// --- Overlay render: Aldrich vs Cleo fullness, same Cleo corner ---
+const cleoCorner = mk({
   crotchStraightRun: 0,
   crotchArrivalAngle: 32,
   crotchExtensionScale: 0.5,
   frontWaistInset: 0,
   frontCrotchFullness: DEFAULT_FRONT_CROTCH_FULLNESS,
 });
-const izzyFull = mk({
-  ...izzyCorner,
+const cleoFull = mk({
+  ...cleoCorner,
   frontCrotchFullness: 0.84,
 });
-const aldrichPts = frontCurve(izzyCorner).points;
-const izzyPts = frontCurve(izzyFull).points;
+const aldrichPts = frontCurve(cleoCorner).points;
+const cleoPts = frontCurve(cleoFull).points;
 
 function svgOverlay(a: Point[], b: Point[], name: string) {
   const all = [...a, ...b];
@@ -221,17 +221,17 @@ function svgOverlay(a: Point[], b: Point[], name: string) {
   ${poly(a, "#1a5f7a", 1.5)}
   ${poly(b, "#c45c26", 1.5)}
   <text x="12" y="18" font-family="sans-serif" font-size="11" fill="#1a5f7a">Aldrich fullness 0.6175</text>
-  <text x="12" y="34" font-family="sans-serif" font-size="11" fill="#c45c26">Izzy fullness 0.84</text>
+  <text x="12" y="34" font-family="sans-serif" font-size="11" fill="#c45c26">Cleo fullness 0.84</text>
 </svg>`;
   writeFileSync(join(outDir, name), svg);
 }
 
-svgOverlay(aldrichPts, izzyPts, "front-fullness-overlay.svg");
-console.log("\n=== Izzy corner (run=0, arr=32°, scale=0.5, inset=0) ===");
+svgOverlay(aldrichPts, cleoPts, "front-fullness-overlay.svg");
+console.log("\n=== Cleo corner (run=0, arr=32°, scale=0.5, inset=0) ===");
 console.log({
-  aldrichK1: frontCurve(izzyCorner).k1,
-  izzyK1: frontCurve(izzyFull).k1,
-  hausdorffMm: +hausdorff(aldrichPts, izzyPts).toFixed(3),
+  aldrichK1: frontCurve(cleoCorner).k1,
+  cleoK1: frontCurve(cleoFull).k1,
+  hausdorffMm: +hausdorff(aldrichPts, cleoPts).toFixed(3),
   svg: join(outDir, "front-fullness-overlay.svg"),
 });
 

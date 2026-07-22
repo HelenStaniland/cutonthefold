@@ -1,5 +1,5 @@
 /**
- * Diagnostic — knee/hem leg widths vs Izzy reference.
+ * Diagnostic — knee/hem leg widths vs Cleo reference.
  * Run: npx tsx scripts/diag-leg-widths.ts
  * Report only — change no product code.
  */
@@ -13,7 +13,7 @@ import {
 } from "../lib/patterns/trouserBlock";
 import {
   BLOCK_TROUSER_STYLE,
-  IZZY_TROUSER_STYLE,
+  CLEO_TROUSER_STYLE,
   type TrouserStyleSettings,
 } from "../lib/pattern/garmentStyles";
 
@@ -161,11 +161,11 @@ console.log(
   body.hip,
 );
 console.log(
-  "Izzy reference (net cm→mm): F knee 330 / hem 350; B knee 365 / hem 375",
+  "Cleo reference (net cm→mm): F knee 330 / hem 350; B knee 365 / hem 375",
 );
 
 report(
   "A — Trouser Block defaults (Aldrich, darted, no band, waistDrop 0)",
   BLOCK_TROUSER_STYLE,
 );
-report("B — Izzy preset", IZZY_TROUSER_STYLE);
+report("B — Cleo preset", CLEO_TROUSER_STYLE);

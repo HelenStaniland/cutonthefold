@@ -1,5 +1,5 @@
 /**
- * Acceptance: Aldrich keeps its curved back hem; Izzy selects a straight hem.
+ * Acceptance: Aldrich keeps its curved back hem; Cleo selects a straight hem.
  * Run: npx tsx scripts/accept-back-hem-shape.ts
  */
 import { bodyForSizeCode, DEFAULT_SIZE_CODE } from "../lib/data/standardSizes";
@@ -14,7 +14,7 @@ import {
 } from "../lib/patterns/trouserBlock";
 import {
   BLOCK_TROUSER_STYLE,
-  IZZY_TROUSER_STYLE,
+  CLEO_TROUSER_STYLE,
   type TrouserStyleSettings,
 } from "../lib/pattern/garmentStyles";
 
@@ -104,12 +104,12 @@ const curvedHem = hemPoints(explicitCurved.outline);
 const curvedEndpointY = curvedHem[0]!.y;
 const curvedBow = Math.max(...curvedHem.map((p) => p.y - curvedEndpointY));
 
-const izzyBody = applyEase(base, IZZY_TROUSER_STYLE.ease);
-const izzyStyle = resolveStyle(IZZY_TROUSER_STYLE, izzyBody);
-const izzyBack = draftTrousers(izzyBody, izzyStyle).pieces.find(
+const cleoBody = applyEase(base, CLEO_TROUSER_STYLE.ease);
+const cleoStyle = resolveStyle(CLEO_TROUSER_STYLE, cleoBody);
+const cleoBack = draftTrousers(cleoBody, cleoStyle).pieces.find(
   (piece) => piece.name === "Trouser back",
 )!;
-const straightHem = hemPoints(izzyBack.outline);
+const straightHem = hemPoints(cleoBack.outline);
 const straightYRange =
   Math.max(...straightHem.map((p) => p.y)) -
   Math.min(...straightHem.map((p) => p.y));
@@ -117,7 +117,7 @@ const straightYRange =
 const curvedConstruction = trouserConstruction(blockBody, blockStyle).find(
   (piece) => piece.pieceName === "Trouser back",
 )!;
-const straightConstruction = trouserConstruction(izzyBody, izzyStyle).find(
+const straightConstruction = trouserConstruction(cleoBody, cleoStyle).find(
   (piece) => piece.pieceName === "Trouser back",
 )!;
 const curvedHasControl = curvedConstruction.points.some(
@@ -132,16 +132,16 @@ console.log(
   `Aldrich implicit vs explicit curved max delta: ${maxPointDelta(implicitHem, curvedHem).toFixed(6)} mm`,
 );
 console.log(`Aldrich curved mid-bow: ${curvedBow.toFixed(3)} mm`);
-console.log(`Izzy preset shape: ${IZZY_TROUSER_STYLE.backHemShape}`);
-console.log(`Izzy straight hem y-range: ${straightYRange.toFixed(6)} mm`);
+console.log(`Cleo preset shape: ${CLEO_TROUSER_STYLE.backHemShape}`);
+console.log(`Cleo straight hem y-range: ${straightYRange.toFixed(6)} mm`);
 console.log(
-  `Construction hemCtrl: Aldrich ${curvedHasControl ? "present" : "absent"}, Izzy ${straightHasControl ? "present" : "absent"}`,
+  `Construction hemCtrl: Aldrich ${curvedHasControl ? "present" : "absent"}, Cleo ${straightHasControl ? "present" : "absent"}`,
 );
 
 if (
   maxPointDelta(implicitHem, curvedHem) !== 0 ||
   Math.abs(curvedBow - 10) > 1e-6 ||
-  IZZY_TROUSER_STYLE.backHemShape !== "straight" ||
+  CLEO_TROUSER_STYLE.backHemShape !== "straight" ||
   straightYRange !== 0 ||
   !curvedHasControl ||
   straightHasControl

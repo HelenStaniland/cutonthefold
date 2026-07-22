@@ -7,7 +7,7 @@ import { WAISTLINE_CURVE_FRONT } from "@/lib/patterns/trouserBlock";
 
 /**
  * Named garment modification sets applied on top of the trouser block.
- * Izzy is a *garment*, not a peer "setting" of the block.
+ * Cleo is a *garment*, not a peer "setting" of the block.
  */
 
 export type GarmentMeasured = {
@@ -42,7 +42,7 @@ export type GarmentMeasured = {
 };
 
 export type GarmentProvisional = {
-  /** Izzy yoke-seam curvature unmeasured. */
+  /** Cleo yoke-seam curvature unmeasured. */
   waistlineCurveFront: number;
 };
 
@@ -54,7 +54,7 @@ export type GarmentPreset = {
 };
 
 /*
- * Izzy — measured vs provisional
+ * Cleo — measured vs provisional
  * -----------------------------
  * MEASURED:
  *   …crotch / waist params as before…
@@ -64,15 +64,15 @@ export type GarmentPreset = {
  *
  * SUPERSEDED: four independent knee/hem widths; provisional bottomWidth 330.
  */
-export const IZZY_PRESET: GarmentPreset = {
-  name: "izzy",
-  label: "Izzy Pants",
+export const CLEO_PRESET: GarmentPreset = {
+  name: "cleo",
+  label: "Cleo Pants",
   measured: {
     crotchStraightRun: 0,
     frontWaistInset: 0,
     crotchArrivalAngle: 32,
     backCrotchDrop: 0,
-    frontCrotchFullness: 0.84,
+    frontCrotchFullness: 0.50,
     backCrotchFullness: 0.30,
     frontCrotchExtensionScale: 0.55,
     backCrotchExtensionScale: 0.88,
@@ -90,8 +90,8 @@ export const IZZY_PRESET: GarmentPreset = {
   },
 };
 
-/** @deprecated Prefer IZZY_PRESET directly — kept for diagnostic scripts. */
-export const BLOCK_PRESETS: GarmentPreset[] = [IZZY_PRESET];
+/** @deprecated Prefer CLEO_PRESET directly — kept for diagnostic scripts. */
+export const BLOCK_PRESETS: GarmentPreset[] = [CLEO_PRESET];
 
 export function blockPresetByName(name: string): GarmentPreset | undefined {
   return BLOCK_PRESETS.find((p) => p.name === name);

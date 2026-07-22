@@ -2,7 +2,7 @@
  * DIAGNOSTIC — is the cutting path a true parallel offset near the crotch tip?
  * Run: npx tsx scripts/diag-offset-uniformity.ts
  *
- * Trigger: diag-crotch-tip-corner §3 STOP — Izzy back cut−net tip→knee short
+ * Trigger: diag-crotch-tip-corner §3 STOP — Cleo back cut−net tip→knee short
  * of a·cot(θ/2) by ~2.18 mm.
  *
  * Print only. No geometry changes.
@@ -27,7 +27,7 @@ import {
   type TrouserFrontStyle,
 } from "../lib/patterns/trouserBlock";
 import {
-  IZZY_TROUSER_STYLE,
+  CLEO_TROUSER_STYLE,
   type TrouserStyleSettings,
 } from "../lib/pattern/garmentStyles";
 
@@ -271,10 +271,10 @@ function reportEdgeUniformity(
   return st;
 }
 
-function draftIzzy() {
+function draftCleo() {
   const base = bodyForSizeCode(DEFAULT_SIZE_CODE)!;
-  const body = applyEase(base, IZZY_TROUSER_STYLE.ease);
-  const style = resolveStyle(IZZY_TROUSER_STYLE, body);
+  const body = applyEase(base, CLEO_TROUSER_STYLE.ease);
+  const style = resolveStyle(CLEO_TROUSER_STYLE, body);
   const net = draftTrousers(body, style);
   const withSA = withSeamAllowance(net, DEFAULT_SEAM_ALLOWANCE);
   const frontPts = trouserFrontPoints(body, style);
@@ -283,9 +283,9 @@ function draftIzzy() {
 }
 
 console.log("=== DIAG: cutting-path offset uniformity near crotch tip ===");
-console.log(`Izzy preset; a=${a} mm; reach=${REACH} mm; deviation threshold=${DEV} mm`);
+console.log(`Cleo preset; a=${a} mm; reach=${REACH} mm; deviation threshold=${DEV} mm`);
 
-const { net, withSA, frontPts, backPts } = draftIzzy();
+const { net, withSA, frontPts, backPts } = draftCleo();
 
 for (const side of ["front", "back"] as const) {
   const tip = side === "front" ? frontPts.p9 : backPts.p24;
@@ -354,7 +354,7 @@ for (const side of ["front", "back"] as const) {
 
     // —— 3. Horizontal flat run ——
     console.log("\n--- 3. Back crotch horizontal flat run ---");
-    // Tip is T=p24; flat run toward K along y=R (287 for Izzy). Walk crotch (+1).
+    // Tip is T=p24; flat run toward K along y=R (287 for Cleo). Walk crotch (+1).
     const flatPts: { i: number; at: Point; cut: Point; perp: number }[] = [];
     let i = tipIdx;
     let prev = collapsed[tipIdx]!.at;

@@ -8,7 +8,7 @@ import type {
   WaistbandMode,
 } from "@/lib/patterns/trouserBlock";
 import { DEFAULT_FIT, easeForFit } from "@/lib/pattern/fitPresets";
-import { IZZY_PRESET } from "@/lib/pattern/blockPresets";
+import { CLEO_PRESET } from "@/lib/pattern/blockPresets";
 
 export type DartedWaistFinish = "facing" | "waistband";
 
@@ -68,10 +68,10 @@ export const BLOCK_TROUSER_STYLE: TrouserStyleSettings = {
   ...clearedGeometry,
 };
 
-/** Izzy Pants — block + named garment modifications. */
-export const IZZY_TROUSER_STYLE: TrouserStyleSettings = (() => {
-  const m = IZZY_PRESET.measured;
-  const pr = IZZY_PRESET.provisional;
+/** Cleo Pants — block + named garment modifications. */
+export const CLEO_TROUSER_STYLE: TrouserStyleSettings = (() => {
+  const m = CLEO_PRESET.measured;
+  const pr = CLEO_PRESET.provisional;
   return {
     legBottomWidth: m.bottomWidth,
     frontInseamKneeInset: m.frontInseamKneeInset,
@@ -96,6 +96,6 @@ export const IZZY_TROUSER_STYLE: TrouserStyleSettings = (() => {
   };
 })();
 
-export function izzyTrouserStyle(): TrouserStyleSettings {
-  return { ...IZZY_TROUSER_STYLE, ease: { ...IZZY_TROUSER_STYLE.ease } };
+export function cleoTrouserStyle(): TrouserStyleSettings {
+  return { ...CLEO_TROUSER_STYLE, ease: { ...CLEO_TROUSER_STYLE.ease } };
 }

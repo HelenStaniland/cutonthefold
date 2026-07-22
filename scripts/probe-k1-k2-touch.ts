@@ -90,7 +90,7 @@ for (let i = 0; i <= 80; i++) {
 }
 console.log("old linked (k1=k, k2=k*ext/chord):", bestOld, "k2=", (bestOld.k * extension) / chord);
 
-// Izzy-like ratio
+// cleo-like ratio
 let bestIz = { k1: 0, k2: 0, m: Infinity };
 for (let i = 0; i <= 50; i++) {
   const k1 = 0.1 + (i / 50) * 0.9;
@@ -98,6 +98,6 @@ for (let i = 0; i <= 50; i++) {
   const m = miss(k1, k2);
   if (m < bestIz.m) bestIz = { k1, k2, m };
 }
-console.log("Izzy ratio k2/k1=0.34/0.84:", bestIz);
+console.log("Cleo ratio k2/k1=0.34/0.84:", bestIz);
 
 // Also check: is crotchGuide45 exported?

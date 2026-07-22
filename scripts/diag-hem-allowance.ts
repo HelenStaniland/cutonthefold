@@ -1,5 +1,5 @@
 /**
- * DIAGNOSTIC ONLY — current hem allowance geometry for Izzy trousers.
+ * DIAGNOSTIC ONLY — current hem allowance geometry for Cleo trousers.
  * Run: npx tsx scripts/diag-hem-allowance.ts
  *
  * Prints current numbers only. Does not change geometry.
@@ -17,7 +17,7 @@ import {
   type TrouserFrontStyle,
 } from "../lib/patterns/trouserBlock";
 import {
-  IZZY_TROUSER_STYLE,
+  CLEO_TROUSER_STYLE,
   type TrouserStyleSettings,
 } from "../lib/pattern/garmentStyles";
 
@@ -220,12 +220,12 @@ function reportPiece(name: string, outlineRaw: OutlinePoint[]) {
 }
 
 const baseBody = bodyForSizeCode(DEFAULT_SIZE_CODE)!;
-const body = applyEase(baseBody, IZZY_TROUSER_STYLE.ease);
-const style = resolveStyle(IZZY_TROUSER_STYLE, body);
+const body = applyEase(baseBody, CLEO_TROUSER_STYLE.ease);
+const style = resolveStyle(CLEO_TROUSER_STYLE, body);
 const pattern = draftTrousers(body, style);
 
-console.log("DIAGNOSTIC — Izzy hem allowance geometry");
-console.log(`body: default size ${DEFAULT_SIZE_CODE} + Izzy ease => waist ${body.waist} mm, hip ${body.hip} mm`);
+console.log("DIAGNOSTIC — Cleo hem allowance geometry");
+console.log(`body: default size ${DEFAULT_SIZE_CODE} + Cleo ease => waist ${body.waist} mm, hip ${body.hip} mm`);
 console.log(`back hem shape: ${style.backHemShape ?? "curved(default)"}`);
 console.log(`allowance policy: seam ${DEFAULT_SEAM_ALLOWANCE.seam} mm; hem ${DEFAULT_SEAM_ALLOWANCE.hem} mm`);
 console.log(

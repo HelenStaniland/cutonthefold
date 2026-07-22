@@ -15,16 +15,16 @@ import {
 } from "../lib/patterns/trouserBlock";
 import {
   BLOCK_TROUSER_STYLE,
-  IZZY_TROUSER_STYLE,
+  CLEO_TROUSER_STYLE,
   type TrouserStyleSettings,
 } from "../lib/pattern/garmentStyles";
-import { IZZY_PRESET } from "../lib/pattern/blockPresets";
+import { CLEO_PRESET } from "../lib/pattern/blockPresets";
 
 const chart = bodyForSizeCode("12")!;
 const blockBody = applyEase({ ...chart, hip: 1100 }, { waist: 10, hip: 50 });
-const izzyBody = applyEase(
+const cleoBody = applyEase(
   { ...chart, hip: 1100 },
-  IZZY_PRESET.measured.ease,
+  CLEO_PRESET.measured.ease,
 );
 
 const KNEE_ADD: Record<string, number> = {
@@ -211,16 +211,16 @@ function writeInseamSvg(
 }
 
 {
-  const style = toDraft(IZZY_TROUSER_STYLE, izzyBody);
-  const f = trouserFrontPoints(izzyBody, style);
-  const b = trouserBackPoints(izzyBody, style);
+  const style = toDraft(CLEO_TROUSER_STYLE, cleoBody);
+  const f = trouserFrontPoints(cleoBody, style);
+  const b = trouserBackPoints(cleoBody, style);
   const fKnee = Math.abs(f.p15.x - f.p13.x);
   const fHem = Math.abs(f.p14.x - f.p12.x);
   const bKnee = Math.abs(b.p29.x - b.p27.x);
   const bHem = Math.abs(b.p28.x - b.p26.x);
   const fTurn = turnAtKnee(pchipByY([f.p9, f.p15, f.p14]), f.p15);
   const bTurn = turnAtKnee(pchipByY([b.p24, b.p29, b.p28]), b.p29);
-  console.log("\n=== Izzy preset ===");
+  console.log("\n=== Cleo preset ===");
   console.log(
     `  F knee ${fKnee.toFixed(3)} (330)  hem ${fHem.toFixed(3)} (350)`,
   );
@@ -234,20 +234,20 @@ function writeInseamSvg(
     `  inseam knee turn: front ${fTurn.toFixed(3)}°  back ${bTurn.toFixed(3)}°`,
   );
   writeInseamSvg(
-    "scripts/inseam-restored-izzy-front.svg",
-    `Izzy front turn=${fTurn.toFixed(2)}° knee=${fKnee.toFixed(0)}`,
+    "scripts/inseam-restored-cleo-front.svg",
+    `Cleo front turn=${fTurn.toFixed(2)}° knee=${fKnee.toFixed(0)}`,
     f.p9,
     f.p15,
     f.p14,
   );
   writeInseamSvg(
-    "scripts/inseam-restored-izzy-back.svg",
-    `Izzy back turn=${bTurn.toFixed(2)}° knee=${bKnee.toFixed(0)}`,
+    "scripts/inseam-restored-cleo-back.svg",
+    `Cleo back turn=${bTurn.toFixed(2)}° knee=${bKnee.toFixed(0)}`,
     b.p24,
     b.p29,
     b.p28,
   );
   console.log(
-    "  wrote scripts/inseam-restored-{block,izzy}-{front,back}.svg",
+    "  wrote scripts/inseam-restored-{block,Cleo}-{front,back}.svg",
   );
 }

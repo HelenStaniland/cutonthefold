@@ -25,7 +25,7 @@ import {
 } from "../lib/patterns/trouserBlock";
 import {
   BLOCK_TROUSER_STYLE,
-  IZZY_TROUSER_STYLE,
+  CLEO_TROUSER_STYLE,
   type TrouserStyleSettings,
 } from "../lib/pattern/garmentStyles";
 import { draftWaistband } from "../lib/elements/waistband";
@@ -618,7 +618,7 @@ console.log(
   "classification for ambiguous cases is left open where the code does not state it.",
 );
 
-printInventory("Izzy preset", IZZY_TROUSER_STYLE);
+printInventory("Cleo preset", CLEO_TROUSER_STYLE);
 printInventory("Aldrich block defaults", BLOCK_TROUSER_STYLE);
 
 console.log("\n=== end diagnostic ===");

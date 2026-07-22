@@ -1,6 +1,6 @@
 /**
- * Diagnostic — fit 2-parameter Izzy leg model across all measured levels.
- * Run: npx tsx scripts/diag-izzy-2param-fit.ts
+ * Diagnostic — fit 2-parameter Cleo leg model across all measured levels.
+ * Run: npx tsx scripts/diag-cleo-2param-fit.ts
  * Report only. Does not change product code.
  *
  * Model: per edge, pchipByY through crotch → knee → hem, where
@@ -381,7 +381,7 @@ function printResids(title: string, resids: Resid[]) {
   }
 }
 
-console.log("Izzy 2-parameter leg fit — all measured levels");
+console.log("Cleo 2-parameter leg fit — all measured levels");
 console.log(
   "y assumed: crotch 0, between 150, knee 300, below 450, hem 760 mm (between/below are guesses — weight 0.35).",
 );

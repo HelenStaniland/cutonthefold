@@ -39,8 +39,8 @@ import { usePersistedState } from "@/app/usePersistedState";
 export type { DartedWaistFinish, TrouserStyleSettings };
 export {
   BLOCK_TROUSER_STYLE,
-  IZZY_TROUSER_STYLE,
-  izzyTrouserStyle,
+  CLEO_TROUSER_STYLE,
+  cleoTrouserStyle,
 } from "@/lib/pattern/garmentStyles";
 
 export const BLOCK_GEOMETRY_OVERRIDE_KEYS = [

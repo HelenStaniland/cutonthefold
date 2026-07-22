@@ -15,16 +15,16 @@ import {
 } from "../lib/patterns/trouserBlock";
 import {
   BLOCK_TROUSER_STYLE,
-  IZZY_TROUSER_STYLE,
+  CLEO_TROUSER_STYLE,
   type TrouserStyleSettings,
 } from "../lib/pattern/garmentStyles";
-import { IZZY_PRESET } from "../lib/pattern/blockPresets";
+import { CLEO_PRESET } from "../lib/pattern/blockPresets";
 
 const chart = bodyForSizeCode("12")!;
 const blockBody = applyEase({ ...chart, hip: 1100 }, { waist: 10, hip: 50 });
-const izzyBody = applyEase(
+const cleoBody = applyEase(
   { ...chart, hip: 1100 },
-  IZZY_PRESET.measured.ease,
+  CLEO_PRESET.measured.ease,
 );
 
 const KNEE_ADD: Record<string, number> = {
@@ -243,9 +243,9 @@ function writeSvg(
 }
 
 {
-  const style = toDraft(IZZY_TROUSER_STYLE, izzyBody);
-  const f = trouserFrontPoints(izzyBody, style);
-  const b = trouserBackPoints(izzyBody, style);
+  const style = toDraft(CLEO_TROUSER_STYLE, cleoBody);
+  const f = trouserFrontPoints(cleoBody, style);
+  const b = trouserBackPoints(cleoBody, style);
   const fKnee = Math.abs(f.p15.x - f.p13.x);
   const fHem = Math.abs(f.p14.x - f.p12.x);
   const bKnee = Math.abs(b.p29.x - b.p27.x);
@@ -268,7 +268,7 @@ function writeSvg(
   const bInTurn = turnAt(pchipByY([b.p24, b.p29, b.p28]), b.p29);
   const bSideTurn = turnAt(pchipByY([b.p25, b.p27, b.p26]), b.p27);
 
-  console.log("\n=== Izzy preset ===");
+  console.log("\n=== Cleo preset ===");
   console.log(
     `  bottomWidth=${style.bottomWidth}  insets F=${style.frontInseamKneeInset} B=${style.backInseamKneeInset}`,
   );
@@ -291,8 +291,8 @@ function writeSvg(
     `  turn angles — F inseam ${fInTurn.toFixed(3)}° side ${fSideTurn.toFixed(3)}°; B inseam ${bInTurn.toFixed(3)}° side ${bSideTurn.toFixed(3)}°`,
   );
   writeSvg(
-    "scripts/izzy-leg-front.svg",
-    `Izzy front knee=${fKnee.toFixed(0)}`,
+    "scripts/cleo-leg-front.svg",
+    `Cleo front knee=${fKnee.toFixed(0)}`,
     f.p9,
     f.p8,
     f.p15,
@@ -301,8 +301,8 @@ function writeSvg(
     f.p12,
   );
   writeSvg(
-    "scripts/izzy-leg-back.svg",
-    `Izzy back knee=${bKnee.toFixed(0)}`,
+    "scripts/cleo-leg-back.svg",
+    `Cleo back knee=${bKnee.toFixed(0)}`,
     b.p24,
     b.p25,
     b.p29,
@@ -310,5 +310,5 @@ function writeSvg(
     b.p28,
     b.p26,
   );
-  console.log("  wrote scripts/{aldrich,izzy}-leg-{front,back}.svg");
+  console.log("  wrote scripts/{aldrich,Cleo}-leg-{front,back}.svg");
 }

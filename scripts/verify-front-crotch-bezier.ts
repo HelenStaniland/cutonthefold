@@ -141,19 +141,19 @@ for (const ang of [8, 10, 12, 14, 16, 18, 20, 24, 28, 32]) {
   );
 }
 
-// Izzy: ~40 mm straight from top + short extension + steeper arrival.
-const izzy: TrouserFrontStyle = {
+// Cleo: ~40 mm straight from top + short extension + steeper arrival.
+const Cleo: TrouserFrontStyle = {
   ...defaults,
   crotchExtensionScale: 0.5,
   crotchStraightRun: 40,
   crotchArrivalAngle: 32,
 };
-const fI = trouserFrontPoints(body, izzy);
-const sI = resolveCrotchExtensionScale(izzy);
+const fI = trouserFrontPoints(body, Cleo);
+const sI = resolveCrotchExtensionScale(Cleo);
 const touchI = frontCrotchTouch(H) * sI;
-const runI = resolveCrotchStraightRun(izzy, R, D, fI.p10.y);
+const runI = resolveCrotchStraightRun(Cleo, R, D, fI.p10.y);
 const extI = frontCrotchExtension(H, sI);
-const arrI = resolveCrotchArrivalAngle(izzy);
+const arrI = resolveCrotchArrivalAngle(Cleo);
 const bezI = frontCrotchCurve({
   p5: fI.p5,
   p9: fI.p9,
@@ -165,7 +165,7 @@ const bezI = frontCrotchCurve({
   arrivalAngleDeg: arrI,
   touch: touchI,
 });
-console.log(`\n=== Izzy-ish (ext 0.5, straightRun ${runI}, arr ${arrI}°) ===`);
+console.log(`\n=== cleo-ish (ext 0.5, straightRun ${runI}, arr ${arrI}°) ===`);
 console.log(`solved k = ${bezI.k.toFixed(4)}`);
 console.log(`touch miss = ${bezI.touchMiss.toFixed(3)} mm`);
 
@@ -190,16 +190,16 @@ function writeSvg(pts: Point[], label: string, filename: string) {
 }
 
 const pieceDef = draftTrouserFront(body, defaults);
-const pieceIzzy = draftTrouserFront(body, izzy);
+const pieceCleo = draftTrouserFront(body, Cleo);
 writeSvg(
   crotchOf(pieceDef),
   "front crotch defaults (Bézier)",
   "front-crotch-bezier-defaults.svg",
 );
 writeSvg(
-  crotchOf(pieceIzzy),
-  "front crotch Izzy-ish (0.5 / 40 / 32°)",
-  "front-crotch-bezier-izzy.svg",
+  crotchOf(pieceCleo),
+  "front crotch cleo-ish (0.5 / 40 / 32°)",
+  "front-crotch-bezier-cleo.svg",
 );
 
 {

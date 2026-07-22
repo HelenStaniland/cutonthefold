@@ -33,7 +33,7 @@ import {
 } from "../lib/patterns/trouserBlock";
 import {
   BLOCK_TROUSER_STYLE,
-  IZZY_TROUSER_STYLE,
+  CLEO_TROUSER_STYLE,
   type TrouserStyleSettings,
 } from "../lib/pattern/garmentStyles";
 import { draftWaistband, WAISTBAND_IDENTITY_FROM_FOLD_MM } from "../lib/elements/waistband";
@@ -165,7 +165,7 @@ const LEG_LABELS = [
 console.log("=== Acceptance: notch roles + final set ===");
 
 for (const [label, settings] of [
-  ["Izzy", IZZY_TROUSER_STYLE],
+  ["Cleo", CLEO_TROUSER_STYLE],
   ["Aldrich", BLOCK_TROUSER_STYLE],
 ] as const) {
   console.log(`\n========== ${label} ==========`);
@@ -318,10 +318,10 @@ for (const [label, settings] of [
   );
 }
 
-// 6. Waistband (Izzy)
+// 6. Waistband (Cleo)
 {
-  console.log("\n--- 6. Waistband (Izzy) ---");
-  const d = draftFull(IZZY_TROUSER_STYLE);
+  console.log("\n--- 6. Waistband (Cleo) ---");
+  const d = draftFull(CLEO_TROUSER_STYLE);
   const fb = d.pieces.find((p) => p.name === "Front waistband")!;
   const bb = d.pieces.find((p) => p.name === "Back waistband")!;
   const front = d.pieces.find((p) => p.name === "Trouser front")!;

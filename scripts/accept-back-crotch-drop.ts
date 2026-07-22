@@ -1,5 +1,5 @@
 /**
- * Acceptance: backCrotchDrop terminus (Aldrich hook vs Izzy flat).
+ * Acceptance: backCrotchDrop terminus (Aldrich hook vs Cleo flat).
  * Run: npx tsx scripts/accept-back-crotch-drop.ts
  */
 import { writeFileSync } from "node:fs";

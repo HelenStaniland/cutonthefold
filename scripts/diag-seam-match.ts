@@ -13,7 +13,7 @@ import { bodyForSizeCode } from "../lib/data/standardSizes";
 import { polylineLength, pchipByY, quadBezier } from "../lib/geometry/curves";
 import { draftWaistband } from "../lib/elements/waistband";
 import { applySideOpening } from "../lib/elements/sideOpening";
-import { IZZY_PRESET } from "../lib/pattern/blockPresets";
+import { CLEO_PRESET } from "../lib/pattern/blockPresets";
 import {
   draftTrouserFront,
   draftTrouserBack,
@@ -223,8 +223,8 @@ function mkAldrichBandOff(): TrouserFrontStyle {
   );
 }
 
-function mkIzzyBandOff(): TrouserFrontStyle {
-  const m = IZZY_PRESET.measured;
+function mkCleoBandOff(): TrouserFrontStyle {
+  const m = CLEO_PRESET.measured;
   return withWaistband(
     {
       bottomWidth: 220,
@@ -238,7 +238,7 @@ function mkIzzyBandOff(): TrouserFrontStyle {
       backCrotchFullness: m.backCrotchFullness,
       frontCrotchExtensionScale: m.frontCrotchExtensionScale,
       backCrotchExtensionScale: m.backCrotchExtensionScale,
-      waistlineCurveFront: IZZY_PRESET.provisional.waistlineCurveFront,
+      waistlineCurveFront: CLEO_PRESET.provisional.waistlineCurveFront,
     },
     0,
     "darted",
@@ -513,6 +513,6 @@ console.log(`Tolerance: |${TOL_MM} mm|`);
 
 reportSetting("A — Aldrich defaults (classic, band off)", mkAldrichBandOff());
 reportSetting(
-  "B — Izzy preset params (band off; owner ease 10/50)",
-  mkIzzyBandOff(),
+  "B — Cleo preset params (band off; owner ease 10/50)",
+  mkCleoBandOff(),
 );

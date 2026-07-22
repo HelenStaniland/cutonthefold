@@ -1,6 +1,6 @@
 /**
- * Diagnostic — derive leg model from measured Izzy grainline→edge table.
- * Run: npx tsx scripts/diag-izzy-measured-leg.ts
+ * Diagnostic — derive leg model from measured Cleo grainline→edge table.
+ * Run: npx tsx scripts/diag-cleo-measured-leg.ts
  * Report only. Does not change product code.
  *
  * Measured data: cm INCLUDING 1 cm SA, half-piece grainline → edge.
@@ -263,7 +263,7 @@ function printMode(subtractSa: boolean) {
   );
 }
 
-console.log("Izzy measured leg — grainline→edge, cm, SA included in raw.");
+console.log("Cleo measured leg — grainline→edge, cm, SA included in raw.");
 console.log("SA assumption: each edge measurement includes +1 cm beyond the sewing line;");
 console.log("  net = raw − 1.0 cm per edge. Both raw and net reported.");
 console.log(

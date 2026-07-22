@@ -22,7 +22,7 @@ import {
 } from "../lib/patterns/trouserBlock";
 import {
   BLOCK_TROUSER_STYLE,
-  IZZY_TROUSER_STYLE,
+  CLEO_TROUSER_STYLE,
   type TrouserStyleSettings,
 } from "../lib/pattern/garmentStyles";
 
@@ -267,21 +267,21 @@ console.log(`body: size ${DEFAULT_SIZE_CODE} + each preset's ease`);
 console.log("measure: role polyline arc length (net stitching line)");
 
 const aldrich = reportCase("Aldrich block defaults", BLOCK_TROUSER_STYLE);
-const izzy = reportCase("Izzy preset", IZZY_TROUSER_STYLE);
+const Cleo = reportCase("Cleo preset", CLEO_TROUSER_STYLE);
 
 {
-  console.log("\n========== Izzy with both inseam knee insets = 0 ==========");
+  console.log("\n========== Cleo with both inseam knee insets = 0 ==========");
   const zeroed: TrouserStyleSettings = {
-    ...IZZY_TROUSER_STYLE,
+    ...CLEO_TROUSER_STYLE,
     frontInseamKneeInset: 0,
     backInseamKneeInset: 0,
   };
-  const z = reportCase("Izzy + insets 0/0 (garment path, chord knees)", zeroed);
-  console.log("\n--- 6. Isolate knee-inset contribution (Izzy) ---");
-  console.log(`  Izzy as-shipped total Δ (back−front): ${f3(izzy.totalDelta)} mm`);
-  console.log(`  Izzy insets 0/0 total Δ (back−front): ${f3(z.totalDelta)} mm`);
+  const z = reportCase("Cleo + insets 0/0 (garment path, chord knees)", zeroed);
+  console.log("\n--- 6. Isolate knee-inset contribution (Cleo) ---");
+  console.log(`  Cleo as-shipped total Δ (back−front): ${f3(Cleo.totalDelta)} mm`);
+  console.log(`  Cleo insets 0/0 total Δ (back−front): ${f3(z.totalDelta)} mm`);
   console.log(
-    `  contribution of asymmetric insets: ${f3(izzy.totalDelta - z.totalDelta)} mm`,
+    `  contribution of asymmetric insets: ${f3(Cleo.totalDelta - z.totalDelta)} mm`,
   );
   console.log(
     `  (Aldrich block Δ for reference: ${f3(aldrich.totalDelta)} mm)`,
@@ -289,10 +289,10 @@ const izzy = reportCase("Izzy preset", IZZY_TROUSER_STYLE);
 }
 
 {
-  console.log("\n========== 7. Side-seam comparison (Izzy as-shipped) ==========");
-  console.log(`  front side-seam: ${f3(izzy.fSide)} mm`);
-  console.log(`  back side-seam:  ${f3(izzy.bSide)} mm`);
-  console.log(`  back − front:    ${f3(izzy.bSide - izzy.fSide)} mm`);
+  console.log("\n========== 7. Side-seam comparison (Cleo as-shipped) ==========");
+  console.log(`  front side-seam: ${f3(Cleo.fSide)} mm`);
+  console.log(`  back side-seam:  ${f3(Cleo.bSide)} mm`);
+  console.log(`  back − front:    ${f3(Cleo.bSide - Cleo.fSide)} mm`);
 }
 
 console.log("\n=== end diagnostic (no geometry changes) ===");

@@ -26,7 +26,7 @@ import {
   WAISTLINE_CURVE_FRONT,
   type TrouserFrontStyle,
 } from "../lib/patterns/trouserBlock";
-import { IZZY_PRESET } from "../lib/pattern/blockPresets";
+import { CLEO_PRESET } from "../lib/pattern/blockPresets";
 import {
   ALDRICH_P46_SIZE_12_BODY,
   ALDRICH_P46_DEPTH0_STYLE,
@@ -37,7 +37,7 @@ mkdirSync(outDir, { recursive: true });
 
 const chart = bodyForSizeCode("12")!;
 const body = applyEase({ ...chart, hip: 1100 }, { waist: 10, hip: 50 });
-const izzyBody = applyEase({ ...chart, hip: 1100 }, IZZY_PRESET.measured.ease);
+const cleoBody = applyEase({ ...chart, hip: 1100 }, CLEO_PRESET.measured.ease);
 
 function mk(
   partial: Partial<TrouserFrontStyle> = {},
@@ -226,22 +226,22 @@ console.log("back drop5", {
   maxΔVsAldrichCalibMm: +backΔAldrich.toFixed(4),
 });
 
-const izzy = mk(
+const Cleo = mk(
   {
-    crotchStraightRun: IZZY_PRESET.measured.crotchStraightRun,
-    frontWaistInset: IZZY_PRESET.measured.frontWaistInset,
-    crotchArrivalAngle: IZZY_PRESET.measured.crotchArrivalAngle,
-    backCrotchDrop: IZZY_PRESET.measured.backCrotchDrop,
-    waistDrop: IZZY_PRESET.measured.waistDrop,
-    crotchExtensionScale: IZZY_PRESET.provisional.crotchExtensionScale,
-    waistlineCurveFront: IZZY_PRESET.provisional.waistlineCurveFront,
+    crotchStraightRun: CLEO_PRESET.measured.crotchStraightRun,
+    frontWaistInset: CLEO_PRESET.measured.frontWaistInset,
+    crotchArrivalAngle: CLEO_PRESET.measured.crotchArrivalAngle,
+    backCrotchDrop: CLEO_PRESET.measured.backCrotchDrop,
+    waistDrop: CLEO_PRESET.measured.waistDrop,
+    crotchExtensionScale: CLEO_PRESET.provisional.crotchExtensionScale,
+    waistlineCurveFront: CLEO_PRESET.provisional.waistlineCurveFront,
   },
-  izzyBody,
-  IZZY_PRESET.measured.waistbandDepth,
-  IZZY_PRESET.measured.waistbandMode,
+  cleoBody,
+  CLEO_PRESET.measured.waistbandDepth,
+  CLEO_PRESET.measured.waistbandMode,
 );
-const frontIzzy = frontBez(izzy, izzyBody);
-const backIzzy = draftBackCrotch(trouserBackPoints(izzyBody, izzy));
+const frontCleo = frontBez(Cleo, cleoBody);
+const backCleo = draftBackCrotch(trouserBackPoints(cleoBody, Cleo));
 console.log("\n=== Aldrich p.46 body (verify:aldrich) ===");
 {
   const af = frontBez(ALDRICH_P46_DEPTH0_STYLE, ALDRICH_P46_SIZE_12_BODY);
@@ -260,16 +260,16 @@ console.log("\n=== Aldrich p.46 body (verify:aldrich) ===");
   });
 }
 
-console.log("\n=== Izzy-like ===");
+console.log("\n=== cleo-like ===");
 console.log("front", {
-  k1: frontIzzy.k1,
-  k2: frontIzzy.k2,
-  touchMiss: +frontIzzy.touchMiss.toFixed(3),
+  k1: frontCleo.k1,
+  k2: frontCleo.k2,
+  touchMiss: +frontCleo.touchMiss.toFixed(3),
 });
 console.log("back", {
-  k1: backIzzy.k1,
-  k2: backIzzy.k2,
-  touchMiss: +backIzzy.touchMiss.toFixed(3),
+  k1: backCleo.k1,
+  k2: backCleo.k2,
+  touchMiss: +backCleo.touchMiss.toFixed(3),
 });
 
 // Timing: full UI-like draft path (no solve)
@@ -407,14 +407,14 @@ function svgFor(
   ]);
 }
 {
-  const fp = trouserFrontPoints(izzyBody, izzy);
-  const bp = trouserBackPoints(izzyBody, izzy);
-  const fc = frontBez(izzy, izzyBody);
+  const fp = trouserFrontPoints(cleoBody, Cleo);
+  const bp = trouserBackPoints(cleoBody, Cleo);
+  const fc = frontBez(Cleo, cleoBody);
   const bc = draftBackCrotch(bp);
-  svgFor("izzy-like-crotch", fc.points, bc.points, [
+  svgFor("cleo-like-crotch", fc.points, bc.points, [
     {
-      x: fp.p5.x - frontCrotchTouch(izzyBody.hip) * Math.SQRT1_2,
-      y: fp.p5.y - frontCrotchTouch(izzyBody.hip) * Math.SQRT1_2,
+      x: fp.p5.x - frontCrotchTouch(cleoBody.hip) * Math.SQRT1_2,
+      y: fp.p5.y - frontCrotchTouch(cleoBody.hip) * Math.SQRT1_2,
     },
     bp.guide,
   ]);

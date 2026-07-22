@@ -21,7 +21,7 @@ import {
 } from "../lib/patterns/trouserBlock";
 import {
   BLOCK_TROUSER_STYLE,
-  IZZY_TROUSER_STYLE,
+  CLEO_TROUSER_STYLE,
   type TrouserStyleSettings,
 } from "../lib/pattern/garmentStyles";
 import {
@@ -154,7 +154,7 @@ console.log("=== DIAG: notch placement (Lhigh + side knee) ===");
 console.log("measure only — no geometry changes");
 console.log(`back tip offset = ${TIP_OFFSET_BACK} mm`);
 
-report("Izzy preset", IZZY_TROUSER_STYLE);
+report("Cleo preset", CLEO_TROUSER_STYLE);
 report("Aldrich block defaults", BLOCK_TROUSER_STYLE);
 
 console.log("\n=== end diagnostic ===");

@@ -99,8 +99,8 @@ for (const scale of [1.0, 0.7, 0.5]) {
   );
 }
 
-console.log("\n=== vs Izzy (same drafted hip) ===");
-console.log("Izzy front 4.5 / back 14.0 / touch 2.0 / 3.5");
+console.log("\n=== vs Cleo (same drafted hip) ===");
+console.log("Cleo front 4.5 / back 14.0 / touch 2.0 / 3.5");
 const s05 = 0.5;
 const f05 = trouserFrontPoints(body, { ...base, crotchExtensionScale: s05 });
 const b05 = trouserBackPoints(body, { ...base, crotchExtensionScale: s05 });
@@ -116,7 +116,7 @@ console.log(
 );
 if (Math.abs(ourBt - 3.5) > 0.8) {
   console.log(
-    "FLAG: back touch at 0.5 diverges from Izzy's 3.5 cm — scaled Aldrich offset, not hand-tuned.",
+    "FLAG: back touch at 0.5 diverges from Cleo's 3.5 cm — scaled Aldrich offset, not hand-tuned.",
   );
 }
 

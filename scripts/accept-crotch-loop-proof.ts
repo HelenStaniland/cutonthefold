@@ -329,7 +329,7 @@ console.log("\n=== Slider sweep ===");
   check(monoHits === 0, "no mono failures");
 }
 
-console.log("\n=== Izzy-like ===");
+console.log("\n=== cleo-like ===");
 {
   const style = withWaistband(
     {
@@ -358,8 +358,8 @@ console.log("\n=== Izzy-like ===");
     console.log(
       `  back  k1=${bb.k1.toFixed(3)} k2=${bb.k2.toFixed(3)} miss=${bb.touchMiss.toFixed(3)}`,
     );
-    check(bez.P1.y <= bez.P3.y + 1e-6, "Izzy front P1 not past tip");
-    check(true, "Izzy drafts mono-ok");
+    check(bez.P1.y <= bez.P3.y + 1e-6, "Cleo front P1 not past tip");
+    check(true, "Cleo drafts mono-ok");
 
     const toPts = (outline: { at: Point }[]): Point[] =>
       outline.map((p) => ({ x: p.at.x, y: p.at.y }));
@@ -385,17 +385,17 @@ console.log("\n=== Izzy-like ===");
     }
     const pad = 20;
     writeFileSync(
-      join("scripts", "crotch-loop-proof-izzy.svg"),
+      join("scripts", "crotch-loop-proof-cleo.svg"),
       `<?xml version="1.0"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX - pad} ${minY - pad} ${maxX - minX + 2 * pad} ${maxY - minY + 2 * pad}">
 ${toSvg(fPts, "#1a5fb4")}
 ${toSvg(bPts, "#c64600")}
-<text x="${minX}" y="${minY - 6}" font-size="14">Izzy-like cd=0 arr=32 scale=0.5 drop=25</text>
+<text x="${minX}" y="${minY - 6}" font-size="14">cleo-like cd=0 arr=32 scale=0.5 drop=25</text>
 </svg>`,
     );
-    console.log("  wrote scripts/crotch-loop-proof-izzy.svg");
+    console.log("  wrote scripts/crotch-loop-proof-cleo.svg");
   } catch (e) {
-    check(false, `Izzy: ${(e as Error).message}`);
+    check(false, `Cleo: ${(e as Error).message}`);
   }
 }
 

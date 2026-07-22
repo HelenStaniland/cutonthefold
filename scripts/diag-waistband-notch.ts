@@ -26,7 +26,7 @@ import {
   withWaistband,
   type TrouserFrontStyle,
 } from "../lib/patterns/trouserBlock";
-import { IZZY_TROUSER_STYLE } from "../lib/pattern/garmentStyles";
+import { CLEO_TROUSER_STYLE } from "../lib/pattern/garmentStyles";
 import { draftWaistband } from "../lib/elements/waistband";
 import { applySideOpening } from "../lib/elements/sideOpening";
 import { readFileSync } from "node:fs";
@@ -38,7 +38,7 @@ const pt = (p: Point) => `(${f3(p.x)}, ${f3(p.y)})`;
 function resolveStyle(
   body: ReturnType<typeof applyEase>,
 ): TrouserFrontStyle {
-  const s = IZZY_TROUSER_STYLE;
+  const s = CLEO_TROUSER_STYLE;
   const base: TrouserFrontStyle = {
     bottomWidth: s.legBottomWidth,
     block: blockFromWaistDrop(s.waistDrop),
@@ -132,7 +132,7 @@ console.log("measure only — no geometry changes\n");
 
 const body = applyEase(
   bodyForSizeCode(DEFAULT_SIZE_CODE)!,
-  IZZY_TROUSER_STYLE.ease,
+  CLEO_TROUSER_STYLE.ease,
 );
 const style = resolveStyle(body);
 const baseNet = draftTrousers(body, style);
@@ -341,7 +341,7 @@ console.log(
 );
 
 // Sample of labels currently on pieces
-console.log("\n  Labels currently set on Izzy notches (these leak into the UI if drawn):");
+console.log("\n  Labels currently set on Cleo notches (these leak into the UI if drawn):");
 for (const p of withHem.pieces) {
   for (const n of notches(p)) {
     if (n.label) {

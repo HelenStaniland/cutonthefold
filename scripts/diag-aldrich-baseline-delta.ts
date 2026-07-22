@@ -19,7 +19,7 @@ import {
   DEFAULT_BACK_CROTCH_FULLNESS,
   WAISTLINE_CURVE_FRONT,
 } from "../lib/patterns/trouserBlock";
-import { IZZY_PRESET } from "../lib/pattern/blockPresets";
+import { CLEO_PRESET } from "../lib/pattern/blockPresets";
 import { execSync } from "child_process";
 import { mkdtempSync, writeFileSync, readFileSync } from "fs";
 import { tmpdir } from "os";
@@ -181,9 +181,9 @@ writeFileSync(process.argv[2], JSON.stringify({ 0: dump(0), 50: dump(50) }));
   }
 }
 
-console.log("\n=== 3. Izzy measured style still drafts ===");
-const m = IZZY_PRESET.measured;
-const izzy = constructionPoints(
+console.log("\n=== 3. Cleo measured style still drafts ===");
+const m = CLEO_PRESET.measured;
+const Cleo = constructionPoints(
   withWaistband(
     {
       bottomWidth: 220,
@@ -196,14 +196,14 @@ const izzy = constructionPoints(
       backCrotchFullness: m.backCrotchFullness,
       frontCrotchExtensionScale: m.frontCrotchExtensionScale,
       backCrotchExtensionScale: m.backCrotchExtensionScale,
-      waistlineCurveFront: IZZY_PRESET.provisional.waistlineCurveFront,
+      waistlineCurveFront: CLEO_PRESET.provisional.waistlineCurveFront,
     },
     0,
     "darted",
     body,
   ),
 );
-console.log(`Izzy construction points: ${izzy.length}`);
+console.log(`Cleo construction points: ${Cleo.length}`);
 
 console.log("\n=== Module DEFAULT_* (drift watch) ===");
 console.log({

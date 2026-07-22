@@ -26,7 +26,7 @@ import {
   type TrouserFrontStyle,
 } from "../lib/patterns/trouserBlock";
 import {
-  IZZY_TROUSER_STYLE,
+  CLEO_TROUSER_STYLE,
   type TrouserStyleSettings,
 } from "../lib/pattern/garmentStyles";
 import { draftWaistband } from "../lib/elements/waistband";
@@ -244,8 +244,8 @@ function codeId(
   return `notch@${edge?.role ?? "?"}`;
 }
 
-function draftIzzy() {
-  const settings = IZZY_TROUSER_STYLE;
+function draftCleo() {
+  const settings = CLEO_TROUSER_STYLE;
   const base = bodyForSizeCode(DEFAULT_SIZE_CODE)!;
   const body = applyEase(base, settings.ease);
   const style = resolveStyle(settings, body);
@@ -468,7 +468,7 @@ function renderLegSvg(
   width="720" height="${((720 * h) / w).toFixed(0)}">
   <rect x="${minX}" y="${minY}" width="${w}" height="${h}" fill="#faf8f5"/>
   <text x="${minX + 16}" y="${minY + 28}" font-size="16" font-family="system-ui,sans-serif" fill="#111" font-weight="700">${escapeXml(title)}</text>
-  <text x="${minX + 16}" y="${minY + 44}" font-size="10" font-family="system-ui,sans-serif" fill="#555">Izzy · net outline · notches in place (no geometry change)</text>
+  <text x="${minX + 16}" y="${minY + 44}" font-size="10" font-family="system-ui,sans-serif" fill="#555">Cleo · net outline · notches in place (no geometry change)</text>
   <path d="${outlinePath(piece.outline)}" fill="#fff" fill-opacity="0.6" stroke="#1f2937" stroke-width="1.6"/>
   ${refEls}
   ${tickEls.join("\n")}
@@ -554,7 +554,7 @@ function printGrouped(
 
 // --- main ---
 mkdirSync(OUT_DIR, { recursive: true });
-const { pieces, frontPts, backPts } = draftIzzy();
+const { pieces, frontPts, backPts } = draftCleo();
 
 const front = pieces.find((p) => p.name === "Trouser front")!;
 const back = pieces.find((p) => p.name === "Trouser back")!;
@@ -583,24 +583,24 @@ const annBB = annotatePiece(bBand, {});
 
 const files = [
   {
-    name: "izzy-front-notches.svg",
+    name: "cleo-front-notches.svg",
     svg: renderLegSvg(front, lmF, annF, "Trouser front — notches"),
   },
   {
-    name: "izzy-back-notches.svg",
+    name: "cleo-back-notches.svg",
     svg: renderLegSvg(back, lmB, annB, "Trouser back — notches"),
   },
   {
-    name: "izzy-front-waistband-notches.svg",
+    name: "cleo-front-waistband-notches.svg",
     svg: renderBandSvg(fBand, annFB, "Front waistband — notch"),
   },
   {
-    name: "izzy-back-waistband-notches.svg",
+    name: "cleo-back-waistband-notches.svg",
     svg: renderBandSvg(bBand, annBB, "Back waistband — notch"),
   },
 ];
 
-console.log("=== DIAG: notch render (Izzy) ===");
+console.log("=== DIAG: notch render (Cleo) ===");
 console.log("visual only — no geometry changes\n");
 
 for (const f of files) {
@@ -628,7 +628,7 @@ const bZip = annB.find((a) => a.id === "zip");
 const fSideHip = annF.find((a) => a.id.includes("side-hip"));
 const bSideHip = annB.find((a) => a.id.includes("side-hip"));
 
-console.log("\n=== Picture questions (from current Izzy geometry) ===");
+console.log("\n=== Picture questions (from current Cleo geometry) ===");
 console.log("\n1. Is the 'hipline' notch the same as Helen's 'above the zip'?");
 console.log(
   "   NO — hipline is NOT on the side seam. Front hipline sits on centre-front;",

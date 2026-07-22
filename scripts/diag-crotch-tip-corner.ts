@@ -25,7 +25,7 @@ import {
 } from "../lib/patterns/trouserBlock";
 import {
   BLOCK_TROUSER_STYLE,
-  IZZY_TROUSER_STYLE,
+  CLEO_TROUSER_STYLE,
   type TrouserStyleSettings,
 } from "../lib/pattern/garmentStyles";
 
@@ -514,8 +514,8 @@ function reportCase(label: string, settings: TrouserStyleSettings) {
 
   if (!f || !b) return;
 
-  console.log("\n  3. Cross-check vs Helen's paper (Izzy SA tip→knee extras)");
-  if (label.includes("Izzy")) {
+  console.log("\n  3. Cross-check vs Helen's paper (Cleo SA tip→knee extras)");
+  if (label.includes("Cleo")) {
     const paperF = 5;
     const paperB = 12.5;
     console.log(`    paper along-inseam extra: front +${paperF} mm, back +${paperB} mm`);
@@ -552,7 +552,7 @@ function reportCase(label: string, settings: TrouserStyleSettings) {
       console.log("    ok: cut−net within ~2 mm of paper");
     }
   } else {
-    console.log("    (paper comparison is Izzy-only; Aldrich extras for reference)");
+    console.log("    (paper comparison is Cleo-only; Aldrich extras for reference)");
     console.log(
       `    cut−net: front +${f3(f.extraMitre)} / back +${f3(b.extraMitre)}; proj: +${f3(f.extraMitreProj)} / +${f3(b.extraMitreProj)}`,
     );
@@ -567,7 +567,7 @@ function reportCase(label: string, settings: TrouserStyleSettings) {
   console.log(`    net (stitch):     Δ = ${f3(netD)} mm`);
   console.log(`    current mitred:   Δ = ${f3(mitreD)} mm`);
   console.log(`    hypothetical fold: Δ = ${f3(foldD)} mm`);
-  console.log(`    Izzy commercial ref: −3 mm`);
+  console.log(`    Cleo commercial ref: −3 mm`);
   console.log(
     `    extras F/B mitre ${f3(f.extraMitre)}/${f3(b.extraMitre)}; fold ${f3(f.extraFold)}/${f3(b.extraFold)}`,
   );
@@ -577,7 +577,7 @@ console.log("=== DIAG: crotch-tip angles & corner construction ===");
 console.log(`seam allowance a = ${a} mm; body size ${DEFAULT_SIZE_CODE}`);
 console.log("measure only — no geometry changes");
 
-reportCase("Izzy preset", IZZY_TROUSER_STYLE);
+reportCase("Cleo preset", CLEO_TROUSER_STYLE);
 reportCase("Aldrich block defaults", BLOCK_TROUSER_STYLE);
 
 console.log("\n=== end diagnostic ===");

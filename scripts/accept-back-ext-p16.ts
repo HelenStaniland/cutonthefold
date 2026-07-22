@@ -6,7 +6,7 @@ import { writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { applyEase, type Point } from "../lib/types/measurements";
 import { bodyForSizeCode } from "../lib/data/standardSizes";
-import { IZZY_PRESET } from "../lib/pattern/blockPresets";
+import { CLEO_PRESET } from "../lib/pattern/blockPresets";
 import {
   draftTrouserFront,
   draftTrouserBack,
@@ -22,7 +22,7 @@ mkdirSync(outDir, { recursive: true });
 
 const chart = bodyForSizeCode("12")!;
 const body = applyEase({ ...chart, hip: 1100 }, { waist: 10, hip: 50 });
-const izzyBody = applyEase({ ...chart, hip: 1100 }, IZZY_PRESET.measured.ease);
+const cleoBody = applyEase({ ...chart, hip: 1100 }, CLEO_PRESET.measured.ease);
 
 function hausdorff(a: Point[], b: Point[]): number {
   const oneWay = (from: Point[], to: Point[]) => {
@@ -108,8 +108,8 @@ console.log({
   frontExt: sFront.p5toP9,
 });
 
-const m = IZZY_PRESET.measured;
-const izzy = mk(
+const m = CLEO_PRESET.measured;
+const Cleo = mk(
   {
     crotchStraightRun: m.crotchStraightRun,
     frontWaistInset: m.frontWaistInset,
@@ -120,17 +120,17 @@ const izzy = mk(
     frontCrotchExtensionScale: m.frontCrotchExtensionScale,
     backCrotchExtensionScale: m.backCrotchExtensionScale,
     waistDrop: m.waistDrop,
-    waistlineCurveFront: IZZY_PRESET.provisional.waistlineCurveFront,
+    waistlineCurveFront: CLEO_PRESET.provisional.waistlineCurveFront,
   },
-  izzyBody,
+  cleoBody,
   m.waistbandDepth,
   m.waistbandMode,
 );
-const sIzzy = span(izzy, izzyBody);
-console.log("\n=== Izzy preset (0.55 / 0.88) ===");
+const sCleo = span(Cleo, cleoBody);
+console.log("\n=== Cleo preset (0.55 / 0.88) ===");
 console.log({
-  frontExt_p5toP9: sIzzy.p5toP9,
-  backExt_p16toP23: sIzzy.p16toP23,
+  frontExt_p5toP9: sCleo.p5toP9,
+  backExt_p16toP23: sCleo.p16toP23,
   scales: {
     front: m.frontCrotchExtensionScale,
     back: m.backCrotchExtensionScale,
@@ -204,12 +204,12 @@ function writeSvg(
   );
 }
 
-const fD = draftTrouserFront(izzyBody, izzy);
-const bD = draftTrouserBack(izzyBody, izzy);
-const fP = trouserFrontPoints(izzyBody, izzy);
-const bP = trouserBackPoints(izzyBody, izzy);
+const fD = draftTrouserFront(cleoBody, Cleo);
+const bD = draftTrouserBack(cleoBody, Cleo);
+const fP = trouserFrontPoints(cleoBody, Cleo);
+const bP = trouserBackPoints(cleoBody, Cleo);
 writeSvg(
-  "izzy-full.svg",
+  "cleo-full.svg",
   fD.outline.map((o) => o.at),
   bD.outline.map((o) => o.at),
   [
@@ -220,7 +220,7 @@ writeSvg(
   ],
 );
 writeSvg(
-  "izzy-front-crotch.svg",
+  "cleo-front-crotch.svg",
   fD.outline.filter((o) => o.role === "crotch").map((o) => o.at),
   [],
   [
@@ -229,7 +229,7 @@ writeSvg(
   ],
 );
 writeSvg(
-  "izzy-back-crotch.svg",
+  "cleo-back-crotch.svg",
   [],
   bD.outline.filter((o) => o.role === "crotch").map((o) => o.at),
   [

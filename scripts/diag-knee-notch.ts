@@ -23,7 +23,7 @@ import {
 } from "../lib/patterns/trouserBlock";
 import {
   BLOCK_TROUSER_STYLE,
-  IZZY_TROUSER_STYLE,
+  CLEO_TROUSER_STYLE,
   type TrouserStyleSettings,
 } from "../lib/pattern/garmentStyles";
 
@@ -593,7 +593,7 @@ console.log("=== DIAG: knee notch placement & front/back balance ===");
 console.log(`body: size ${DEFAULT_SIZE_CODE} + each preset's ease`);
 
 reportCase("Aldrich block defaults", BLOCK_TROUSER_STYLE);
-reportCase("Izzy preset", IZZY_TROUSER_STYLE);
+reportCase("Cleo preset", CLEO_TROUSER_STYLE);
 
 {
   console.log("\n========== 5. Block vs garment path — knee notch position ==========");
@@ -601,44 +601,44 @@ reportCase("Izzy preset", IZZY_TROUSER_STYLE);
     "  Notch rule is identical (at p15 / p29). Only the knot coords differ.",
   );
   const block = draft(BLOCK_TROUSER_STYLE);
-  const garment = draft(IZZY_TROUSER_STYLE);
-  // Same body ease? Presets differ in ease — also compare Izzy body with insets cleared
+  const garment = draft(CLEO_TROUSER_STYLE);
+  // Same body ease? Presets differ in ease — also compare Cleo body with insets cleared
   // to isolate path on identical style family.
-  const izzyBlockish: TrouserStyleSettings = {
-    ...IZZY_TROUSER_STYLE,
+  const cleoBlockish: TrouserStyleSettings = {
+    ...CLEO_TROUSER_STYLE,
     frontInseamKneeInset: null,
     backInseamKneeInset: null,
   };
-  const izzyGarment = draft(IZZY_TROUSER_STYLE);
-  const izzyAsBlock = draft(izzyBlockish);
+  const cleoGarment = draft(CLEO_TROUSER_STYLE);
+  const cleoAsBlock = draft(cleoBlockish);
 
   console.log("  Aldrich preset (block path):");
   console.log(
     `    front p15 ${pt(block.frontPts.p15)}, back p29 ${pt(block.backPts.p29)}`,
   );
-  console.log("  Izzy preset (garment path, −8/−33):");
+  console.log("  Cleo preset (garment path, −8/−33):");
   console.log(
     `    front p15 ${pt(garment.frontPts.p15)}, back p29 ${pt(garment.backPts.p29)}`,
   );
   console.log(
-    "  Izzy body/style but insets null (forces BLOCK knee placement on Izzy geometry):",
+    "  Cleo body/style but insets null (forces BLOCK knee placement on Cleo geometry):",
   );
   console.log(
-    `    front p15 ${pt(izzyAsBlock.frontPts.p15)}, back p29 ${pt(izzyAsBlock.backPts.p29)}`,
+    `    front p15 ${pt(cleoAsBlock.frontPts.p15)}, back p29 ${pt(cleoAsBlock.backPts.p29)}`,
   );
-  console.log("  Same Izzy geometry, garment path:");
+  console.log("  Same Cleo geometry, garment path:");
   console.log(
-    `    front p15 ${pt(izzyGarment.frontPts.p15)}, back p29 ${pt(izzyGarment.backPts.p29)}`,
+    `    front p15 ${pt(cleoGarment.frontPts.p15)}, back p29 ${pt(cleoGarment.backPts.p29)}`,
   );
   console.log(
-    `  Δ garment−blockish (same Izzy base): front (${f3(
-      izzyGarment.frontPts.p15.x - izzyAsBlock.frontPts.p15.x,
+    `  Δ garment−blockish (same Cleo base): front (${f3(
+      cleoGarment.frontPts.p15.x - cleoAsBlock.frontPts.p15.x,
     )}, ${f3(
-      izzyGarment.frontPts.p15.y - izzyAsBlock.frontPts.p15.y,
+      cleoGarment.frontPts.p15.y - cleoAsBlock.frontPts.p15.y,
     )}), back (${f3(
-      izzyGarment.backPts.p29.x - izzyAsBlock.backPts.p29.x,
+      cleoGarment.backPts.p29.x - cleoAsBlock.backPts.p29.x,
     )}, ${f3(
-      izzyGarment.backPts.p29.y - izzyAsBlock.backPts.p29.y,
+      cleoGarment.backPts.p29.y - cleoAsBlock.backPts.p29.y,
     )})`,
   );
   console.log(
