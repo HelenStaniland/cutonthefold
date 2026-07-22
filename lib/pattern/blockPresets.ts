@@ -90,8 +90,39 @@ export const CLEO_PRESET: GarmentPreset = {
   },
 };
 
-/** @deprecated Prefer CLEO_PRESET directly — kept for diagnostic scripts. */
-export const BLOCK_PRESETS: GarmentPreset[] = [CLEO_PRESET];
+/**
+ * Mila Pants — sandbox: independent copy of Cleo geometry with the Aldrich block
+ * waist finish (darted, depth 0 / facing). Literals are written out deliberately —
+ * not spread from CLEO_PRESET — so Mila is not coupled to Cleo.
+ */
+export const MILA_PRESET: GarmentPreset = {
+  name: "mila",
+  label: "Mila Pants",
+  measured: {
+    crotchStraightRun: 0,
+    frontWaistInset: 0,
+    crotchArrivalAngle: 32,
+    backCrotchDrop: 0,
+    frontCrotchFullness: 0.5,
+    backCrotchFullness: 0.3,
+    frontCrotchExtensionScale: 0.55,
+    backCrotchExtensionScale: 0.88,
+    waistDrop: 0,
+    ease: { waist: 80, hip: 50 },
+    waistbandMode: "darted",
+    waistbandDepth: 0,
+    frontInseamKneeInset: -8,
+    backInseamKneeInset: -33,
+    bottomWidth: 360,
+    backHemShape: "straight",
+  },
+  provisional: {
+    waistlineCurveFront: WAISTLINE_CURVE_FRONT,
+  },
+};
+
+/** @deprecated Prefer CLEO_PRESET / MILA_PRESET directly — kept for diagnostic scripts. */
+export const BLOCK_PRESETS: GarmentPreset[] = [CLEO_PRESET, MILA_PRESET];
 
 export function blockPresetByName(name: string): GarmentPreset | undefined {
   return BLOCK_PRESETS.find((p) => p.name === name);

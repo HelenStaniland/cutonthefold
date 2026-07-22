@@ -595,7 +595,7 @@ function TrousersViewInner({
   const previewPoints = preview
     ? [
         ...preview.outline,
-        ...preview.waistband,
+        ...preview.yokeSeam,
         preview.zipMark.from,
         preview.zipMark.to,
       ]
@@ -1446,21 +1446,13 @@ function TrousersViewInner({
                         points={svgPolygonPoints(preview.outline)}
                         className={styles.previewSkirt}
                       />
-                      {preview.waistband.length > 0 && (
-                        <polygon
-                          points={svgPolygonPoints(preview.waistband)}
-                          className={styles.previewWaistband}
+                      {preview.yokeSeam.length > 1 && (
+                        <polyline
+                          points={svgPolygonPoints(preview.yokeSeam)}
+                          className={styles.previewYokeSeam}
+                          fill="none"
                         />
                       )}
-                      <line
-                        {...svgLineProps(
-                          preview.waistline.from.x,
-                          preview.waistline.from.y,
-                          preview.waistline.to.x,
-                          preview.waistline.to.y,
-                        )}
-                        className={styles.previewLine}
-                      />
                       {preview.darts.map((d, i) => (
                         <line
                           key={`dart-${i}`}

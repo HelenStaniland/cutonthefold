@@ -8,7 +8,7 @@ import type {
   WaistbandMode,
 } from "@/lib/patterns/trouserBlock";
 import { DEFAULT_FIT, easeForFit } from "@/lib/pattern/fitPresets";
-import { CLEO_PRESET } from "@/lib/pattern/blockPresets";
+import { CLEO_PRESET, MILA_PRESET } from "@/lib/pattern/blockPresets";
 
 export type DartedWaistFinish = "facing" | "waistband";
 
@@ -98,4 +98,36 @@ export const CLEO_TROUSER_STYLE: TrouserStyleSettings = (() => {
 
 export function cleoTrouserStyle(): TrouserStyleSettings {
   return { ...CLEO_TROUSER_STYLE, ease: { ...CLEO_TROUSER_STYLE.ease } };
+}
+
+/** Mila Pants — Cleo geometry, block (darted/facing) waist. Sandbox garment. */
+export const MILA_TROUSER_STYLE: TrouserStyleSettings = (() => {
+  const m = MILA_PRESET.measured;
+  const pr = MILA_PRESET.provisional;
+  return {
+    legBottomWidth: m.bottomWidth,
+    frontInseamKneeInset: m.frontInseamKneeInset,
+    backInseamKneeInset: m.backInseamKneeInset,
+    backHemShape: m.backHemShape,
+    waistDrop: m.waistDrop,
+    waistbandDepth: m.waistbandDepth,
+    waistbandMode: m.waistbandMode,
+    dartedWaistFinish: "facing" as const,
+    dartedBandDepth: 25,
+    zipLength: 180,
+    ease: { ...m.ease },
+    frontCrotchExtensionScale: m.frontCrotchExtensionScale,
+    backCrotchExtensionScale: m.backCrotchExtensionScale,
+    crotchStraightRun: m.crotchStraightRun,
+    crotchArrivalAngle: m.crotchArrivalAngle,
+    waistlineCurveFront: pr.waistlineCurveFront,
+    frontWaistInset: m.frontWaistInset,
+    backCrotchDrop: m.backCrotchDrop,
+    frontCrotchFullness: m.frontCrotchFullness,
+    backCrotchFullness: m.backCrotchFullness,
+  };
+})();
+
+export function milaTrouserStyle(): TrouserStyleSettings {
+  return { ...MILA_TROUSER_STYLE, ease: { ...MILA_TROUSER_STYLE.ease } };
 }
