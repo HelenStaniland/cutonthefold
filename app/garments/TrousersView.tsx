@@ -195,6 +195,9 @@ function TrousersViewInner({
   } = useStyle();
   const block = blockFromWaistDrop(waistDrop);
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
+  const [mainPanelTab, setMainPanelTab] = useState<"pattern" | "method">(
+    "pattern",
+  );
   const [viewMode, setViewMode] = useState<PatternViewMode>("pattern");
   const [showSeamAllowance, setShowSeamAllowance] = useState(true);
   const [includeConstructionOverlay, setIncludeConstructionOverlay] =
@@ -473,6 +476,7 @@ function TrousersViewInner({
   const sheetInset = 36;
   const sheetTopMargin = 28;
   const pad = 60;
+  const padTop = pad / 2;
 
   function pieceBoundary(piece: (typeof displayPattern.pieces)[number]) {
     return piece.cuttingOutline ?? piece.outline.map((p) => p.at);
@@ -570,8 +574,8 @@ function TrousersViewInner({
   const sheetHeight = contentBottom - sheetY + sheetInset;
   const layoutHeight = sheetHeight;
   const patternViewWidth = layoutWidth + pad * 2;
-  const patternViewHeight = layoutHeight + pad * 2;
-  const viewBoxY = sheetY - pad;
+  const patternViewHeight = layoutHeight + padTop + pad;
+  const viewBoxY = sheetY - padTop;
   const patternSvgWidth = 720;
   const patternSvgHeight = Math.round(
     patternSvgWidth * (patternViewHeight / patternViewWidth),
@@ -618,7 +622,7 @@ function TrousersViewInner({
         </p>
       </div>
 
-      <div className={styles.workspace}>
+      <div className={`${styles.workspace} ${styles.workspaceWithPreview}`}>
         <aside className={styles.sidebar}>
           <SidebarSection title="Preset">
             <p className={styles.presetName}>{title}</p>
@@ -1424,144 +1428,217 @@ function TrousersViewInner({
           )}
         </aside>
 
-        <div className={styles.canvasArea}>
-          <div className={styles.summary}>
-            <Link href="/measurements/edit" className={`${styles.chip} ${styles.chipLink}`}>
-              Waist <strong>{body.waist}</strong> mm
-            </Link>
-            <Link href="/measurements/edit" className={`${styles.chip} ${styles.chipLink}`}>
-              Hip <strong>{body.hip}</strong> mm
-            </Link>
-            <Link href="/measurements/edit" className={`${styles.chip} ${styles.chipLink}`}>
-              Body rise <strong>{body.bodyRise}</strong> mm
-            </Link>
-            <span className={styles.chip}>
-              Front hem <strong>{Math.round(resolvedLegWidths.frontHem)}</strong> mm
-            </span>
-            <span className={styles.chip}>
-              Back hem <strong>{Math.round(resolvedLegWidths.backHem)}</strong> mm
-            </span>
-            {frontInseamKneeInset != null && (
-              <span className={styles.chip}>
-                Front knee inset <strong>{frontInseamKneeInset}</strong> mm
-              </span>
-            )}
-            {backInseamKneeInset != null && (
-              <span className={styles.chip}>
-                Back knee inset <strong>{backInseamKneeInset}</strong> mm
-              </span>
-            )}
-          </div>
-
-          <div className={styles.canvasGrid}>
-            <article className={styles.card}>
-              <div className={styles.cardHeader}>
-                <h2 className={styles.cardTitle}>Preview</h2>
-                <span className={styles.cardSubtitle}>Stylised</span>
-              </div>
-              <div className={styles.cardBody}>
-                {preview ? (
-                  <svg
-                    width={340}
-                    height={460}
-                    viewBox={`${svgCoord(previewMinX - previewPad)} ${svgCoord(previewMinY - previewPad)} ${svgCoord(previewWidth)} ${svgCoord(previewHeight)}`}
-                  >
-                    <polygon
-                      points={svgPolygonPoints(preview.outline)}
-                      className={styles.previewSkirt}
-                    />
-                    {preview.waistband.length > 0 && (
+        <section className={styles.stickyCanvasArea}>
+            <div className={styles.previewColumn}>
+              <article className={styles.card}>
+                <div className={styles.cardHeader}>
+                  <h2 className={styles.cardTitle}>Preview</h2>
+                  <span className={styles.cardSubtitle}>Stylised</span>
+                </div>
+                <div className={styles.cardBody}>
+                  {preview ? (
+                    <svg
+                      width={340}
+                      height={460}
+                      viewBox={`${svgCoord(previewMinX - previewPad)} ${svgCoord(previewMinY - previewPad)} ${svgCoord(previewWidth)} ${svgCoord(previewHeight)}`}
+                    >
                       <polygon
-                        points={svgPolygonPoints(preview.waistband)}
-                        className={styles.previewWaistband}
+                        points={svgPolygonPoints(preview.outline)}
+                        className={styles.previewSkirt}
                       />
-                    )}
-                    <line
-                      {...svgLineProps(
-                        preview.waistline.from.x,
-                        preview.waistline.from.y,
-                        preview.waistline.to.x,
-                        preview.waistline.to.y,
-                      )}
-                      className={styles.previewLine}
-                    />
-                    {preview.darts.map((d, i) => (
-                      <line
-                        key={`dart-${i}`}
-                        {...svgLineProps(d.from.x, d.from.y, d.to.x, d.to.y)}
-                        className={styles.previewDart}
-                      />
-                    ))}
-                    <line
-                      {...svgLineProps(
-                        preview.zipMark.from.x,
-                        preview.zipMark.from.y,
-                        preview.zipMark.to.x,
-                        preview.zipMark.to.y,
-                      )}
-                      className={styles.previewZip}
-                    />
-                  </svg>
-                ) : (
-                  <div className={styles.canvasUnavailable}>
-                    <p className={styles.canvasUnavailableTitle}>Preview unavailable</p>
-                    <p className={styles.canvasUnavailableMessage}>
-                      {validation.issues[0]?.message ??
-                        "Fix the checks in the sidebar to see a preview."}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </article>
-
-            <article className={styles.card}>
-              <div className={styles.cardHeader}>
-                <h2 className={styles.cardTitle}>Pattern pieces</h2>
-                <div className={styles.cardHeaderActions}>
-                  {validation.valid && (
-                    <>
-                      <label
-                        className={styles.inlineToggle}
-                        htmlFor="pdf-construction-overlay"
-                      >
-                        <input
-                          id="pdf-construction-overlay"
-                          type="checkbox"
-                          checked={includeConstructionOverlay}
-                          onChange={(e) =>
-                            setIncludeConstructionOverlay(e.target.checked)
-                          }
+                      {preview.waistband.length > 0 && (
+                        <polygon
+                          points={svgPolygonPoints(preview.waistband)}
+                          className={styles.previewWaistband}
                         />
-                        Construction overlay
-                      </label>
-                      <button
-                        type="button"
-                        className={styles.printAction}
-                        onClick={() =>
-                          downloadPattern(
-                            {
-                              pieces: pattern.pieces.map((p) =>
-                                p.name === "Trouser front"
-                                  ? mirrorPieceX(p)
-                                  : p,
-                              ),
-                            },
-                            patternSpec,
-                            "a4",
-                            {
-                              includeConstruction: includeConstructionOverlay,
-                              construction: pdfConstruction,
-                            },
-                          )
-                        }
-                      >
-                        Print
-                      </button>
-                    </>
+                      )}
+                      <line
+                        {...svgLineProps(
+                          preview.waistline.from.x,
+                          preview.waistline.from.y,
+                          preview.waistline.to.x,
+                          preview.waistline.to.y,
+                        )}
+                        className={styles.previewLine}
+                      />
+                      {preview.darts.map((d, i) => (
+                        <line
+                          key={`dart-${i}`}
+                          {...svgLineProps(d.from.x, d.from.y, d.to.x, d.to.y)}
+                          className={styles.previewDart}
+                        />
+                      ))}
+                      <line
+                        {...svgLineProps(
+                          preview.zipMark.from.x,
+                          preview.zipMark.from.y,
+                          preview.zipMark.to.x,
+                          preview.zipMark.to.y,
+                        )}
+                        className={styles.previewZip}
+                      />
+                    </svg>
+                  ) : (
+                    <div className={styles.canvasUnavailable}>
+                      <p className={styles.canvasUnavailableTitle}>Preview unavailable</p>
+                      <p className={styles.canvasUnavailableMessage}>
+                        {validation.issues[0]?.message ??
+                          "Fix the checks in the sidebar to see a preview."}
+                      </p>
+                    </div>
                   )}
                 </div>
-              </div>
-              <div className={`${styles.cardBody} ${styles.patternCardBody}`}>
+              </article>
+
+              <article className={styles.patternSummaryCard}>
+                <div className={styles.cardHeader}>
+                  <h2 className={styles.cardTitle}>Pattern summary</h2>
+                </div>
+                <div className={styles.summaryChips}>
+                  <Link
+                    href="/measurements/edit"
+                    className={`${styles.chip} ${styles.chipLink}`}
+                  >
+                    Waist <strong>{body.waist}</strong> mm
+                  </Link>
+                  <Link
+                    href="/measurements/edit"
+                    className={`${styles.chip} ${styles.chipLink}`}
+                  >
+                    Hip <strong>{body.hip}</strong> mm
+                  </Link>
+                  <Link
+                    href="/measurements/edit"
+                    className={`${styles.chip} ${styles.chipLink}`}
+                  >
+                    Body rise <strong>{body.bodyRise}</strong> mm
+                  </Link>
+                  <span className={styles.chip}>
+                    Front hem{" "}
+                    <strong>{Math.round(resolvedLegWidths.frontHem)}</strong> mm
+                  </span>
+                  <span className={styles.chip}>
+                    Back hem{" "}
+                    <strong>{Math.round(resolvedLegWidths.backHem)}</strong> mm
+                  </span>
+                  {frontInseamKneeInset != null && (
+                    <span className={styles.chip}>
+                      Front knee inset <strong>{frontInseamKneeInset}</strong> mm
+                    </span>
+                  )}
+                  {backInseamKneeInset != null && (
+                    <span className={styles.chip}>
+                      Back knee inset <strong>{backInseamKneeInset}</strong> mm
+                    </span>
+                  )}
+                </div>
+              </article>
+            </div>
+
+            <div className={styles.mainPanelColumn}>
+              <div className={styles.patternColumn}>
+                <article className={styles.card}>
+                  <div className={styles.cardHeader}>
+                    <div
+                      className={styles.panelTabs}
+                      role="tablist"
+                      aria-label="Pattern and method"
+                    >
+                      <button
+                        type="button"
+                        role="tab"
+                        id="main-panel-tab-pattern"
+                        aria-selected={mainPanelTab === "pattern"}
+                        aria-controls="main-panel-pattern"
+                        className={
+                          mainPanelTab === "pattern"
+                            ? styles.panelTabActive
+                            : styles.panelTab
+                        }
+                        onClick={() => setMainPanelTab("pattern")}
+                      >
+                        Pattern pieces
+                      </button>
+                      <button
+                        type="button"
+                        role="tab"
+                        id="main-panel-tab-method"
+                        aria-selected={mainPanelTab === "method"}
+                        aria-controls="main-panel-method"
+                        className={
+                          mainPanelTab === "method"
+                            ? styles.panelTabActive
+                            : styles.panelTab
+                        }
+                        onClick={() => setMainPanelTab("method")}
+                      >
+                        Method
+                      </button>
+                    </div>
+                    <div className={styles.cardHeaderActions}>
+                      {mainPanelTab === "pattern" && validation.valid && (
+                        <>
+                          <label
+                            className={styles.inlineToggle}
+                            htmlFor="pdf-construction-overlay"
+                          >
+                            <input
+                              id="pdf-construction-overlay"
+                              type="checkbox"
+                              checked={includeConstructionOverlay}
+                              onChange={(e) =>
+                                setIncludeConstructionOverlay(e.target.checked)
+                              }
+                            />
+                            Construction overlay
+                          </label>
+                          <button
+                            type="button"
+                            className={styles.printAction}
+                            onClick={() =>
+                              downloadPattern(
+                                {
+                                  pieces: pattern.pieces.map((p) =>
+                                    p.name === "Trouser front"
+                                      ? mirrorPieceX(p)
+                                      : p,
+                                  ),
+                                },
+                                patternSpec,
+                                "a4",
+                                {
+                                  includeConstruction:
+                                    includeConstructionOverlay,
+                                  construction: pdfConstruction,
+                                },
+                              )
+                            }
+                          >
+                            Print
+                          </button>
+                        </>
+                      )}
+                      {mainPanelTab === "method" && validation.valid && (
+                        <button
+                          type="button"
+                          className={styles.printAction}
+                          onClick={() =>
+                            downloadInstructions(pattern, method)
+                          }
+                        >
+                          Print instructions
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {mainPanelTab === "pattern" && (
+                    <div
+                      id="main-panel-pattern"
+                      role="tabpanel"
+                      aria-labelledby="main-panel-tab-pattern"
+                      className={`${styles.cardBody} ${styles.patternCardBody}`}
+                    >
                 {validation.valid ? (
                 <svg
                   width={patternSvgWidth}
@@ -2019,55 +2096,61 @@ function TrousersViewInner({
                     </p>
                   </div>
                 )}
-              </div>
-            </article>
-          </div>
+                    </div>
+                  )}
 
-          {validation.valid && (
-            <article className={styles.card}>
-              <div className={styles.cardHeader}>
-                <h2 className={styles.cardTitle}>Method</h2>
-                <div className={styles.cardHeaderActions}>
-                  <button
-                    type="button"
-                    className={styles.printAction}
-                    onClick={() => downloadInstructions(pattern, method)}
-                  >
-                    Print instructions
-                  </button>
-                </div>
-              </div>
-              <div className={styles.methodBody}>
-                <ol className={styles.methodList}>
-                  {method.map((step) => (
-                    <li
-                      key={step.id}
-                      className={`${styles.methodStep} ${selectedStepId === step.id ? styles.methodStepSelected : ""}`}
-                      onClick={() =>
-                        setSelectedStepId((id) =>
-                          id === step.id ? null : step.id,
-                        )
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          setSelectedStepId((id) =>
-                            id === step.id ? null : step.id,
-                          );
-                        }
-                      }}
-                      role="button"
-                      tabIndex={0}
-                      aria-pressed={selectedStepId === step.id}
+                  {mainPanelTab === "method" && (
+                    <div
+                      id="main-panel-method"
+                      role="tabpanel"
+                      aria-labelledby="main-panel-tab-method"
                     >
-                      {step.text}
-                    </li>
-                  ))}
-                </ol>
+                      {validation.valid ? (
+                        <div className={styles.methodBody}>
+                          <ol className={styles.methodList}>
+                            {method.map((step) => (
+                              <li
+                                key={step.id}
+                                className={`${styles.methodStep} ${selectedStepId === step.id ? styles.methodStepSelected : ""}`}
+                                onClick={() =>
+                                  setSelectedStepId((id) =>
+                                    id === step.id ? null : step.id,
+                                  )
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    setSelectedStepId((id) =>
+                                      id === step.id ? null : step.id,
+                                    );
+                                  }
+                                }}
+                                role="button"
+                                tabIndex={0}
+                                aria-pressed={selectedStepId === step.id}
+                              >
+                                {step.text}
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                      ) : (
+                        <div className={styles.canvasUnavailable}>
+                          <p className={styles.canvasUnavailableTitle}>
+                            Method unavailable
+                          </p>
+                          <p className={styles.canvasUnavailableMessage}>
+                            {validation.issues[0]?.message ??
+                              "Fix the checks in the sidebar to see the method."}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </article>
               </div>
-            </article>
-          )}
-        </div>
+            </div>
+        </section>
       </div>
     </div>
   );
