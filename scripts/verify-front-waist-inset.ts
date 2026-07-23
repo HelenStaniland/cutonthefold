@@ -15,7 +15,8 @@ import {
   frontDartFromCentreFront,
   resolveCrotchArrivalAngle,
   resolveCrotchExtensionScale,
-  resolveCrotchStraightRun,
+  resolveCrotchP0Y,
+  resolveWaistlineCurveFront,
   resolveFrontWaistInset,
   trouserBackPoints,
   trouserFrontPoints,
@@ -52,32 +53,32 @@ const base: TrouserFrontStyle = {
 {
   const f = trouserFrontPoints(body, base);
   const fork = Math.abs(f.p5.x);
+  const waistCfY = resolveWaistlineCurveFront(base);
   const scale = resolveCrotchExtensionScale(base);
   const touch = frontCrotchTouch(H) * scale;
-  const straightRun = resolveCrotchStraightRun(base, R, D, f.p10.y);
+  const p0Y = resolveCrotchP0Y(base, D, waistCfY);
   const extension = frontCrotchExtension(H, scale);
   const arrival = resolveCrotchArrivalAngle(base);
 
   const neu = frontCrotchCurve({
     p5: f.p5,
     p9: f.p9,
-    p10: f.p10,
     fork,
     R,
-    straightRun,
+    waistCfY,
+    p0Y,
     extension,
     arrivalAngleDeg: arrival,
     touch,
   });
 
-  // Departure on true CF (−fork) — same as neu at any p10.x when fork is used.
   const onFork = frontCrotchCurve({
     p5: f.p5,
     p9: f.p9,
-    p10: f.p10,
     fork,
     R,
-    straightRun,
+    waistCfY,
+    p0Y,
     extension,
     arrivalAngleDeg: arrival,
     touch,
@@ -89,6 +90,7 @@ const base: TrouserFrontStyle = {
       `P0===p6: ${Math.hypot(neu.P0.x - f.p6.x, neu.P0.y - f.p6.y) < 0.05}`,
   );
   void onFork;
+}
 
 // --- Dart distance ---
 {
@@ -133,22 +135,30 @@ const base: TrouserFrontStyle = {
 
 // --- inset 0: vertical CF + departure tangent ---
 {
+  const probe = { ...base, frontWaistInset: 0 };
+  const fProbe = trouserFrontPoints(body, probe);
+  const wcf = resolveWaistlineCurveFront(probe);
+  const Dp = fProbe.p6.y;
+  const oldRun = 50;
+  const dep = Math.max(0, Math.max(0, Dp - wcf) - oldRun);
   const style: TrouserFrontStyle = {
     ...base,
     frontWaistInset: 0,
-    crotchStraightRun: 50,
+    crotchDeparture: dep,
   };
   const f = trouserFrontPoints(body, style);
+  const waistCfY = resolveWaistlineCurveFront(style);
   const scale = resolveCrotchExtensionScale(style);
   const touch = frontCrotchTouch(H) * scale;
-  const straightRun = resolveCrotchStraightRun(style, R, D, f.p10.y);
+  const D = f.p6.y;
+  const R = f.p9.y;
   const bez = frontCrotchCurve({
     p5: f.p5,
     p9: f.p9,
-    p10: f.p10,
     fork: Math.abs(f.p5.x),
     R,
-    straightRun,
+    waistCfY,
+    p0Y: resolveCrotchP0Y(style, D, waistCfY),
     extension: frontCrotchExtension(H, scale),
     arrivalAngleDeg: resolveCrotchArrivalAngle(style),
     touch,
@@ -159,7 +169,7 @@ const base: TrouserFrontStyle = {
   const fromP0 = { x: near.x - atP0.x, y: near.y - atP0.y };
   const leaveDeg = (Math.atan2(fromP0.x, fromP0.y) * 180) / Math.PI;
   const cfDx = Math.abs(bez.P0.x - f.p10.x);
-  console.log(`\n=== inset 0, straightRun=50 ===`);
+  console.log(`\n=== inset 0, legacy straightRun=50 → aboveHip ${dep} ===`);
   console.log(
     `P0=(${bez.P0.x.toFixed(3)}, ${bez.P0.y.toFixed(3)}) p10.x=${f.p10.x.toFixed(3)} |Δx|=${cfDx.toFixed(4)}`,
   );
@@ -208,13 +218,20 @@ function writeCfSvg(
   console.log(`Wrote scripts/${filename}`);
 }
 
+function depFromOldRun(oldRun: number, style: TrouserFrontStyle): number {
+  const f = trouserFrontPoints(body, style);
+  const wcf = resolveWaistlineCurveFront(style);
+  const Ds = f.p6.y;
+  return Math.max(0, Math.max(0, Ds - wcf) - oldRun);
+}
+
 writeCfSvg(
-  { ...base, frontWaistInset: 10, crotchStraightRun: 50 },
-  "inset=10, straightRun=50",
+  { ...base, frontWaistInset: 10, crotchDeparture: depFromOldRun(50, { ...base, frontWaistInset: 10 }) },
+  "inset=10, legacy straightRun=50",
   "front-waist-inset-10-run50.svg",
 );
 writeCfSvg(
-  { ...base, frontWaistInset: 0, crotchStraightRun: 50 },
-  "inset=0, straightRun=50 (vertical CF)",
+  { ...base, frontWaistInset: 0, crotchDeparture: depFromOldRun(50, { ...base, frontWaistInset: 0 }) },
+  "inset=0, legacy straightRun=50 (vertical CF)",
   "front-waist-inset-0-run50.svg",
 );

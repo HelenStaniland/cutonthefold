@@ -20,7 +20,7 @@ for (const a of [45, 42, 40, 38, 35, 32]) {
         crotchArrivalAngle: a,
         waistlineCurveFront: 0,
         frontWaistInset: 10,
-        crotchStraightRun: 0,
+        crotchDeparture: 0,
       },
       0,
       "darted",

@@ -1,6 +1,7 @@
 import type { Ease } from "@/lib/types/measurements";
 import type {
   BackHemShape,
+  CrotchDeparture,
   WaistbandMode,
 } from "@/lib/patterns/trouserBlock";
 import { WAISTLINE_CURVE_FRONT } from "@/lib/patterns/trouserBlock";
@@ -11,7 +12,7 @@ import { WAISTLINE_CURVE_FRONT } from "@/lib/patterns/trouserBlock";
  */
 
 export type GarmentMeasured = {
-  crotchStraightRun: number;
+  crotchDeparture: CrotchDeparture;
   frontWaistInset: number;
   crotchArrivalAngle: number;
   backCrotchDrop: number;
@@ -68,7 +69,7 @@ export const CLEO_PRESET: GarmentPreset = {
   name: "cleo",
   label: "Cleo Pants",
   measured: {
-    crotchStraightRun: 0,
+    crotchDeparture: "waistEdge",
     frontWaistInset: 0,
     crotchArrivalAngle: 32,
     backCrotchDrop: 0,
@@ -90,17 +91,21 @@ export const CLEO_PRESET: GarmentPreset = {
   },
 };
 
-/**
- * Mila Pants — sandbox: independent copy of Cleo geometry with the Aldrich block
- * waist finish (darted, depth 0 / facing). Literals are written out deliberately —
- * not spread from CLEO_PRESET — so Mila is not coupled to Cleo.
+/*
+ * Mila — sandbox garment. Geometry inherited from Cleo, then tuned.
+ * PROVISIONAL (tuned by eye on the render, not measured):
+ *   crotchDeparture 45 (mm above hipline) — replaces the inherited "waistEdge",
+ *     which caused the front CF projection at a natural waist
+ *   frontWaistInset 5 — Aldrich 10 / Cleo 0
+ *   waistband shaped 30
+ * All pending confirmation against the commercial pattern on paper.
  */
 export const MILA_PRESET: GarmentPreset = {
   name: "mila",
   label: "Mila Pants",
   measured: {
-    crotchStraightRun: 0,
-    frontWaistInset: 0,
+    crotchDeparture: 45,
+    frontWaistInset: 5,
     crotchArrivalAngle: 32,
     backCrotchDrop: 0,
     frontCrotchFullness: 0.5,
@@ -109,8 +114,8 @@ export const MILA_PRESET: GarmentPreset = {
     backCrotchExtensionScale: 0.88,
     waistDrop: 0,
     ease: { waist: 80, hip: 50 },
-    waistbandMode: "darted",
-    waistbandDepth: 0,
+    waistbandMode: "shaped",
+    waistbandDepth: 30,
     frontInseamKneeInset: -8,
     backInseamKneeInset: -33,
     bottomWidth: 360,

@@ -28,8 +28,8 @@ import {
   CROTCH_ARRIVAL_ANGLE_MIN,
   CROTCH_ARRIVAL_ANGLE_MAX,
   DEFAULT_CROTCH_ARRIVAL_ANGLE,
-  CROTCH_STRAIGHT_RUN_MIN,
-  resolveCrotchStraightRun,
+  CROTCH_DEPARTURE_ABOVE_HIP_MIN,
+  crotchDepartureAboveHipMax,
   resolveWaistlineCurveFront,
   FRONT_WAIST_INSET_MIN,
   FRONT_WAIST_INSET_MAX,
@@ -127,7 +127,7 @@ function styleMatchesPreset(
     style.ease.hip === defaults.ease.hip &&
     style.frontCrotchExtensionScale === defaults.frontCrotchExtensionScale &&
     style.backCrotchExtensionScale === defaults.backCrotchExtensionScale &&
-    style.crotchStraightRun === defaults.crotchStraightRun &&
+    style.crotchDeparture === defaults.crotchDeparture &&
     style.crotchArrivalAngle === defaults.crotchArrivalAngle &&
     style.waistlineCurveFront === defaults.waistlineCurveFront &&
     style.frontWaistInset === defaults.frontWaistInset &&
@@ -176,8 +176,8 @@ function TrousersViewInner({
     setFrontCrotchExtensionScale,
     backCrotchExtensionScale,
     setBackCrotchExtensionScale,
-    crotchStraightRun,
-    setCrotchStraightRun,
+    crotchDeparture,
+    setCrotchDeparture,
     crotchArrivalAngle,
     setCrotchArrivalAngle,
     waistlineCurveFront,
@@ -232,7 +232,7 @@ function TrousersViewInner({
     ...(backCrotchExtensionScale != null
       ? { backCrotchExtensionScale }
       : {}),
-    ...(crotchStraightRun != null ? { crotchStraightRun } : {}),
+    ...(crotchDeparture != null ? { crotchDeparture } : {}),
     ...(crotchArrivalAngle != null ? { crotchArrivalAngle } : {}),
     ...(waistlineCurveFront != null ? { waistlineCurveFront } : {}),
     ...(frontWaistInset != null ? { frontWaistInset } : {}),
@@ -248,13 +248,11 @@ function TrousersViewInner({
   const draftD = draftBody.hipDepth - riseDrop;
   // Scooped waist CF y — departure is measured from here, not p10.y (= 0).
   const waistCfY = resolveWaistlineCurveFront(style);
-  const straightRun = resolveCrotchStraightRun(
-    style,
-    draftR,
-    draftD,
-    waistCfY,
-  );
-  const straightRunMax = Math.max(CROTCH_STRAIGHT_RUN_MIN, draftD - waistCfY);
+  const departureAboveHipMax = crotchDepartureAboveHipMax(draftD, waistCfY);
+  const departureSliderValue =
+    crotchDeparture === "waistEdge"
+      ? departureAboveHipMax
+      : crotchDeparture ?? 0;
   const yokeDepthMax = maxYokeDepth(draftBody, block, waistDrop);
   const backShapedCap = maxBackShapedWaistDepth(
     draftBody,
@@ -325,7 +323,7 @@ function TrousersViewInner({
   const atBlockFoundation =
     frontCrotchExtensionScale === null &&
     backCrotchExtensionScale === null &&
-    crotchStraightRun === null &&
+    crotchDeparture === null &&
     crotchArrivalAngle === null &&
     waistlineCurveFront === null &&
     frontWaistInset === null &&
@@ -351,7 +349,7 @@ function TrousersViewInner({
       ease,
       frontCrotchExtensionScale,
       backCrotchExtensionScale,
-      crotchStraightRun,
+      crotchDeparture,
       crotchArrivalAngle,
       waistlineCurveFront,
       frontWaistInset,
@@ -1087,27 +1085,35 @@ function TrousersViewInner({
                 </div>
               </div>
               <div className={styles.field}>
-                <label className={styles.fieldLabel} htmlFor="crotch-straight-run">
-                  Crotch departure on CF
+                <label className={styles.fieldLabel} htmlFor="crotch-departure">
+                  Crotch departure above hipline
                 </label>
                 <span className={styles.fieldHint}>
-                  How far below the waist the crotch curve leaves the centre front.
-                  Default = hipline (Aldrich 10–6). 0 = curve from the waist.
+                  0 = start curving at the hipline (Aldrich). Higher = start curving
+                  further up, toward the waist. At the top of the range the curve
+                  starts at the waist edge.
                 </span>
                 <div className={styles.rangeRow}>
                   <input
-                    id="crotch-straight-run"
+                    id="crotch-departure"
                     type="range"
                     className={styles.rangeInput}
-                    min={CROTCH_STRAIGHT_RUN_MIN}
-                    max={straightRunMax}
+                    min={CROTCH_DEPARTURE_ABOVE_HIP_MIN}
+                    max={departureAboveHipMax}
                     step={5}
-                    value={straightRun}
-                    onChange={(e) =>
-                      setCrotchStraightRun(Number(e.target.value))
-                    }
+                    value={departureSliderValue}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      setCrotchDeparture(
+                        v >= departureAboveHipMax ? "waistEdge" : v,
+                      );
+                    }}
                   />
-                  <span className={styles.rangeValue}>{straightRun} mm</span>
+                  <span className={styles.rangeValue}>
+                    {crotchDeparture === "waistEdge"
+                      ? "waist edge"
+                      : `${departureSliderValue} mm`}
+                  </span>
                 </div>
               </div>
               <div className={styles.field}>

@@ -39,8 +39,8 @@ function resolveStyle(
     ...(settings.backCrotchExtensionScale != null
       ? { backCrotchExtensionScale: settings.backCrotchExtensionScale }
       : {}),
-    ...(settings.crotchStraightRun != null
-      ? { crotchStraightRun: settings.crotchStraightRun }
+    ...(settings.crotchDeparture != null
+      ? { crotchDeparture: settings.crotchDeparture }
       : {}),
     ...(settings.crotchArrivalAngle != null
       ? { crotchArrivalAngle: settings.crotchArrivalAngle }

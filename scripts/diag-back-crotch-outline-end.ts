@@ -27,7 +27,7 @@ const raw: TrouserFrontStyle = {
   crotchArrivalAngle: DEFAULT_CROTCH_ARRIVAL_ANGLE,
   waistlineCurveFront: WAISTLINE_CURVE_FRONT,
   frontWaistInset: DEFAULT_FRONT_WAIST_INSET,
-  // crotchStraightRun omitted → hipline default
+  // crotchDeparture omitted → hipline default
 };
 const style = withWaistband(raw, 0, "darted", body); // band off
 
@@ -43,7 +43,7 @@ console.log(
       },
       crotchExtensionScale: 0.5,
       crotchArrivalAngle: DEFAULT_CROTCH_ARRIVAL_ANGLE,
-      crotchStraightRun: "(default = hipline)",
+      crotchDeparture: "(default = hipline)",
       waistlineCurveFront: WAISTLINE_CURVE_FRONT,
       frontWaistInset: DEFAULT_FRONT_WAIST_INSET,
       waistDrop: 0,

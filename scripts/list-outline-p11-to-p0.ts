@@ -26,7 +26,7 @@ const style: TrouserFrontStyle = {
   waistReduction: 0,
   crotchExtensionScale: 1.0,
   frontWaistInset: 10,
-  crotchStraightRun: 0,
+  crotchDeparture: 0,
   crotchArrivalAngle: 5,
   waistbandDepth: 0,
   waistlineCurveFront: 30,

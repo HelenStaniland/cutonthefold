@@ -109,7 +109,7 @@ console.log({
 const m = CLEO_PRESET.measured;
 const Cleo = mk(
   {
-    crotchStraightRun: m.crotchStraightRun,
+    crotchDeparture: m.crotchDeparture,
     frontWaistInset: m.frontWaistInset,
     crotchArrivalAngle: m.crotchArrivalAngle,
     backCrotchDrop: m.backCrotchDrop,
@@ -156,7 +156,7 @@ for (const fs of scales) {
           backCrotchExtensionScale: bs,
           frontCrotchFullness: ff,
           backCrotchFullness: bf,
-          crotchStraightRun: 0,
+          crotchDeparture: 0,
           crotchArrivalAngle: 32,
         });
         try {

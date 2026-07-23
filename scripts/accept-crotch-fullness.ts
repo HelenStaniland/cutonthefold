@@ -19,7 +19,7 @@ import {
   frontCrotchTouch,
   resolveCrotchArrivalAngle,
   resolveCrotchExtensionScale,
-  resolveCrotchStraightRun,
+  resolveCrotchP0Y,
   resolveFrontCrotchFullness,
   resolveBackCrotchFullness,
   resolveWaistlineCurveFront,
@@ -85,7 +85,8 @@ function frontCurve(style: TrouserFrontStyle, b = body) {
     fork: Math.abs(f.p5.x),
     R,
     waistCfY,
-    straightRun: resolveCrotchStraightRun(style, R, D, waistCfY),
+    waistCfY,
+    p0Y: resolveCrotchP0Y(style, D, waistCfY),
     extension: frontCrotchExtension(H, scale),
     arrivalAngleDeg: resolveCrotchArrivalAngle(style),
     touch: frontCrotchTouch(H) * scale,
@@ -158,7 +159,7 @@ for (const ff of fullnesses) {
           backCrotchFullness: bf,
           crotchArrivalAngle: arr,
           crotchExtensionScale: sc,
-          crotchStraightRun: 0,
+          crotchDeparture: "waistEdge",
         });
         try {
           draftTrouserFront(body, st);
@@ -181,7 +182,7 @@ console.log({ combos, frontFail, backFail });
 
 // --- Overlay render: Aldrich vs Cleo fullness, same Cleo corner ---
 const cleoCorner = mk({
-  crotchStraightRun: 0,
+  crotchDeparture: "waistEdge",
   crotchArrivalAngle: 32,
   crotchExtensionScale: 0.5,
   frontWaistInset: 0,

@@ -46,7 +46,7 @@ export {
 export const BLOCK_GEOMETRY_OVERRIDE_KEYS = [
   "frontCrotchExtensionScale",
   "backCrotchExtensionScale",
-  "crotchStraightRun",
+  "crotchDeparture",
   "crotchArrivalAngle",
   "waistlineCurveFront",
   "frontWaistInset",
@@ -88,6 +88,13 @@ function optClamped(
   return clamp(raw);
 }
 
+function optCrotchDeparture(raw: unknown): TrouserStyleSettings["crotchDeparture"] {
+  if (raw === null || raw === undefined) return null;
+  if (raw === "waistEdge") return "waistEdge";
+  if (isFiniteNumber(raw)) return raw;
+  return null;
+}
+
 function parseStyle(
   raw: unknown,
   defaultBackHemShape: BackHemShape,
@@ -124,6 +131,7 @@ function parseStyle(
     o.backHemShape === "curved" || o.backHemShape === "straight"
       ? o.backHemShape
       : defaultBackHemShape;
+  void o.crotchStraightRun;
   void o.crotchExtensionScale;
   void o.crotchDepartureHeight;
   void o.frontKneeShaping;
@@ -152,7 +160,7 @@ function parseStyle(
     ease: { waist: easeObj.waist, hip: easeObj.hip },
     frontCrotchExtensionScale: optClamped(o.frontCrotchExtensionScale, clampExt),
     backCrotchExtensionScale: optClamped(o.backCrotchExtensionScale, clampExt),
-    crotchStraightRun: optClamped(o.crotchStraightRun, (n) => n),
+    crotchDeparture: optCrotchDeparture(o.crotchDeparture),
     crotchArrivalAngle: optClamped(o.crotchArrivalAngle, (n) =>
       Math.max(CROTCH_ARRIVAL_ANGLE_MIN, Math.min(CROTCH_ARRIVAL_ANGLE_MAX, n)),
     ),
@@ -188,7 +196,7 @@ type StyleContextValue = TrouserStyleSettings & {
   setEase: Dispatch<SetStateAction<Ease>>;
   setFrontCrotchExtensionScale: Dispatch<SetStateAction<number | null>>;
   setBackCrotchExtensionScale: Dispatch<SetStateAction<number | null>>;
-  setCrotchStraightRun: Dispatch<SetStateAction<number | null>>;
+  setCrotchDeparture: Dispatch<SetStateAction<TrouserStyleSettings["crotchDeparture"]>>;
   setCrotchArrivalAngle: Dispatch<SetStateAction<number | null>>;
   setWaistlineCurveFront: Dispatch<SetStateAction<number | null>>;
   setFrontWaistInset: Dispatch<SetStateAction<number | null>>;
@@ -290,8 +298,8 @@ export function GarmentStyleProvider({
     fieldSetter(setStyle, "backCrotchExtensionScale"),
     [setStyle],
   );
-  const setCrotchStraightRun = useCallback(
-    fieldSetter(setStyle, "crotchStraightRun"),
+  const setCrotchDeparture = useCallback(
+    fieldSetter(setStyle, "crotchDeparture"),
     [setStyle],
   );
   const setCrotchArrivalAngle = useCallback(
@@ -349,7 +357,7 @@ export function GarmentStyleProvider({
       setEase,
       setFrontCrotchExtensionScale,
       setBackCrotchExtensionScale,
-      setCrotchStraightRun,
+      setCrotchDeparture,
       setCrotchArrivalAngle,
       setWaistlineCurveFront,
       setFrontWaistInset,
@@ -374,7 +382,7 @@ export function GarmentStyleProvider({
       setEase,
       setFrontCrotchExtensionScale,
       setBackCrotchExtensionScale,
-      setCrotchStraightRun,
+      setCrotchDeparture,
       setCrotchArrivalAngle,
       setWaistlineCurveFront,
       setFrontWaistInset,

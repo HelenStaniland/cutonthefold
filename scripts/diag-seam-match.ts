@@ -230,7 +230,7 @@ function mkCleoBandOff(): TrouserFrontStyle {
       bottomWidth: 220,
       block: "classic",
       waistDrop: m.waistDrop,
-      crotchStraightRun: m.crotchStraightRun,
+      crotchDeparture: m.crotchDeparture,
       frontWaistInset: m.frontWaistInset,
       crotchArrivalAngle: m.crotchArrivalAngle,
       backCrotchDrop: m.backCrotchDrop,

@@ -76,7 +76,7 @@ function checkDepth(depth: number, straightRun: number | undefined, label: strin
   const style = withWaistband(
     {
       ...base,
-      ...(straightRun !== undefined ? { crotchStraightRun: straightRun } : {}),
+      ...(straightRun !== undefined ? { crotchDeparture: straightRun } : {}),
     },
     depth,
     "shaped",
@@ -190,7 +190,7 @@ for (const { run, tag } of runs) {
     const style = withWaistband(
       {
         ...base,
-        ...(run !== undefined ? { crotchStraightRun: run } : {}),
+        ...(run !== undefined ? { crotchDeparture: run } : {}),
       },
       d,
       "shaped",

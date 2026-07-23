@@ -27,7 +27,7 @@ const style: TrouserFrontStyle = withWaistband(
     bottomWidth: 220,
     block: "classic",
     waistDrop: m.waistDrop,
-    crotchStraightRun: m.crotchStraightRun,
+    crotchDeparture: m.crotchDeparture,
     frontWaistInset: m.frontWaistInset,
     crotchArrivalAngle: m.crotchArrivalAngle,
     backCrotchDrop: m.backCrotchDrop,
@@ -107,7 +107,7 @@ writeFileSync(join("scripts", "cleo-preset.svg"), svg);
 console.log("wrote scripts/cleo-preset.svg");
 
 // Confirm measured values land on style
-console.log("check crotchStraightRun", style.crotchStraightRun, "want", m.crotchStraightRun);
+console.log("check crotchDeparture", style.crotchDeparture, "want", m.crotchDeparture);
 console.log("check frontWaistInset", style.frontWaistInset, "want", m.frontWaistInset);
 console.log("check arrival", style.crotchArrivalAngle, "want", m.crotchArrivalAngle);
 console.log("check backDrop", style.backCrotchDrop, "want", m.backCrotchDrop);

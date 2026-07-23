@@ -13,7 +13,8 @@ import {
   frontCrotchTouch,
   resolveCrotchArrivalAngle,
   resolveCrotchExtensionScale,
-  resolveCrotchStraightRun,
+  resolveCrotchP0Y,
+  resolveWaistlineCurveFront,
   trouserFrontPoints,
   type TrouserFrontStyle,
 } from "../lib/patterns/trouserBlock";
@@ -110,16 +111,26 @@ function frontCrotchCurveHeadFormula(args: {
   return { points: [], P0, P1, P2, P3, k, touchMiss: miss(k) };
 }
 
+function oldRunToDeparture(
+  oldRun: number,
+  D: number,
+  waistCfY: number,
+): TrouserFrontStyle["crotchDeparture"] {
+  if (oldRun <= 0) return "waistEdge";
+  const maxAbove = Math.max(0, D - waistCfY);
+  return Math.max(0, maxAbove - oldRun);
+}
+
 const chart = bodyForSizeCode("12")!;
 const body = applyEase({ ...chart, hip: 1100 }, { waist: 10, hip: 50 });
 
-const cds = [0, 30, 60, 90, 120, 180];
+const oldRuns = [0, 30, 60, 90, 120, 180];
 
 console.log("=== Bézier departure (toward waist = outline convention) ===");
-console.log("CD\trun\td1\tk\ttouchMiss\tdepartDeg");
+console.log("oldRun\taboveHip\tdrop\td1\tk\ttouchMiss\tdepartDeg");
 
-for (const cd of cds) {
-  const style: TrouserFrontStyle = {
+for (const oldRun of oldRuns) {
+  const probe: TrouserFrontStyle = {
     bottomWidth: 220,
     block: "classic",
     waistDrop: 25,
@@ -127,34 +138,43 @@ for (const cd of cds) {
     waistReduction: 0,
     crotchExtensionScale: 1.0,
     frontWaistInset: 10,
-    crotchStraightRun: cd,
     crotchArrivalAngle: 5,
     waistbandDepth: 0,
     waistlineCurveFront: 0,
   };
+  const fProbe = trouserFrontPoints(body, probe);
+  const waistCfY = resolveWaistlineCurveFront(probe);
+  const D = fProbe.p6.y;
+  const style: TrouserFrontStyle = {
+    ...probe,
+    crotchDeparture: oldRunToDeparture(oldRun, D, waistCfY),
+  };
   const f = trouserFrontPoints(body, style);
   const scale = resolveCrotchExtensionScale(style);
-  const R = f.p9.y; // dropped rise
-  const D = f.p6.y;
-  const straightRun = resolveCrotchStraightRun(style, R, D, f.p10.y);
+  const R = f.p9.y;
   const bez = frontCrotchCurve({
     p5: f.p5,
     p9: f.p9,
-    p10: f.p10,
     fork: Math.abs(f.p5.x),
     R,
-    straightRun,
+    waistCfY,
+    p0Y: resolveCrotchP0Y(style, D, waistCfY),
     extension: frontCrotchExtension(body.hip, scale),
     arrivalAngleDeg: resolveCrotchArrivalAngle(style),
     touch: frontCrotchTouch(body.hip) * scale,
   });
+  const aboveHip =
+    style.crotchDeparture === "waistEdge"
+      ? D - waistCfY
+      : (style.crotchDeparture ?? 0);
   const run = bez.P3.y - bez.P0.y;
   const d1 = bez.P1.y - bez.P0.y;
   // Toward waist along CF: opposite of P1−P0
   const departDeg = angleDeg(bez.P0.x - bez.P1.x, bez.P0.y - bez.P1.y);
   console.log(
     [
-      straightRun.toFixed(1),
+      String(oldRun),
+      aboveHip.toFixed(1),
       run.toFixed(2),
       d1.toFixed(2),
       bez.k.toFixed(4),
@@ -171,17 +191,17 @@ for (const cd of cds) {
     waistDrop: 0,
   };
   const f = trouserFrontPoints(body, defaults);
+  const waistCfY = resolveWaistlineCurveFront(defaults);
   const scale = resolveCrotchExtensionScale(defaults);
   const R = f.p9.y;
   const D = f.p6.y;
-  const straightRun = resolveCrotchStraightRun(defaults, R, D, f.p10.y);
   const args = {
     p5: f.p5,
     p9: f.p9,
-    p10: f.p10,
     fork: Math.abs(f.p5.x),
     R,
-    straightRun,
+    waistCfY,
+    p0Y: resolveCrotchP0Y(defaults, D, waistCfY),
     extension: frontCrotchExtension(body.hip, scale),
     arrivalAngleDeg: resolveCrotchArrivalAngle(defaults),
     touch: frontCrotchTouch(body.hip) * scale,
@@ -208,35 +228,36 @@ for (const cd of cds) {
   const style0: TrouserFrontStyle = {
     ...defaults,
     waistDrop: 25,
-    crotchStraightRun: 0,
+    crotchDeparture: "waistEdge",
     frontWaistInset: 10,
     crotchArrivalAngle: 5,
     crotchExtensionScale: 1.0,
     waistbandDepth: 0,
   };
   const f0 = trouserFrontPoints(body, style0);
+  const wcf0 = resolveWaistlineCurveFront(style0);
   const R0 = f0.p9.y;
   const D0 = f0.p6.y;
   const s0 = resolveCrotchExtensionScale(style0);
   const bez0 = frontCrotchCurve({
     p5: f0.p5,
     p9: f0.p9,
-    p10: f0.p10,
     fork: Math.abs(f0.p5.x),
     R: R0,
-    straightRun: resolveCrotchStraightRun(style0, R0, D0, f0.p10.y),
+    waistCfY: wcf0,
+    p0Y: resolveCrotchP0Y(style0, D0, wcf0),
     extension: frontCrotchExtension(body.hip, s0),
     arrivalAngleDeg: resolveCrotchArrivalAngle(style0),
     touch: frontCrotchTouch(body.hip) * s0,
   });
-  console.log(`touchMiss CD=0: ${bez0.touchMiss.toFixed(4)} mm`);
+  console.log(`touchMiss waistEdge: ${bez0.touchMiss.toFixed(4)} mm`);
 }
 
 console.log("\n=== Outline waist-end tangent (NOT Bézier at P0) — nick metric ===");
 console.log("CD\tFWC\toutlineDeg");
-for (const cd of [0]) {
+for (const oldRun of [0]) {
   for (const fwc of [0, 16, 30]) {
-    const style: TrouserFrontStyle = {
+    const probe: TrouserFrontStyle = {
       bottomWidth: 220,
       block: "classic",
       waistDrop: 25,
@@ -244,10 +265,15 @@ for (const cd of [0]) {
       waistReduction: 0,
       crotchExtensionScale: 1.0,
       frontWaistInset: 10,
-      crotchStraightRun: cd,
       crotchArrivalAngle: 5,
       waistbandDepth: 0,
       waistlineCurveFront: fwc,
+    };
+    const fp = trouserFrontPoints(body, probe);
+    const wcf = resolveWaistlineCurveFront(probe);
+    const style: TrouserFrontStyle = {
+      ...probe,
+      crotchDeparture: oldRunToDeparture(oldRun, fp.p6.y, wcf),
     };
     const piece = draftTrouserFront(body, style);
     const crotchCf = [
@@ -257,7 +283,7 @@ for (const cd of [0]) {
     const c0 = crotchCf[crotchCf.length - 2]!;
     const c1 = crotchCf[crotchCf.length - 1]!;
     console.log(
-      `${cd}\t${fwc}\t${angleDeg(c1.x - c0.x, c1.y - c0.y).toFixed(2)}`,
+      `${oldRun}\t${fwc}\t${angleDeg(c1.x - c0.x, c1.y - c0.y).toFixed(2)}`,
     );
   }
 }
@@ -271,7 +297,7 @@ function writeSvg(fwc: number, file: string) {
     waistReduction: 0,
     crotchExtensionScale: 1.0,
     frontWaistInset: 10,
-    crotchStraightRun: 0,
+    crotchDeparture: "waistEdge",
     crotchArrivalAngle: 5,
     waistbandDepth: 0,
     waistlineCurveFront: fwc,

@@ -54,7 +54,7 @@ function resolveStyle(
     ...(s.backCrotchExtensionScale != null
       ? { backCrotchExtensionScale: s.backCrotchExtensionScale }
       : {}),
-    ...(s.crotchStraightRun != null ? { crotchStraightRun: s.crotchStraightRun } : {}),
+    ...(s.crotchDeparture != null ? { crotchDeparture: s.crotchDeparture } : {}),
     ...(s.crotchArrivalAngle != null
       ? { crotchArrivalAngle: s.crotchArrivalAngle }
       : {}),

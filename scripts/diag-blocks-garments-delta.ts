@@ -41,8 +41,8 @@ function toDraftStyle(
     ...(s.backCrotchExtensionScale != null
       ? { backCrotchExtensionScale: s.backCrotchExtensionScale }
       : {}),
-    ...(s.crotchStraightRun != null
-      ? { crotchStraightRun: s.crotchStraightRun }
+    ...(s.crotchDeparture != null
+      ? { crotchDeparture: s.crotchDeparture }
       : {}),
     ...(s.crotchArrivalAngle != null
       ? { crotchArrivalAngle: s.crotchArrivalAngle }
@@ -122,7 +122,7 @@ const fromPreset: TrouserStyleSettings = {
   ease: { ...m.ease },
   frontCrotchExtensionScale: m.frontCrotchExtensionScale,
   backCrotchExtensionScale: m.backCrotchExtensionScale,
-  crotchStraightRun: m.crotchStraightRun,
+  crotchDeparture: m.crotchDeparture,
   crotchArrivalAngle: m.crotchArrivalAngle,
   waistlineCurveFront: pr.waistlineCurveFront,
   frontWaistInset: m.frontWaistInset,

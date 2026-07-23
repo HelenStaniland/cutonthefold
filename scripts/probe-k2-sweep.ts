@@ -18,7 +18,7 @@ const style = withWaistband(
     crotchArrivalAngle: 45,
     waistlineCurveFront: 0,
     frontWaistInset: 10,
-    crotchStraightRun: 0,
+    crotchDeparture: 0,
   },
   0,
   "darted",

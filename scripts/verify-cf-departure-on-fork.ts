@@ -1,5 +1,5 @@
 /**
- * Report: correct CF construction — P0 on −fork, join p10→P0.
+ * Report: correct CF construction — P0 on −fork, join wr.cf→P0.
  * Run: npx tsx scripts/verify-cf-departure-on-fork.ts
  */
 import { writeFileSync } from "node:fs";
@@ -13,7 +13,8 @@ import {
   frontCrotchTouch,
   resolveCrotchArrivalAngle,
   resolveCrotchExtensionScale,
-  resolveCrotchStraightRun,
+  resolveCrotchP0Y,
+  resolveWaistlineCurveFront,
   trouserFrontPoints,
   type TrouserFrontStyle,
 } from "../lib/patterns/trouserBlock";
@@ -55,8 +56,6 @@ function hausdorff(a: Point[], b: Point[]): number {
 const chart = bodyForSizeCode("12")!;
 const body = applyEase({ ...chart, hip: 1100 }, { waist: 10, hip: 50 });
 const H = body.hip;
-const R = body.bodyRise;
-const D = body.hipDepth;
 
 const defaults: TrouserFrontStyle = {
   bottomWidth: 220,
@@ -66,16 +65,19 @@ const defaults: TrouserFrontStyle = {
 
 const f = trouserFrontPoints(body, defaults);
 const fork = Math.abs(f.p5.x);
+const waistCfY = resolveWaistlineCurveFront(defaults);
+const R = f.p9.y;
+const D = f.p6.y;
 const scale = resolveCrotchExtensionScale(defaults);
 const touch = frontCrotchTouch(H) * scale;
-const straightRun = resolveCrotchStraightRun(defaults, R, D, f.p10.y);
+const p0Y = resolveCrotchP0Y(defaults, D, waistCfY);
 const bez = frontCrotchCurve({
   p5: f.p5,
   p9: f.p9,
-  p10: f.p10,
   fork,
   R,
-  straightRun,
+  waistCfY,
+  p0Y,
   extension: frontCrotchExtension(H, scale),
   arrivalAngleDeg: resolveCrotchArrivalAngle(defaults),
   touch,
@@ -83,13 +85,10 @@ const bez = frontCrotchCurve({
 
 console.log("=== Parameter choice ===");
 console.log(
-  "Kept name crotchStraightRun = y-distance below p10.y at which the curve",
+  'crotchDeparture: number = mm above hipline (0 = Aldrich); "waistEdge" = top of piece.',
 );
 console.log(
-  "leaves the true CF (−fork). Range [0, D], default D (hipline / Aldrich 10–6).",
-);
-console.log(
-  `Resolved default straightRun=${straightRun} (D=${D}, p10.y=${f.p10.y})`,
+  `Resolved default P0.y=${p0Y} (D=${D}, waistCfY=${waistCfY})`,
 );
 
 console.log("\n=== Defaults (inset 10, departure = hipline) ===");
@@ -110,8 +109,6 @@ const onOutlineNearP6 = cfPath.some(
 );
 console.log(`Outline CF/crotch reaches p6: ${onOutlineNearP6}`);
 
-// Compare to HEAD geometry expectation: P0=p6, join includes p10→p6.
-// Explicit Aldrich path samples for Hausdorff of the straight join.
 const aldrichJoin: Point[] = [f.p6, f.p10];
 const cfSeg = rolePts(piece, "centre-front");
 const joinHd = hausdorff(cfSeg.length >= 2 ? cfSeg : [f.p6, f.p10], aldrichJoin);
@@ -119,33 +116,32 @@ console.log(
   `CF role vs Aldrich p6→p10 Hausdorff: ${joinHd.toFixed(4)} mm (scoop may lift end to wr.cf)`,
 );
 
-// Byte-identity of omitted vs explicit defaults
 const pieceExplicit = draftTrouserFront(body, {
   ...defaults,
   frontWaistInset: 10,
-  crotchStraightRun: D,
+  crotchDeparture: 0,
 });
 console.log(
-  `omitted vs explicit defaults: ${serializeGeom(piece) === serializeGeom(pieceExplicit) ? "BYTE-IDENTICAL" : "DIFFERS"}`,
+  `omitted vs explicit 0 (hipline): ${serializeGeom(piece) === serializeGeom(pieceExplicit) ? "BYTE-IDENTICAL" : "DIFFERS"}`,
 );
 
-// inset 0, departure = waist
 {
   const style: TrouserFrontStyle = {
     ...defaults,
     frontWaistInset: 0,
-    crotchStraightRun: 0,
+    crotchDeparture: "waistEdge",
   };
   const f0 = trouserFrontPoints(body, style);
+  const wcf0 = resolveWaistlineCurveFront(style);
   const fork0 = Math.abs(f0.p5.x);
-  const run0 = resolveCrotchStraightRun(style, R, D, f0.p10.y);
+  const p0Waist = resolveCrotchP0Y(style, D, wcf0);
   const b0 = frontCrotchCurve({
     p5: f0.p5,
     p9: f0.p9,
-    p10: f0.p10,
     fork: fork0,
     R,
-    straightRun: run0,
+    waistCfY: wcf0,
+    p0Y: p0Waist,
     extension: frontCrotchExtension(H, resolveCrotchExtensionScale(style)),
     arrivalAngleDeg: resolveCrotchArrivalAngle(style),
     touch: frontCrotchTouch(H) * resolveCrotchExtensionScale(style),
@@ -154,38 +150,38 @@ console.log(
   const at = b0.points[n - 1]!;
   const near = b0.points[n - 2]!;
   const leave = (Math.atan2(near.x - at.x, near.y - at.y) * 180) / Math.PI;
-  console.log(`\n=== inset 0, departure = waist ===`);
+  console.log(`\n=== inset 0, departure = waistEdge ===`);
   console.log(
     `p10.x=${f0.p10.x.toFixed(3)} P0=(${b0.P0.x.toFixed(3)}, ${b0.P0.y.toFixed(3)}) join collapsed=${Math.hypot(b0.P0.x - f0.p10.x, b0.P0.y - f0.p10.y) < 0.5}`,
   );
   console.log(`departure from vertical: ${leave.toFixed(2)}°`);
 }
 
-// inset 10, departure = waist
 {
   const style: TrouserFrontStyle = {
     ...defaults,
     frontWaistInset: 10,
-    crotchStraightRun: 0,
+    crotchDeparture: "waistEdge",
   };
   const fW = trouserFrontPoints(body, style);
+  const wcfW = resolveWaistlineCurveFront(style);
   const bW = frontCrotchCurve({
     p5: fW.p5,
     p9: fW.p9,
-    p10: fW.p10,
     fork: Math.abs(fW.p5.x),
     R,
-    straightRun: 0,
+    waistCfY: wcfW,
+    p0Y: resolveCrotchP0Y(style, D, wcfW),
     extension: frontCrotchExtension(H, scale),
     arrivalAngleDeg: resolveCrotchArrivalAngle(style),
     touch,
   });
-  console.log(`\n=== inset 10, departure = waist ===`);
+  console.log(`\n=== inset 10, departure = waistEdge ===`);
   console.log(
-    `P0=(${bW.P0.x.toFixed(3)}, ${bW.P0.y.toFixed(3)}) p10=(${fW.p10.x.toFixed(3)}, ${fW.p10.y.toFixed(3)})`,
+    `P0=(${bW.P0.x.toFixed(3)}, ${bW.P0.y.toFixed(3)}) wr.cf.y=${wcfW.toFixed(3)}`,
   );
   console.log(
-    `join length p10→P0: ${Math.hypot(bW.P0.x - fW.p10.x, bW.P0.y - fW.p10.y).toFixed(2)} mm (≈ inset)`,
+    `P0 at waist edge: ${Math.abs(bW.P0.y - wcfW) < 1e-9}`,
   );
 }
 
@@ -229,12 +225,12 @@ writeSvg(
   "cf-departure-inset10-hipline.svg",
 );
 writeSvg(
-  { ...defaults, crotchStraightRun: 0 },
-  "inset=10, departure=waist",
+  { ...defaults, crotchDeparture: "waistEdge" },
+  "inset=10, departure=waistEdge",
   "cf-departure-inset10-waist.svg",
 );
 writeSvg(
-  { ...defaults, frontWaistInset: 0, crotchStraightRun: 0 },
-  "inset=0, departure=waist (Cleo)",
+  { ...defaults, frontWaistInset: 0, crotchDeparture: "waistEdge" },
+  "inset=0, departure=waistEdge (Cleo)",
   "cf-departure-inset0-waist.svg",
 );

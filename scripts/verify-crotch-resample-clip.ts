@@ -13,7 +13,8 @@ import {
   frontCrotchTouch,
   resolveCrotchArrivalAngle,
   resolveCrotchExtensionScale,
-  resolveCrotchStraightRun,
+  resolveCrotchP0Y,
+  resolveWaistlineCurveFront,
   trouserFrontPoints,
   type TrouserFrontStyle,
 } from "../lib/patterns/trouserBlock";
@@ -62,7 +63,7 @@ const ownerStyle: TrouserFrontStyle = {
   waistReduction: 0,
   crotchExtensionScale: 1.0,
   frontWaistInset: 10,
-  crotchStraightRun: 0,
+  crotchDeparture: "waistEdge",
   crotchArrivalAngle: 5,
 };
 
@@ -109,13 +110,14 @@ console.log(`\nsnap-backs (|Δ| drop > 20°): ${snaps} (want 0)`);
   const R = body.bodyRise;
   const D = body.hipDepth;
   const scale = resolveCrotchExtensionScale(defaults);
+  const waistCfY = resolveWaistlineCurveFront(defaults);
   const bez = frontCrotchCurve({
     p5: f.p5,
     p9: f.p9,
-    p10: f.p10,
     fork: Math.abs(f.p5.x),
     R,
-    straightRun: resolveCrotchStraightRun(defaults, R, D, f.p10.y),
+    waistCfY,
+    p0Y: resolveCrotchP0Y(defaults, D, waistCfY),
     extension: frontCrotchExtension(H, scale),
     arrivalAngleDeg: resolveCrotchArrivalAngle(defaults),
     touch: frontCrotchTouch(H) * scale,

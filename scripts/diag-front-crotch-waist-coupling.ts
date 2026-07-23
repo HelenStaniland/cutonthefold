@@ -46,7 +46,7 @@ function resolveStyle(
     depth: number;
     dartedWaistFinish?: "facing" | "waistband";
   },
-  crotchStraightRun?: number | null,
+  crotchDeparture?: number | null,
 ): TrouserFrontStyle {
   const mode = waistOverride?.mode ?? s.waistbandMode;
   const finish = waistOverride?.dartedWaistFinish ?? s.dartedWaistFinish;
@@ -73,12 +73,12 @@ function resolveStyle(
     ...(s.backCrotchExtensionScale != null
       ? { backCrotchExtensionScale: s.backCrotchExtensionScale }
       : {}),
-    ...(crotchStraightRun !== undefined
-      ? crotchStraightRun != null
-        ? { crotchStraightRun }
+    ...(crotchDeparture !== undefined
+      ? crotchDeparture != null
+        ? { crotchDeparture }
         : {}
-      : s.crotchStraightRun != null
-        ? { crotchStraightRun: s.crotchStraightRun }
+      : s.crotchDeparture != null
+        ? { crotchDeparture: s.crotchDeparture }
         : {}),
     ...(s.crotchArrivalAngle != null
       ? { crotchArrivalAngle: s.crotchArrivalAngle }
@@ -421,7 +421,7 @@ console.log(
 );
 
 // --- Sweep B ---
-console.log("\n## Sweep B — crotchStraightRun alone (waist fixed darted/0)\n");
+console.log("\n## Sweep B — crotchDeparture alone (waist fixed darted/0)\n");
 console.log(
   "straightRun | P0.y   | drop   | d1     | F crotch | note",
 );

@@ -12,7 +12,8 @@ import {
   frontCrotchTouch,
   resolveCrotchArrivalAngle,
   resolveCrotchExtensionScale,
-  resolveCrotchStraightRun,
+  resolveCrotchP0Y,
+  resolveWaistlineCurveFront,
   trouserFrontPoints,
   type TrouserFrontStyle,
 } from "../lib/patterns/trouserBlock";
@@ -47,10 +48,32 @@ function countNear(pts: Point[], target: Point, tol = 0.05): number {
   return pts.filter((p) => dist(p, target) < tol).length;
 }
 
+function crotchBez(
+  b: typeof body,
+  style: TrouserFrontStyle,
+) {
+  const f = trouserFrontPoints(b, style);
+  const waistCfY = resolveWaistlineCurveFront(style);
+  const R = f.p9.y;
+  const D = f.p6.y;
+  const scale = resolveCrotchExtensionScale(style);
+  return frontCrotchCurve({
+    p5: f.p5,
+    p9: f.p9,
+    fork: Math.abs(f.p5.x),
+    R,
+    waistCfY,
+    p0Y: resolveCrotchP0Y(style, D, waistCfY),
+    extension: frontCrotchExtension(b.hip, scale),
+    arrivalAngleDeg: resolveCrotchArrivalAngle(style),
+    touch: frontCrotchTouch(b.hip) * scale,
+  });
+}
+
 const chart = bodyForSizeCode("12")!;
 const body = applyEase({ ...chart, hip: 1100 }, { waist: 10, hip: 50 });
 
-console.log("=== CD=0 inset=10 band off — tangents ===");
+console.log('=== crotchDeparture="waistEdge" inset=10 band off — tangents ===');
 console.log("FWC\twaistEndDeg\tpostP0Deg\tP0count\tjoinLen");
 
 for (const fwc of [0, 16, 30]) {
@@ -62,27 +85,13 @@ for (const fwc of [0, 16, 30]) {
     waistReduction: 0,
     crotchExtensionScale: 1.0,
     frontWaistInset: 10,
-    crotchStraightRun: 0,
+    crotchDeparture: "waistEdge",
     crotchArrivalAngle: 5,
     waistbandDepth: 0,
     waistlineCurveFront: fwc,
   };
   const piece = draftTrouserFront(body, style);
-  const f = trouserFrontPoints(body, style);
-  const scale = resolveCrotchExtensionScale(style);
-  const R = f.p9.y;
-  const D = f.p6.y;
-  const bez = frontCrotchCurve({
-    p5: f.p5,
-    p9: f.p9,
-    p10: f.p10,
-    fork: Math.abs(f.p5.x),
-    R,
-    straightRun: resolveCrotchStraightRun(style, R, D, f.p10.y),
-    extension: frontCrotchExtension(body.hip, scale),
-    arrivalAngleDeg: resolveCrotchArrivalAngle(style),
-    touch: frontCrotchTouch(body.hip) * scale,
-  });
+  const bez = crotchBez(body, style);
   const P0 = bez.P0;
   const path = crotchCf(piece);
   const waist = rolePts(piece, "waist");
@@ -135,27 +144,13 @@ console.log("\n=== inset=0 CD=0 FWC=16 — continuous CF ===");
     waistReduction: 0,
     crotchExtensionScale: 1.0,
     frontWaistInset: 0,
-    crotchStraightRun: 0,
+    crotchDeparture: "waistEdge",
     crotchArrivalAngle: 5,
     waistbandDepth: 0,
     waistlineCurveFront: 16,
   };
   const piece = draftTrouserFront(body, style);
-  const f = trouserFrontPoints(body, style);
-  const scale = resolveCrotchExtensionScale(style);
-  const R = f.p9.y;
-  const D = f.p6.y;
-  const bez = frontCrotchCurve({
-    p5: f.p5,
-    p9: f.p9,
-    p10: f.p10,
-    fork: Math.abs(f.p5.x),
-    R,
-    straightRun: resolveCrotchStraightRun(style, R, D, f.p10.y),
-    extension: frontCrotchExtension(body.hip, scale),
-    arrivalAngleDeg: resolveCrotchArrivalAngle(style),
-    touch: frontCrotchTouch(body.hip) * scale,
-  });
+  const bez = crotchBez(body, style);
   const path = crotchCf(piece);
   const wrCf = rolePts(piece, "waist")[0]!;
   const P0 = bez.P0;
@@ -187,21 +182,7 @@ console.log("\n=== Defaults vs tip→P0→wr.cf (pre-snap-branch geometry) ===")
     waistDrop: 0,
   };
   const piece = draftTrouserFront(body, defaults);
-  const f = trouserFrontPoints(body, defaults);
-  const scale = resolveCrotchExtensionScale(defaults);
-  const R = f.p9.y;
-  const D = f.p6.y;
-  const bez = frontCrotchCurve({
-    p5: f.p5,
-    p9: f.p9,
-    p10: f.p10,
-    fork: Math.abs(f.p5.x),
-    R,
-    straightRun: resolveCrotchStraightRun(defaults, R, D, f.p10.y),
-    extension: frontCrotchExtension(body.hip, scale),
-    arrivalAngleDeg: resolveCrotchArrivalAngle(defaults),
-    touch: frontCrotchTouch(body.hip) * scale,
-  });
+  const bez = crotchBez(body, defaults);
   const expected = [
     ...cubicBezier(bez.P0, bez.P1, bez.P2, bez.P3, 48).reverse(),
     rolePts(piece, "waist")[0]!,
@@ -241,21 +222,7 @@ function writeSvg(
   const piece = draftTrouserFront(body, style);
   const waist = rolePts(piece, "waist");
   const path = crotchCf(piece);
-  const f = trouserFrontPoints(body, style);
-  const scale = resolveCrotchExtensionScale(style);
-  const R = f.p9.y;
-  const D = f.p6.y;
-  const bez = frontCrotchCurve({
-    p5: f.p5,
-    p9: f.p9,
-    p10: f.p10,
-    fork: Math.abs(f.p5.x),
-    R,
-    straightRun: resolveCrotchStraightRun(style, R, D, f.p10.y),
-    extension: frontCrotchExtension(body.hip, scale),
-    arrivalAngleDeg: resolveCrotchArrivalAngle(style),
-    touch: frontCrotchTouch(body.hip) * scale,
-  });
+  const bez = crotchBez(body, style);
   const focus = [...waist.slice(0, 6), ...path.slice(-16), bez.P0];
   let fx0 = Infinity,
     fy0 = Infinity,
@@ -287,7 +254,7 @@ const base: TrouserFrontStyle = {
   waistbandMode: "darted",
   waistReduction: 0,
   crotchExtensionScale: 1.0,
-  crotchStraightRun: 0,
+  crotchDeparture: "waistEdge",
   crotchArrivalAngle: 5,
   waistbandDepth: 0,
 };

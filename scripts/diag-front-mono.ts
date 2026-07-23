@@ -148,7 +148,7 @@ for (const cd of [0, 30, 60, 90, 120, 180, undefined]) {
               crotchArrivalAngle: arrival,
               waistlineCurveFront: fwc,
               frontWaistInset: inset,
-              ...(cd !== undefined ? { crotchStraightRun: cd } : {}),
+              ...(cd !== undefined ? { crotchDeparture: cd } : {}),
             };
             sweeps.push({
               label: `cd=${cd} fwc=${fwc} s=${scale} arr=${arrival} drop=${drop} in=${inset}`,
@@ -187,7 +187,7 @@ if (found === 0) {
             crotchArrivalAngle: 5,
             waistlineCurveFront: 30,
             frontWaistInset: 10,
-            ...(cd !== undefined ? { crotchStraightRun: cd } : {}),
+            ...(cd !== undefined ? { crotchDeparture: cd } : {}),
           },
           depth,
           "shaped",

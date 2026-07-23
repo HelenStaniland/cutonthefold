@@ -195,7 +195,7 @@ const ownerBase: TrouserFrontStyle = {
   crotchArrivalAngle: 5,
   waistlineCurveFront: 30,
   frontWaistInset: 10,
-  crotchStraightRun: 0,
+  crotchDeparture: 0,
 };
 
 for (const cd of [0, 30, 90, 120, 180, undefined]) {
@@ -209,10 +209,10 @@ for (const cd of [0, 30, 90, 120, 180, undefined]) {
             crotchExtensionScale: scale,
             crotchArrivalAngle: arr,
             waistlineCurveFront: fwc,
-            ...(cd !== undefined ? { crotchStraightRun: cd } : { crotchStraightRun: undefined }),
+            ...(cd !== undefined ? { crotchDeparture: cd } : { crotchDeparture: undefined }),
           };
           // clear optional
-          if (cd === undefined) delete (style as { crotchStraightRun?: number }).crotchStraightRun;
+          if (cd === undefined) delete (style as { crotchDeparture?: number }).crotchDeparture;
           if (analyse(withWaistband(style, 0, "darted", body), `d0 cd=${cd} fwc=${fwc} s=${scale} a=${arr} drop=${drop}`)) {
             hits++;
             if (hits >= 1) {
@@ -247,7 +247,7 @@ if (hits === 0) {
           waistlineCurveFront: 16,
           frontWaistInset: 10,
         };
-        if (cd !== undefined) raw.crotchStraightRun = cd;
+        if (cd !== undefined) raw.crotchDeparture = cd;
         const style = withWaistband(raw, depth, depth === 0 ? "darted" : "shaped", body);
         if (
           analyse(

@@ -1,5 +1,5 @@
 /**
- * Report: front crotch cubic Bézier (updated for crotchStraightRun).
+ * Report: front crotch cubic Bézier (updated for crotchDeparture).
  * Run: npx tsx scripts/verify-front-crotch-bezier.ts
  */
 import { writeFileSync } from "node:fs";
@@ -14,7 +14,8 @@ import {
   frontCrotchTouch,
   resolveCrotchArrivalAngle,
   resolveCrotchExtensionScale,
-  resolveCrotchStraightRun,
+  resolveCrotchP0Y,
+  resolveWaistlineCurveFront,
   trouserFrontPoints,
   type TrouserFrontStyle,
 } from "../lib/patterns/trouserBlock";
@@ -69,16 +70,17 @@ const touch = frontCrotchTouch(H) * scale;
 const guide = crotchGuide45(f.p5, touch);
 const oldCurve = catmullRomCentripetal([f.p9, guide, f.p6]);
 
-const straightRun = resolveCrotchStraightRun(defaults, R, D, f.p10.y);
+const waistCfY = resolveWaistlineCurveFront(defaults);
+const straightRun = resolveCrotchP0Y(defaults, D, waistCfY) - waistCfY;
 const extension = frontCrotchExtension(H, scale);
 const arrival = resolveCrotchArrivalAngle(defaults);
 const bez = frontCrotchCurve({
   p5: f.p5,
   p9: f.p9,
-  p10: f.p10,
   fork: Math.abs(f.p5.x),
   R,
-  straightRun,
+  waistCfY,
+  p0Y: resolveCrotchP0Y(defaults, D, waistCfY),
   extension,
   arrivalAngleDeg: arrival,
   touch,
@@ -112,10 +114,10 @@ for (const ang of [8, 10, 12, 14, 16, 18, 20, 24, 28, 32]) {
   const b = frontCrotchCurve({
     p5: f.p5,
     p9: f.p9,
-    p10: f.p10,
     fork: Math.abs(f.p5.x),
     R,
-    straightRun,
+    waistCfY,
+    p0Y: resolveCrotchP0Y(defaults, D, waistCfY),
     extension,
     arrivalAngleDeg: ang,
     touch,
@@ -141,31 +143,34 @@ for (const ang of [8, 10, 12, 14, 16, 18, 20, 24, 28, 32]) {
   );
 }
 
-// Cleo: ~40 mm straight from top + short extension + steeper arrival.
+// Cleo-ish: old straightRun 40 mm below waist → equivalent above-hip value.
 const Cleo: TrouserFrontStyle = {
   ...defaults,
   crotchExtensionScale: 0.5,
-  crotchStraightRun: 40,
   crotchArrivalAngle: 32,
 };
 const fI = trouserFrontPoints(body, Cleo);
-const sI = resolveCrotchExtensionScale(Cleo);
+const wcfI = resolveWaistlineCurveFront(Cleo);
+const maxAboveI = Math.max(0, D - wcfI);
+const cleoDep = Math.max(0, maxAboveI - 40);
+const CleoWithDep: TrouserFrontStyle = { ...Cleo, crotchDeparture: cleoDep };
+const sI = resolveCrotchExtensionScale(CleoWithDep);
 const touchI = frontCrotchTouch(H) * sI;
-const runI = resolveCrotchStraightRun(Cleo, R, D, fI.p10.y);
+const runI = resolveCrotchP0Y(CleoWithDep, D, wcfI) - wcfI;
 const extI = frontCrotchExtension(H, sI);
-const arrI = resolveCrotchArrivalAngle(Cleo);
+const arrI = resolveCrotchArrivalAngle(CleoWithDep);
 const bezI = frontCrotchCurve({
   p5: fI.p5,
   p9: fI.p9,
-  p10: fI.p10,
   fork: Math.abs(fI.p5.x),
   R,
-  straightRun: runI,
+  waistCfY: wcfI,
+  p0Y: resolveCrotchP0Y(CleoWithDep, D, wcfI),
   extension: extI,
   arrivalAngleDeg: arrI,
   touch: touchI,
 });
-console.log(`\n=== cleo-ish (ext 0.5, straightRun ${runI}, arr ${arrI}°) ===`);
+console.log(`\n=== cleo-ish (ext 0.5, aboveHip ${cleoDep}, arr ${arrI}°) ===`);
 console.log(`solved k = ${bezI.k.toFixed(4)}`);
 console.log(`touch miss = ${bezI.touchMiss.toFixed(3)} mm`);
 

@@ -40,7 +40,7 @@ function cleoBandOff(): TrouserFrontStyle {
       bottomWidth: 220,
       block: "classic",
       waistDrop: m.waistDrop,
-      crotchStraightRun: m.crotchStraightRun,
+      crotchDeparture: m.crotchDeparture,
       frontWaistInset: m.frontWaistInset,
       crotchArrivalAngle: m.crotchArrivalAngle,
       backCrotchDrop: m.backCrotchDrop,
@@ -83,14 +83,14 @@ function centreHipNotch(
 function maxStraightRun(style: TrouserFrontStyle): number {
   const pts = trouserFrontPoints(body, style);
   // Scooped CF y from the drafted outline: last centre-front / crotch tip→waist endpoint
-  const front = draftTrouserFront(body, { ...style, crotchStraightRun: undefined });
+  const front = draftTrouserFront(body, { ...style, crotchDeparture: undefined });
   const cfPts = front.outline.filter(
     (o) => o.role === "centre-front" || o.role === "crotch",
   );
   // At default departure, P0 is at D; waist end is the highest (smallest y) on crotch+CF
   const waistY = Math.min(...cfPts.map((o) => o.at.y));
   return resolveCrotchStraightRun(
-    { crotchStraightRun: 1e9 },
+    { crotchDeparture: 1e9 },
     pts.p5.y,
     pts.p6.y,
     waistY,
@@ -120,7 +120,7 @@ console.log(
 
 const runs = [0, defaultMax / 2, defaultMax];
 for (const run of runs) {
-  const style = aldrich({ crotchStraightRun: run });
+  const style = aldrich({ crotchDeparture: run });
   const front = draftTrouserFront(body, style);
   const pts = trouserFrontPoints(body, style);
   const n = centreHipNotch(front, pts.p6.y, pts.p8.x);
@@ -137,7 +137,7 @@ console.log("\n=== Sweep ===");
 let prevX: number | null = null;
 for (let i = 0; i <= 10; i++) {
   const run = (defaultMax * i) / 10;
-  const style = aldrich({ crotchStraightRun: run });
+  const style = aldrich({ crotchDeparture: run });
   const front = draftTrouserFront(body, style);
   const pts = trouserFrontPoints(body, style);
   const n = centreHipNotch(front, pts.p6.y, pts.p8.x);
@@ -164,7 +164,7 @@ for (const [label, style] of [
 
 // SVG at departure 0
 {
-  const style = aldrich({ crotchStraightRun: 0 });
+  const style = aldrich({ crotchDeparture: 0 });
   const front = draftTrouserFront(body, style);
   const pts = trouserFrontPoints(body, style);
   const hip = centreHipNotch(front, pts.p6.y, pts.p8.x);
@@ -204,13 +204,13 @@ for (const [label, style] of [
   console.log("Hip notch at departure 0:", hip ? fmt(hip.at) : "MISSING");
 }
 
-// Aldrich default (crotchStraightRun omitted) must land on p6
+// Aldrich default (crotchDeparture omitted) must land on p6
 {
   const style = aldrich();
   const front = draftTrouserFront(body, style);
   const pts = trouserFrontPoints(body, style);
   const n = centreHipNotch(front, pts.p6.y, pts.p8.x);
-  console.log("\n=== Aldrich default (omit crotchStraightRun) ===");
+  console.log("\n=== Aldrich default (omit crotchDeparture) ===");
   console.log(
     `  notch ${n ? fmt(n.at) : "MISSING"}  p6 ${fmt(pts.p6)}  Δ ${n ? dist(n.at, pts.p6).toFixed(4) : "—"}`,
   );

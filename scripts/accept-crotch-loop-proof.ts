@@ -204,7 +204,7 @@ for (const drop of [25, 30, 40, 50]) {
       crotchArrivalAngle: 45,
       waistlineCurveFront: 0,
       frontWaistInset: 10,
-      crotchStraightRun: 0,
+      crotchDeparture: 0,
     },
     0,
     "darted",
@@ -299,7 +299,7 @@ console.log("\n=== Slider sweep ===");
               waistlineCurveFront: fwc,
               frontWaistInset: 10,
             };
-            if (cd !== undefined) raw.crotchStraightRun = cd;
+            if (cd !== undefined) raw.crotchDeparture = cd;
             const style = withWaistband(raw, 0, "darted", body);
             swept++;
             try {
@@ -340,7 +340,7 @@ console.log("\n=== cleo-like ===");
       crotchArrivalAngle: 32,
       waistlineCurveFront: 0,
       frontWaistInset: 0,
-      crotchStraightRun: 0,
+      crotchDeparture: 0,
     },
     0,
     "darted",

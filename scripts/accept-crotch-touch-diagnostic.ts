@@ -16,7 +16,7 @@ import {
   frontCrotchTouch,
   resolveCrotchArrivalAngle,
   resolveCrotchExtensionScale,
-  resolveCrotchStraightRun,
+  resolveCrotchP0Y,
   resolveWaistlineCurveFront,
   trouserFrontPoints,
   trouserBackPoints,
@@ -91,7 +91,8 @@ function frontBez(style: TrouserFrontStyle, b = body) {
     fork: Math.abs(f.p5.x),
     R,
     waistCfY,
-    straightRun: resolveCrotchStraightRun(style, R, D, waistCfY),
+    waistCfY,
+    p0Y: resolveCrotchP0Y(style, D, waistCfY),
     extension: frontCrotchExtension(H, scale),
     arrivalAngleDeg: resolveCrotchArrivalAngle(style),
     touch: frontCrotchTouch(H) * scale,
@@ -228,7 +229,7 @@ console.log("back drop5", {
 
 const Cleo = mk(
   {
-    crotchStraightRun: CLEO_PRESET.measured.crotchStraightRun,
+    crotchDeparture: CLEO_PRESET.measured.crotchDeparture,
     frontWaistInset: CLEO_PRESET.measured.frontWaistInset,
     crotchArrivalAngle: CLEO_PRESET.measured.crotchArrivalAngle,
     backCrotchDrop: CLEO_PRESET.measured.backCrotchDrop,
@@ -304,7 +305,7 @@ for (const run of runs) {
         for (const bd of backDrops) {
           combos++;
           const st = mk({
-            crotchStraightRun: run,
+            crotchDeparture: run,
             crotchArrivalAngle: arr,
             waistDrop: wd,
             crotchExtensionScale: sc,

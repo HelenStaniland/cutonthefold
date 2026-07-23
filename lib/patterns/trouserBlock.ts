@@ -412,12 +412,11 @@ export type TrouserFrontStyle = {
    */
   backCrotchExtensionScale?: number;
   /**
-   * Departure height on the true CF (mm below the scooped waist CF, wr.cf.y).
-   * P0 = (−fork, wr.cf.y + crotchStraightRun); the edge above is the slanted join
-   * wr.cf → P0 (Aldrich 10–6 when departure is at the hipline).
-   * Default / max = hipline from scooped waist (D − wr.cf.y). 0 = curve from the waist.
+   * Where the front crotch curve departs the CF.
+   * number = mm above the hipline (0 = at the hipline, Aldrich's rule).
+   * "waistEdge" = at the top of the piece (waist CF y), body-independent.
    */
-  crotchStraightRun?: Millimetres;
+  crotchDeparture?: number | "waistEdge";
   /**
    * Arrival angle at p9, degrees below horizontal (curve travelling down-and-out).
    * Default ≈ 14° (previous effective arrival). Cleo ≈ 32°.
@@ -616,8 +615,12 @@ export const DEFAULT_BACK_CROTCH_EXTENSION_SCALE = DEFAULT_CROTCH_EXTENSION_SCAL
 export const DEFAULT_CROTCH_ARRIVAL_ANGLE = 14;
 export const CROTCH_ARRIVAL_ANGLE_MIN = 5;
 export const CROTCH_ARRIVAL_ANGLE_MAX = 45;
-/** Departure on CF: 0 = from the waist; max = hipline (Aldrich default). */
-export const CROTCH_STRAIGHT_RUN_MIN = 0;
+/** Departure on CF: 0 = at the hipline; max = waist edge ("waistEdge"). */
+export const CROTCH_DEPARTURE_ABOVE_HIP_MIN = 0;
+export type CrotchDeparture = number | "waistEdge";
+
+/** @deprecated Use CROTCH_DEPARTURE_ABOVE_HIP_MIN */
+export const CROTCH_STRAIGHT_RUN_MIN = CROTCH_DEPARTURE_ABOVE_HIP_MIN;
 
 /** Aldrich 7–10 default inset (mm). */
 export const DEFAULT_FRONT_WAIST_INSET = 10;
@@ -673,19 +676,42 @@ export function resolveCrotchArrivalAngle(
 }
 
 /**
- * Y-distance below the scooped waist CF (wr.cf.y) at which the crotch curve
- * leaves the true CF (−fork). Default / max = hipline (D − waistCfY) — Aldrich's
- * point 6 measured from the scooped waist, so P0 lands on y = D.
+ * Resolved P0.y on the true CF for the front crotch curve.
+ * Default when omitted = depart at the hipline (0 mm above D).
  */
+export function resolveCrotchP0Y(
+  style: Pick<TrouserFrontStyle, "crotchDeparture">,
+  D: Millimetres,
+  waistCfY: Millimetres,
+): Millimetres {
+  const dep = style.crotchDeparture ?? 0;
+  if (dep === "waistEdge") {
+    return waistCfY;
+  }
+  const maxAbove = Math.max(0, D - waistCfY);
+  const aboveHip = Math.max(
+    CROTCH_DEPARTURE_ABOVE_HIP_MIN,
+    Math.min(maxAbove, dep),
+  );
+  return D - aboveHip;
+}
+
+/** Max mm above the hipline before the departure reaches the waist edge. */
+export function crotchDepartureAboveHipMax(
+  D: Millimetres,
+  waistCfY: Millimetres,
+): Millimetres {
+  return Math.max(CROTCH_DEPARTURE_ABOVE_HIP_MIN, D - waistCfY);
+}
+
+/** @deprecated Use resolveCrotchP0Y — returns mm below waist CF for legacy call sites. */
 export function resolveCrotchStraightRun(
-  style: Pick<TrouserFrontStyle, "crotchStraightRun">,
+  style: Pick<TrouserFrontStyle, "crotchDeparture">,
   _R: Millimetres,
   D: Millimetres,
   waistCfY: Millimetres,
 ): Millimetres {
-  const hiplineFromWaist = Math.max(0, D - waistCfY);
-  const raw = style.crotchStraightRun ?? hiplineFromWaist;
-  return Math.max(CROTCH_STRAIGHT_RUN_MIN, Math.min(hiplineFromWaist, raw));
+  return resolveCrotchP0Y(style, D, waistCfY) - waistCfY;
 }
 
 /** Aldrich 7–10: p10 inset from the fork line. Default 10. */
@@ -1564,8 +1590,8 @@ function backCrotchBelowHip(
  * Handle lengths: d1 = k1·drop (k1 = frontCrotchFullness), d2 = k2·chord with fixed
  * FRONT_CROTCH_K2. The 45° touch is reported, not constrained. k1 ≤ 1 is loop-proof.
  *
- * P0 sits on the true CF (−fork), `straightRun` mm below the scooped waist CF (waistCfY).
- * The edge above is the slanted join wr.cf → P0 (Aldrich 10–6 when departure is at the hipline).
+ * P0 sits on the true CF (−fork) at `p0Y`. The edge above is the slanted join
+ * wr.cf → P0 (Aldrich 10–6 when departure is at the hipline).
  * Returns samples ordered p9 → P0.
  */
 export function frontCrotchCurve(args: {
@@ -1575,7 +1601,8 @@ export function frontCrotchCurve(args: {
   R: Millimetres;
   /** Scooped waist CF y (wr.cf.y) — one source of truth for the waist top. */
   waistCfY: Millimetres;
-  straightRun: Millimetres;
+  /** Resolved departure height on the CF (P0.y). */
+  p0Y: Millimetres;
   extension: Millimetres;
   arrivalAngleDeg: number;
   touch: Millimetres;
@@ -1597,12 +1624,12 @@ export function frontCrotchCurve(args: {
     p9,
     fork,
     waistCfY,
-    straightRun,
+    p0Y,
     arrivalAngleDeg,
     touch,
   } = args;
   // `extension` remains on the args API for call sites; d2 uses fixed k2·chord.
-  const P0: Point = { x: -fork, y: waistCfY + straightRun };
+  const P0: Point = { x: -fork, y: p0Y };
   const P3 = p9;
   // Vertical drop P0 → tip; chord |P3 − P0|.
   const drop = Math.max(1e-6, P3.y - P0.y);
@@ -2344,8 +2371,8 @@ export function draftTrouserFront(
   const crotchScale = resolveFrontCrotchExtensionScale(style);
   const touch = frontCrotchTouch(H) * crotchScale;
   const fork = Math.abs(p5.x);
-  // Departure measured from the scooped waist (wr.cf), not p10.y.
-  const straightRun = resolveCrotchStraightRun(style, R, D, wr.cf.y);
+  // Departure measured from the scooped waist (wr.cf), not p10.y (= 0).
+  const p0Y = resolveCrotchP0Y(style, D, wr.cf.y);
   const extension = frontCrotchExtension(H, crotchScale);
   const arrivalAngle = resolveCrotchArrivalAngle(style);
   const frontCrotch = frontCrotchCurve({
@@ -2354,7 +2381,7 @@ export function draftTrouserFront(
     fork,
     R,
     waistCfY: wr.cf.y,
-    straightRun,
+    p0Y,
     extension,
     arrivalAngleDeg: arrivalAngle,
     touch,
@@ -2385,7 +2412,7 @@ export function draftTrouserFront(
   );
 
   // Hipline balance notch: where the assembled CF/crotch seam crosses y = D.
-  // Always emitted (including crotchStraightRun = 0). Interpolated along the
+  // Always emitted (including crotchDeparture = 0). Interpolated along the
   // seam — not snapped to a sample. At Aldrich default (departure = hipline)
   // the crossing coincides with construction point p6.
   const markingsHip: Marking[] = [];

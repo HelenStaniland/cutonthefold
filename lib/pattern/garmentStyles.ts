@@ -5,6 +5,7 @@
 import type { Ease } from "@/lib/types/measurements";
 import type {
   BackHemShape,
+  CrotchDeparture,
   WaistbandMode,
 } from "@/lib/patterns/trouserBlock";
 import { DEFAULT_FIT, easeForFit } from "@/lib/pattern/fitPresets";
@@ -31,7 +32,7 @@ export type TrouserStyleSettings = {
   ease: Ease;
   frontCrotchExtensionScale: number | null;
   backCrotchExtensionScale: number | null;
-  crotchStraightRun: number | null;
+  crotchDeparture: CrotchDeparture | null;
   crotchArrivalAngle: number | null;
   waistlineCurveFront: number | null;
   frontWaistInset: number | null;
@@ -43,7 +44,7 @@ export type TrouserStyleSettings = {
 const clearedGeometry = {
   frontCrotchExtensionScale: null,
   backCrotchExtensionScale: null,
-  crotchStraightRun: null,
+  crotchDeparture: null,
   crotchArrivalAngle: null,
   waistlineCurveFront: null,
   frontWaistInset: null,
@@ -86,7 +87,7 @@ export const CLEO_TROUSER_STYLE: TrouserStyleSettings = (() => {
     ease: { ...m.ease },
     frontCrotchExtensionScale: m.frontCrotchExtensionScale,
     backCrotchExtensionScale: m.backCrotchExtensionScale,
-    crotchStraightRun: m.crotchStraightRun,
+    crotchDeparture: m.crotchDeparture,
     crotchArrivalAngle: m.crotchArrivalAngle,
     waistlineCurveFront: pr.waistlineCurveFront,
     frontWaistInset: m.frontWaistInset,
@@ -112,13 +113,13 @@ export const MILA_TROUSER_STYLE: TrouserStyleSettings = (() => {
     waistDrop: m.waistDrop,
     waistbandDepth: m.waistbandDepth,
     waistbandMode: m.waistbandMode,
-    dartedWaistFinish: "facing" as const,
+    dartedWaistFinish: "waistband" as const,
     dartedBandDepth: 25,
     zipLength: 180,
     ease: { ...m.ease },
     frontCrotchExtensionScale: m.frontCrotchExtensionScale,
     backCrotchExtensionScale: m.backCrotchExtensionScale,
-    crotchStraightRun: m.crotchStraightRun,
+    crotchDeparture: m.crotchDeparture,
     crotchArrivalAngle: m.crotchArrivalAngle,
     waistlineCurveFront: pr.waistlineCurveFront,
     frontWaistInset: m.frontWaistInset,

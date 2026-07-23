@@ -92,13 +92,13 @@ const base: TrouserFrontStyle = {
 
 // Known failure
 dump(
-  { ...base, waistDrop: 25, crotchArrivalAngle: 45, crotchStraightRun: 0 },
+  { ...base, waistDrop: 25, crotchArrivalAngle: 45, crotchDeparture: 0 },
   "FAIL case: drop25 a45 cd0",
 );
 
 // Contrasts
 dump(
-  { ...base, waistDrop: 25, crotchArrivalAngle: 14, crotchStraightRun: 0 },
+  { ...base, waistDrop: 25, crotchArrivalAngle: 14, crotchDeparture: 0 },
   "contrast: a14 cd0",
 );
 dump(
@@ -106,11 +106,11 @@ dump(
   "contrast: a45 default cd (hipline)",
 );
 dump(
-  { ...base, waistDrop: 0, crotchArrivalAngle: 45, crotchStraightRun: 0 },
+  { ...base, waistDrop: 0, crotchArrivalAngle: 45, crotchDeparture: 0 },
   "contrast: drop0 a45 cd0",
 );
 dump(
-  { ...base, waistDrop: 25, crotchArrivalAngle: 32, crotchStraightRun: 0 },
+  { ...base, waistDrop: 25, crotchArrivalAngle: 32, crotchDeparture: 0 },
   "contrast: a32 cd0",
 );
 
@@ -120,7 +120,7 @@ const f = trouserFrontPoints(body, {
   ...base,
   waistDrop: 25,
   crotchArrivalAngle: 45,
-  crotchStraightRun: 0,
+  crotchDeparture: 0,
 });
 const R = f.p9.y;
 const D = f.p6.y;
