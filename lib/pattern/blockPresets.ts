@@ -14,6 +14,10 @@ import { WAISTLINE_CURVE_FRONT } from "@/lib/patterns/trouserBlock";
 export type GarmentMeasured = {
   crotchDeparture: CrotchDeparture;
   frontWaistInset: number;
+  /**
+   * Optional — omitted = 1 (full Aldrich taper). Mila stores 0; Cleo omits.
+   */
+  waistTaper?: number;
   crotchArrivalAngle: number;
   backCrotchDrop: number;
   frontCrotchFullness: number;
@@ -92,12 +96,16 @@ export const CLEO_PRESET: GarmentPreset = {
 };
 
 /*
- * Mila — sandbox garment. Geometry inherited from Cleo, then tuned.
+ * Mila — sandbox garment: straight wide leg, elastic self-casing waist.
+ * Geometry inherited from Cleo, then tuned.
  * PROVISIONAL (tuned by eye on the render, not measured):
- *   crotchDeparture 45 (mm above hipline) — replaces the inherited "waistEdge",
- *     which caused the front CF projection at a natural waist
- *   frontWaistInset 5 — Aldrich 10 / Cleo 0
- *   waistband shaped 30
+ *   crotchDeparture 45 (mm above hipline)
+ *   frontWaistInset 5 — stored fallback; forced to 0 by the elastic finish
+ *   waistTaper 0 — side seam vertical above the hip
+ *   waistlineCurveFront 0 — level waist edge (a folded casing needs one);
+ *     a design choice here, not an unmeasured gap
+ *   waistband shaped 30 — dormant while the finish is elastic
+ * Waist opening is still ~38.4 mm under the hip (CB step) — not yet pull-on.
  * All pending confirmation against the commercial pattern on paper.
  */
 export const MILA_PRESET: GarmentPreset = {
@@ -106,6 +114,7 @@ export const MILA_PRESET: GarmentPreset = {
   measured: {
     crotchDeparture: 45,
     frontWaistInset: 5,
+    waistTaper: 0,
     crotchArrivalAngle: 32,
     backCrotchDrop: 0,
     frontCrotchFullness: 0.5,
@@ -122,7 +131,7 @@ export const MILA_PRESET: GarmentPreset = {
     backHemShape: "straight",
   },
   provisional: {
-    waistlineCurveFront: WAISTLINE_CURVE_FRONT,
+    waistlineCurveFront: 0,
   },
 };
 

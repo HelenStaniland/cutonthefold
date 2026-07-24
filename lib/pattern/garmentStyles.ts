@@ -11,7 +11,9 @@ import type {
 import { DEFAULT_FIT, easeForFit } from "@/lib/pattern/fitPresets";
 import { CLEO_PRESET, MILA_PRESET } from "@/lib/pattern/blockPresets";
 
-export type DartedWaistFinish = "facing" | "waistband";
+export type DartedWaistFinish = "facing" | "waistband" | "elastic";
+/** @deprecated Prefer DartedWaistFinish — alias for the three-way waist finish. */
+export type WaistFinish = DartedWaistFinish;
 
 export type TrouserStyleSettings = {
   /** Aldrich bottomWidth — front hem B−10, back B+10. */
@@ -36,6 +38,8 @@ export type TrouserStyleSettings = {
   crotchArrivalAngle: number | null;
   waistlineCurveFront: number | null;
   frontWaistInset: number | null;
+  /** null = default 1 (full Aldrich taper). */
+  waistTaper: number | null;
   backCrotchDrop: number | null;
   frontCrotchFullness: number | null;
   backCrotchFullness: number | null;
@@ -48,6 +52,7 @@ const clearedGeometry = {
   crotchArrivalAngle: null,
   waistlineCurveFront: null,
   frontWaistInset: null,
+  waistTaper: null,
   backCrotchDrop: null,
   frontCrotchFullness: null,
   backCrotchFullness: null,
@@ -91,6 +96,7 @@ export const CLEO_TROUSER_STYLE: TrouserStyleSettings = (() => {
     crotchArrivalAngle: m.crotchArrivalAngle,
     waistlineCurveFront: pr.waistlineCurveFront,
     frontWaistInset: m.frontWaistInset,
+    waistTaper: m.waistTaper ?? null,
     backCrotchDrop: m.backCrotchDrop,
     frontCrotchFullness: m.frontCrotchFullness,
     backCrotchFullness: m.backCrotchFullness,
@@ -101,7 +107,7 @@ export function cleoTrouserStyle(): TrouserStyleSettings {
   return { ...CLEO_TROUSER_STYLE, ease: { ...CLEO_TROUSER_STYLE.ease } };
 }
 
-/** Mila Pants — Cleo geometry, block (darted/facing) waist. Sandbox garment. */
+/** Mila Pants — sandbox: straight wide leg, elastic self-casing waist. */
 export const MILA_TROUSER_STYLE: TrouserStyleSettings = (() => {
   const m = MILA_PRESET.measured;
   const pr = MILA_PRESET.provisional;
@@ -113,7 +119,7 @@ export const MILA_TROUSER_STYLE: TrouserStyleSettings = (() => {
     waistDrop: m.waistDrop,
     waistbandDepth: m.waistbandDepth,
     waistbandMode: m.waistbandMode,
-    dartedWaistFinish: "waistband" as const,
+    dartedWaistFinish: "elastic" as const,
     dartedBandDepth: 25,
     zipLength: 180,
     ease: { ...m.ease },
@@ -123,6 +129,7 @@ export const MILA_TROUSER_STYLE: TrouserStyleSettings = (() => {
     crotchArrivalAngle: m.crotchArrivalAngle,
     waistlineCurveFront: pr.waistlineCurveFront,
     frontWaistInset: m.frontWaistInset,
+    waistTaper: m.waistTaper ?? null,
     backCrotchDrop: m.backCrotchDrop,
     frontCrotchFullness: m.frontCrotchFullness,
     backCrotchFullness: m.backCrotchFullness,

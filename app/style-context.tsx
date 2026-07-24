@@ -26,6 +26,8 @@ import {
   INSEAM_KNEE_INSET_MIN,
   INSEAM_KNEE_INSET_MAX,
   WAIST_DROP_MAX,
+  WAIST_TAPER_MIN,
+  WAIST_TAPER_MAX,
   type BackHemShape,
   type WaistbandMode,
 } from "@/lib/patterns/trouserBlock";
@@ -50,6 +52,7 @@ export const BLOCK_GEOMETRY_OVERRIDE_KEYS = [
   "crotchArrivalAngle",
   "waistlineCurveFront",
   "frontWaistInset",
+  "waistTaper",
   "backCrotchDrop",
   "frontCrotchFullness",
   "backCrotchFullness",
@@ -124,7 +127,7 @@ function parseStyle(
     return null;
   }
   const finish = o.dartedWaistFinish;
-  if (finish !== "facing" && finish !== "waistband") {
+  if (finish !== "facing" && finish !== "waistband" && finish !== "elastic") {
     return null;
   }
   const backHemShape =
@@ -170,6 +173,9 @@ function parseStyle(
     frontWaistInset: optClamped(o.frontWaistInset, (n) =>
       Math.max(FRONT_WAIST_INSET_MIN, Math.min(FRONT_WAIST_INSET_MAX, n)),
     ),
+    waistTaper: optClamped(o.waistTaper, (n) =>
+      Math.max(WAIST_TAPER_MIN, Math.min(WAIST_TAPER_MAX, n)),
+    ),
     backCrotchDrop: optClamped(o.backCrotchDrop, (n) =>
       Math.max(BACK_CROTCH_DROP_MIN, Math.min(BACK_CROTCH_DROP_MAX, n)),
     ),
@@ -200,6 +206,7 @@ type StyleContextValue = TrouserStyleSettings & {
   setCrotchArrivalAngle: Dispatch<SetStateAction<number | null>>;
   setWaistlineCurveFront: Dispatch<SetStateAction<number | null>>;
   setFrontWaistInset: Dispatch<SetStateAction<number | null>>;
+  setWaistTaper: Dispatch<SetStateAction<number | null>>;
   setBackCrotchDrop: Dispatch<SetStateAction<number | null>>;
   setFrontCrotchFullness: Dispatch<SetStateAction<number | null>>;
   setBackCrotchFullness: Dispatch<SetStateAction<number | null>>;
@@ -314,6 +321,9 @@ export function GarmentStyleProvider({
     fieldSetter(setStyle, "frontWaistInset"),
     [setStyle],
   );
+  const setWaistTaper = useCallback(fieldSetter(setStyle, "waistTaper"), [
+    setStyle,
+  ]);
   const setBackCrotchDrop = useCallback(
     fieldSetter(setStyle, "backCrotchDrop"),
     [setStyle],
@@ -361,6 +371,7 @@ export function GarmentStyleProvider({
       setCrotchArrivalAngle,
       setWaistlineCurveFront,
       setFrontWaistInset,
+      setWaistTaper,
       setBackCrotchDrop,
       setFrontCrotchFullness,
       setBackCrotchFullness,
@@ -386,6 +397,7 @@ export function GarmentStyleProvider({
       setCrotchArrivalAngle,
       setWaistlineCurveFront,
       setFrontWaistInset,
+      setWaistTaper,
       setBackCrotchDrop,
       setFrontCrotchFullness,
       setBackCrotchFullness,

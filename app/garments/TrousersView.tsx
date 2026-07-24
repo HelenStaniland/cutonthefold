@@ -34,6 +34,9 @@ import {
   FRONT_WAIST_INSET_MIN,
   FRONT_WAIST_INSET_MAX,
   DEFAULT_FRONT_WAIST_INSET,
+  WAIST_TAPER_MIN,
+  WAIST_TAPER_MAX,
+  DEFAULT_WAIST_TAPER,
   WAISTLINE_CURVE_FRONT,
   WAISTLINE_CURVE_FRONT_MIN,
   WAISTLINE_CURVE_FRONT_MAX,
@@ -131,6 +134,7 @@ function styleMatchesPreset(
     style.crotchArrivalAngle === defaults.crotchArrivalAngle &&
     style.waistlineCurveFront === defaults.waistlineCurveFront &&
     style.frontWaistInset === defaults.frontWaistInset &&
+    style.waistTaper === defaults.waistTaper &&
     style.backCrotchDrop === defaults.backCrotchDrop &&
     style.frontCrotchFullness === defaults.frontCrotchFullness &&
     style.backCrotchFullness === defaults.backCrotchFullness
@@ -184,6 +188,8 @@ function TrousersViewInner({
     setWaistlineCurveFront,
     frontWaistInset,
     setFrontWaistInset,
+    waistTaper,
+    setWaistTaper,
     backCrotchDrop,
     setBackCrotchDrop,
     frontCrotchFullness,
@@ -210,13 +216,18 @@ function TrousersViewInner({
     backCrotchExtensionScale ?? DEFAULT_BACK_CROTCH_EXTENSION_SCALE;
   const arrivalShown = crotchArrivalAngle ?? DEFAULT_CROTCH_ARRIVAL_ANGLE;
   const scoopShown = waistlineCurveFront ?? WAISTLINE_CURVE_FRONT;
-  const insetShown = frontWaistInset ?? DEFAULT_FRONT_WAIST_INSET;
+  const elasticWaist = dartedWaistFinish === "elastic";
+  const insetShown = elasticWaist
+    ? 0
+    : (frontWaistInset ?? DEFAULT_FRONT_WAIST_INSET);
+  const taperShown = elasticWaist ? 0 : (waistTaper ?? DEFAULT_WAIST_TAPER);
   const dropShown = backCrotchDrop ?? DEFAULT_BACK_CROTCH_DROP;
   const frontFullShown =
     frontCrotchFullness ?? DEFAULT_FRONT_CROTCH_FULLNESS;
   const backFullShown = backCrotchFullness ?? DEFAULT_BACK_CROTCH_FULLNESS;
 
   // Only pass overrides that are set — omitted keys fall through to resolvers.
+  // Elastic: derive taper/inset at the draft boundary; do not mutate stored state.
   const style: TrouserFrontStyle = {
     bottomWidth: legBottomWidth,
     block,
@@ -235,7 +246,12 @@ function TrousersViewInner({
     ...(crotchDeparture != null ? { crotchDeparture } : {}),
     ...(crotchArrivalAngle != null ? { crotchArrivalAngle } : {}),
     ...(waistlineCurveFront != null ? { waistlineCurveFront } : {}),
-    ...(frontWaistInset != null ? { frontWaistInset } : {}),
+    ...(elasticWaist
+      ? { frontWaistInset: 0, waistTaper: 0 }
+      : {
+          ...(frontWaistInset != null ? { frontWaistInset } : {}),
+          ...(waistTaper != null ? { waistTaper } : {}),
+        }),
     ...(backCrotchDrop != null ? { backCrotchDrop } : {}),
     ...(frontCrotchFullness != null ? { frontCrotchFullness } : {}),
     ...(backCrotchFullness != null ? { backCrotchFullness } : {}),
@@ -260,8 +276,12 @@ function TrousersViewInner({
     legBottomWidth,
     waistDrop,
   );
+  // Elastic drafts on the shaped dart-omission path at depth 0 (no casing yet).
+  const draftWaistbandMode: WaistbandMode = elasticWaist
+    ? "shaped"
+    : waistbandMode;
   const depthRange = waistbandDepthRange(
-    waistbandMode,
+    draftWaistbandMode,
     draftBody,
     block,
     legBottomWidth,
@@ -275,17 +295,20 @@ function TrousersViewInner({
     waistDrop,
   );
   const shapedLimitedByBack =
-    waistbandMode === "shaped" && backShapedCap < yokeDepthMax;
+    draftWaistbandMode === "shaped" &&
+    !elasticWaist &&
+    backShapedCap < yokeDepthMax;
 
-  const draftWaistDepth =
-    waistbandMode === "darted"
+  const draftWaistDepth = elasticWaist
+    ? 0
+    : waistbandMode === "darted"
       ? dartedWaistFinish === "facing"
         ? 0
         : dartedBandDepth
       : waistbandDepth;
 
   useEffect(() => {
-    if (waistbandMode !== "shaped") {
+    if (waistbandMode !== "shaped" || elasticWaist) {
       return;
     }
     setWaistbandDepth((depth) =>
@@ -293,7 +316,7 @@ function TrousersViewInner({
         ? 0
         : Math.max(depthRange.min, Math.min(depthRange.max, depth)),
     );
-  }, [waistbandMode, depthRange.min, depthRange.max]);
+  }, [waistbandMode, elasticWaist, depthRange.min, depthRange.max]);
 
   useEffect(() => {
     setDartedBandDepth((depth) =>
@@ -327,6 +350,7 @@ function TrousersViewInner({
     crotchArrivalAngle === null &&
     waistlineCurveFront === null &&
     frontWaistInset === null &&
+    waistTaper === null &&
     backCrotchDrop === null &&
     frontCrotchFullness === null &&
     backCrotchFullness === null &&
@@ -353,6 +377,7 @@ function TrousersViewInner({
       crotchArrivalAngle,
       waistlineCurveFront,
       frontWaistInset,
+      waistTaper,
       backCrotchDrop,
       frontCrotchFullness,
       backCrotchFullness,
@@ -361,11 +386,11 @@ function TrousersViewInner({
   );
 
   const tstyle =
-    waistbandMode === "darted"
-      ? withWaistband(style, draftWaistDepth, "darted", draftBody)
-      : draftWaistDepth > 0
+    elasticWaist || draftWaistbandMode === "shaped"
+      ? draftWaistDepth > 0 || elasticWaist
         ? withWaistband(style, draftWaistDepth, "shaped", draftBody)
-        : style;
+        : style
+      : withWaistband(style, draftWaistDepth, "darted", draftBody);
 
   const resolvedLegWidths = useMemo(() => {
     const f = trouserFrontPoints(draftBody, tstyle);
@@ -779,78 +804,103 @@ function TrousersViewInner({
             <div className={styles.field}>
               <label className={styles.fieldLabel}>Waistband mode</label>
               <span className={styles.fieldHint}>
-                {waistbandMode === "darted"
-                  ? dartedWaistFinish === "facing"
-                    ? "Darted finish — waist facing, darts kept at drafted length."
-                    : "Darted waistband — straight strip, darts kept at drafted length."
-                  : waistbandDepth === 0
-                    ? "Set waistband depth for a shaped band, or switch to darted for a facing finish."
-                    : "Shaped band following the body; dart remainder eased into the side seam."}
+                {elasticWaist
+                  ? "Elastic waistband — draft uses a dartless waist with a straight side seam. Casing geometry comes later."
+                  : waistbandMode === "darted"
+                    ? dartedWaistFinish === "facing"
+                      ? "Darted finish — waist facing, darts kept at drafted length."
+                      : "Darted waistband — straight strip, darts kept at drafted length."
+                    : waistbandDepth === 0
+                      ? "Set waistband depth for a shaped band, or switch to darted for a facing finish."
+                      : "Shaped band following the body; dart remainder eased into the side seam."}
               </span>
               <div className={styles.fitPresetList} role="group" aria-label="Waistband mode">
                 <button
                   type="button"
                   className={
-                    waistbandMode === "darted"
+                    !elasticWaist && waistbandMode === "darted"
                       ? styles.fitPresetActive
                       : styles.fitPreset
                   }
-                  onClick={() => setWaistbandModeAndClamp("darted")}
+                  onClick={() => {
+                    if (dartedWaistFinish === "elastic") {
+                      setDartedWaistFinish("facing");
+                    }
+                    setWaistbandModeAndClamp("darted");
+                  }}
                 >
                   Darted
                 </button>
                 <button
                   type="button"
                   className={
-                    waistbandMode === "shaped"
+                    !elasticWaist && waistbandMode === "shaped"
                       ? styles.fitPresetActive
                       : styles.fitPreset
                   }
-                  onClick={() => setWaistbandModeAndClamp("shaped")}
+                  onClick={() => {
+                    if (dartedWaistFinish === "elastic") {
+                      setDartedWaistFinish("waistband");
+                    }
+                    setWaistbandModeAndClamp("shaped");
+                  }}
                 >
                   Shaped
                 </button>
               </div>
             </div>
-            {waistbandMode === "darted" ? (
-              <>
-                <div className={styles.field}>
-                  <label className={styles.fieldLabel}>Waist finish</label>
-                  <span className={styles.fieldHint}>
-                    Facing finishes at the trouser waist; waistband adds a
-                    separate straight strip ({DARTED_DEPTH_MIN}–{DARTED_DEPTH_MAX}{" "}
-                    mm).
-                  </span>
-                  <div
-                    className={styles.fitPresetList}
-                    role="group"
-                    aria-label="Darted waist finish"
-                  >
-                    <button
-                      type="button"
-                      className={
-                        dartedWaistFinish === "facing"
-                          ? styles.fitPresetActive
-                          : styles.fitPreset
-                      }
-                      onClick={() => setDartedWaistFinish("facing")}
-                    >
-                      Facing
-                    </button>
-                    <button
-                      type="button"
-                      className={
-                        dartedWaistFinish === "waistband"
-                          ? styles.fitPresetActive
-                          : styles.fitPreset
-                      }
-                      onClick={() => setDartedWaistFinish("waistband")}
-                    >
-                      Waistband
-                    </button>
-                  </div>
-                </div>
-                {dartedWaistFinish === "waistband" && (
+            <div className={styles.field}>
+              <label className={styles.fieldLabel}>Waist finish</label>
+              <span className={styles.fieldHint}>
+                {elasticWaist
+                  ? "Pull-on elastic casing (shape next). Side seam and CF inset are held straight while this is selected."
+                  : waistbandMode === "darted"
+                    ? `Facing finishes at the trouser waist; waistband adds a separate straight strip (${DARTED_DEPTH_MIN}–${DARTED_DEPTH_MAX} mm).`
+                    : "Shaped mode uses the band depth below. Elastic forces a dartless straight waist for a pull-on."}
+              </span>
+              <div
+                className={styles.fitPresetList}
+                role="group"
+                aria-label="Waist finish"
+              >
+                <button
+                  type="button"
+                  className={
+                    dartedWaistFinish === "facing"
+                      ? styles.fitPresetActive
+                      : styles.fitPreset
+                  }
+                  onClick={() => setDartedWaistFinish("facing")}
+                >
+                  Facing
+                </button>
+                <button
+                  type="button"
+                  className={
+                    dartedWaistFinish === "waistband"
+                      ? styles.fitPresetActive
+                      : styles.fitPreset
+                  }
+                  onClick={() => setDartedWaistFinish("waistband")}
+                >
+                  Waistband
+                </button>
+                <button
+                  type="button"
+                  className={
+                    dartedWaistFinish === "elastic"
+                      ? styles.fitPresetActive
+                      : styles.fitPreset
+                  }
+                  onClick={() => setDartedWaistFinish("elastic")}
+                >
+                  Elastic waistband
+                </button>
+              </div>
+            </div>
+            {!elasticWaist &&
+              (waistbandMode === "darted" ? (
+                dartedWaistFinish === "waistband" ? (
                   <div className={styles.field}>
                     <label
                       className={styles.fieldLabel}
@@ -886,58 +936,59 @@ function TrousersViewInner({
                       </span>
                     </div>
                   </div>
-                )}
-              </>
-            ) : (
-              <div className={styles.field}>
-                <label className={styles.fieldLabel} htmlFor="waistband-depth">
-                  Waistband depth
-                </label>
-                <span className={styles.fieldHint}>
-                  {waistbandDepth === 0
-                    ? "Set to 0 for trousers only (no band)."
-                    : `Shaped mode: ${depthRange.min}–${depthRange.max} mm.`}
-                </span>
-                <div className={styles.rangeRow}>
-                  <input
-                    id="waistband-depth"
-                    type="range"
-                    className={styles.rangeInput}
-                    min={waistbandDepth === 0 ? 0 : depthRange.min}
-                    max={waistbandDepth > 0 ? depthRange.max : yokeDepthMax}
-                    step={5}
-                    value={waistbandDepth}
-                    onChange={(e) => {
-                      const v = Number(e.target.value);
-                      if (v === 0) {
-                        setWaistbandDepth(0);
-                        return;
-                      }
-                      const range = waistbandDepthRange(
-                        "shaped",
-                        draftBody,
-                        block,
-                        legBottomWidth,
-                        waistDrop,
-                      );
-                      setWaistbandDepth(
-                        Math.max(range.min, Math.min(range.max, v)),
-                      );
-                    }}
-                  />
-                  <span className={styles.rangeValue}>{waistbandDepth} mm</span>
-                </div>
-                {waistbandDepth > 0 &&
-                  waistbandDepth >= depthRange.max &&
-                  depthRange.max > 0 && (
+                ) : null
+              ) : (
+                <div className={styles.field}>
+                  <label className={styles.fieldLabel} htmlFor="waistband-depth">
+                    Waistband depth
+                  </label>
                   <span className={styles.fieldHint}>
-                    {shapedLimitedByBack
-                      ? "Limited by back waist geometry (centre-back fold)."
-                      : "Limited by your hip depth."}
+                    {waistbandDepth === 0
+                      ? "Set to 0 for trousers only (no band)."
+                      : `Shaped mode: ${depthRange.min}–${depthRange.max} mm.`}
                   </span>
-                )}
-              </div>
-            )}
+                  <div className={styles.rangeRow}>
+                    <input
+                      id="waistband-depth"
+                      type="range"
+                      className={styles.rangeInput}
+                      min={waistbandDepth === 0 ? 0 : depthRange.min}
+                      max={waistbandDepth > 0 ? depthRange.max : yokeDepthMax}
+                      step={5}
+                      value={waistbandDepth}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        if (v === 0) {
+                          setWaistbandDepth(0);
+                          return;
+                        }
+                        const range = waistbandDepthRange(
+                          "shaped",
+                          draftBody,
+                          block,
+                          legBottomWidth,
+                          waistDrop,
+                        );
+                        setWaistbandDepth(
+                          Math.max(range.min, Math.min(range.max, v)),
+                        );
+                      }}
+                    />
+                    <span className={styles.rangeValue}>
+                      {waistbandDepth} mm
+                    </span>
+                  </div>
+                  {waistbandDepth > 0 &&
+                    waistbandDepth >= depthRange.max &&
+                    depthRange.max > 0 && (
+                      <span className={styles.fieldHint}>
+                        {shapedLimitedByBack
+                          ? "Limited by back waist geometry (centre-back fold)."
+                          : "Limited by your hip depth."}
+                      </span>
+                    )}
+                </div>
+              ))}
           </SidebarSection>
 
           <SidebarSection title="Fit">
@@ -1286,8 +1337,9 @@ function TrousersViewInner({
                   Front waist inset
                 </label>
                 <span className={styles.fieldHint}>
-                  Aldrich 7–10: how far the waist is set in from the centre front.
-                  0 = vertical CF (Cleo-style).
+                  {elasticWaist
+                    ? "Set to 0 by the elastic waistband — a sloping CF would splay when the casing is folded flat."
+                    : "Aldrich 7–10: how far the waist is set in from the centre front. 0 = vertical CF (Cleo-style)."}
                 </span>
                 <div className={styles.rangeRow}>
                   <input
@@ -1298,11 +1350,38 @@ function TrousersViewInner({
                     max={FRONT_WAIST_INSET_MAX}
                     step={1}
                     value={insetShown}
+                    disabled={elasticWaist}
                     onChange={(e) =>
                       setFrontWaistInset(Number(e.target.value))
                     }
                   />
                   <span className={styles.rangeValue}>{insetShown} mm</span>
+                </div>
+              </div>
+              <div className={styles.field}>
+                <label className={styles.fieldLabel} htmlFor="waist-taper">
+                  Waist shaping
+                </label>
+                <span className={styles.fieldHint}>
+                  {elasticWaist
+                    ? "Set to 0 by the elastic waistband — the waist must be straight to pull on."
+                    : "1 = full Aldrich waist shaping. 0 = no shaping — side seam straight above the hip, waist opens to hip width."}
+                </span>
+                <div className={styles.rangeRow}>
+                  <input
+                    id="waist-taper"
+                    type="range"
+                    className={styles.rangeInput}
+                    min={WAIST_TAPER_MIN}
+                    max={WAIST_TAPER_MAX}
+                    step={0.05}
+                    value={taperShown}
+                    disabled={elasticWaist}
+                    onChange={(e) => setWaistTaper(Number(e.target.value))}
+                  />
+                  <span className={styles.rangeValue}>
+                    {taperShown.toFixed(2)}
+                  </span>
                 </div>
               </div>
             </SidebarSubsection>

@@ -278,15 +278,22 @@ function resolveDarts(
   r: number,
   mode: WaistbandMode,
 ): { keep: boolean[]; sideShift: number } {
+  // Shaped (and Elastic, which drafts as shaped): omit darts at any depth.
+  // sideShift converts take-up into the side; at r = 0 there is nothing to convert.
+  // Checked before the r === 0 short-circuit so depth-0 shaped/elastic is dartless
+  // (the early return previously kept darts at r = 0 for both modes).
+  if (mode === "shaped") {
+    const sideShift =
+      r === 0
+        ? 0
+        : lengths.reduce(
+            (s, L) => s + DART_TAKEUP * Math.max(0, Math.min(1, 1 - r / L)),
+            0,
+          );
+    return { keep: lengths.map(() => false), sideShift };
+  }
   if (r === 0) {
     return { keep: lengths.map(() => true), sideShift: 0 };
-  }
-  if (mode === "shaped") {
-    const sideShift = lengths.reduce(
-      (s, L) => s + DART_TAKEUP * Math.max(0, Math.min(1, 1 - r / L)),
-      0,
-    );
-    return { keep: lengths.map(() => false), sideShift };
   }
   return { keep: lengths.map(() => true), sideShift: 0 };
 }
@@ -432,6 +439,19 @@ export type TrouserFrontStyle = {
    * Default 10 (Aldrich). 0 = vertical CF (Cleo-style). Clamped [0, 20].
    */
   frontWaistInset?: Millimetres;
+/**
+ * How much of the drafted waist taper to apply, 0..1.
+ * 1 = full Aldrich taper (default, today's behaviour).
+ * 0 = no side taper — side seam vertical above the hip.
+ * Does not by itself make waist cut = hip cut: frontWaistInset and the CB
+ * step/rise still narrow the opening relative to the hip (separate mechanisms).
+ * Scales the side taper AND the shaped-mode converted dart shift (`sideShift`).
+ * Does NOT touch dart take-up in darted mode: at 0 the side straightens but the
+ * waist still reduces by the fixed dart intake (120 mm full garment). A full
+ * tube needs dartless mode plus those other contributors at zero.
+ * Does NOT touch ease, body measurements, scoop, or CB rise.
+ */
+  waistTaper?: number;
   /**
    * How far below the crotch line (y = R) the back crotch curve ends (mm).
    * Terminus T = (p23.x, R + backCrotchDrop); the inseam starts at the same point.
@@ -720,6 +740,18 @@ export function resolveFrontWaistInset(
 ): Millimetres {
   const raw = style.frontWaistInset ?? DEFAULT_FRONT_WAIST_INSET;
   return Math.max(FRONT_WAIST_INSET_MIN, Math.min(FRONT_WAIST_INSET_MAX, raw));
+}
+
+export const WAIST_TAPER_MIN = 0;
+export const WAIST_TAPER_MAX = 1;
+export const DEFAULT_WAIST_TAPER = 1;
+
+/** Waist taper factor: 1 = full Aldrich, 0 = side vertical above hip. */
+export function resolveWaistTaper(
+  style: Pick<TrouserFrontStyle, "waistTaper">,
+): number {
+  const raw = style.waistTaper ?? DEFAULT_WAIST_TAPER;
+  return Math.max(WAIST_TAPER_MIN, Math.min(WAIST_TAPER_MAX, raw));
 }
 
 /** Aldrich 23–24 default (mm below crotch line). 0 = Cleo (no hook). */
@@ -1318,7 +1350,7 @@ function buildBackWaistCurveSpec(
     sideEdge: pchipByY([b.p22, b.p25, b.p27, b.p26]),
     depth,
     scoopDepth: 0,
-    sideShift,
+    sideShift: sideShift * resolveWaistTaper(style),
   };
 }
 
@@ -1850,7 +1882,7 @@ function frontWaistResolved(
     sideEdge: pchipByY([f.p11, f.p8, f.p13, f.p12]),
     depth: r,
     scoopDepth: resolveWaistlineCurveFront(style),
-    sideShift,
+    sideShift: sideShift * resolveWaistTaper(style),
   };
   const { seam: waistSeam, spec: curveSpec } = resolveWaistSeam(curveInput, {
     piece: "Trouser front",
@@ -2022,7 +2054,14 @@ export function trouserFrontPoints(
   const p8 = { x: -fork + H / 4 + 5, y: D };
   const p9 = { x: -(fork + ext), y: R };
   const p10 = { x: -fork + inset, y: 0 };
-  const p11 = { x: p10.x + W / 4 + 20, y: 0 };
+  // Side taper: blend Aldrich waist half (W/4+20) toward hip half so the side
+  // is vertical above the hip at waistTaper = 0 (p11.x → p8.x).
+  const taper = resolveWaistTaper(style);
+  const aldrichFrontWaistHalf = W / 4 + 20;
+  const tubeFrontWaistHalf = p8.x - p10.x; // = H/4+5 − inset
+  const frontWaistHalf =
+    (1 - taper) * tubeFrontWaistHalf + taper * aldrichFrontWaistHalf;
+  const p11 = { x: p10.x + frontWaistHalf, y: 0 };
   const p12 = { x: B / 2 - 5, y: F };
   const p14 = { x: -(B / 2 - 5), y: F };
 
@@ -2073,8 +2112,9 @@ export function trouserBackPoints(
   const p19 = { x: p16.x, y: R / 2 };
   const p20x = p18.x + spec.backWaistStep;
   const p21 = { x: p20x, y: -BACK_CB_WAIST_RISE };
-  const L = W / 4 + 40;
-  const p22 = { x: p21.x + Math.sqrt(L * L - p21.y * p21.y), y: 0 };
+  const aldrichBackL = W / 4 + 40;
+  const aldrichP22x =
+    p21.x + Math.sqrt(aldrichBackL * aldrichBackL - p21.y * p21.y);
   // Back tip from p16 — independent of front scale / p9.
   const backExt =
     aldrichBackExtension(H, fork, spec.backCrotchAdd) * backScale;
@@ -2082,6 +2122,10 @@ export function trouserBackPoints(
   const crotchDrop = resolveBackCrotchDrop(style);
   const p24 = { x: p23.x, y: R + crotchDrop };
   const p25 = { x: p17.x + H / 4 + 15, y: D };
+  // Side taper: at waistTaper = 0, p22.x = p25.x (vertical above hip).
+  const taper = resolveWaistTaper(style);
+  const p22x = (1 - taper) * p25.x + taper * aldrichP22x;
+  const p22 = { x: p22x, y: 0 };
   const p26 = { x: f.p12.x + 10, y: F };
   const p28 = { x: f.p14.x - 10, y: F };
   const kneeY = f.p13.y;
