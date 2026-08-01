@@ -18,6 +18,11 @@ export type GarmentMeasured = {
    * Optional — omitted = 1 (full Aldrich taper). Mila stores 0; Cleo omits.
    */
   waistTaper?: number;
+  /**
+   * Optional — omitted = 20 (Aldrich CB rise). Fit control; not baked into
+   * Mila until confirmed on the toile.
+   */
+  backCbWaistRise?: number;
   crotchArrivalAngle: number;
   backCrotchDrop: number;
   frontCrotchFullness: number;
@@ -135,8 +140,39 @@ export const MILA_PRESET: GarmentPreset = {
   },
 };
 
-/** @deprecated Prefer CLEO_PRESET / MILA_PRESET directly — kept for diagnostic scripts. */
-export const BLOCK_PRESETS: GarmentPreset[] = [CLEO_PRESET, MILA_PRESET];
+/*
+ * Cargo — pocket sandbox. Independent literal copy of Mila at birth; free to
+ * diverge. Pocket experiments live here so Mila's fit-honing stays undisturbed.
+ */
+export const CARGO_PRESET: GarmentPreset = {
+  name: "cargo",
+  label: "Cargo Pants",
+  measured: {
+    crotchDeparture: 45,
+    frontWaistInset: 5,
+    waistTaper: 0,
+    crotchArrivalAngle: 32,
+    backCrotchDrop: 0,
+    frontCrotchFullness: 0.5,
+    backCrotchFullness: 0.3,
+    frontCrotchExtensionScale: 0.55,
+    backCrotchExtensionScale: 0.88,
+    waistDrop: 0,
+    ease: { waist: 80, hip: 50 },
+    waistbandMode: "shaped",
+    waistbandDepth: 30,
+    frontInseamKneeInset: -8,
+    backInseamKneeInset: -33,
+    bottomWidth: 360,
+    backHemShape: "straight",
+  },
+  provisional: {
+    waistlineCurveFront: 0,
+  },
+};
+
+/** @deprecated Prefer CLEO_PRESET / MILA_PRESET / CARGO_PRESET directly — kept for diagnostic scripts. */
+export const BLOCK_PRESETS: GarmentPreset[] = [CLEO_PRESET, MILA_PRESET, CARGO_PRESET];
 
 export function blockPresetByName(name: string): GarmentPreset | undefined {
   return BLOCK_PRESETS.find((p) => p.name === name);

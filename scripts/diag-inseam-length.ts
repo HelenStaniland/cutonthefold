@@ -2,12 +2,11 @@
  * DIAGNOSTIC — net inseam length front vs back (print only).
  * Run: npx tsx scripts/diag-inseam-length.ts
  *
- * Measures NET stitching-line arc lengths (role polylines), not cut edges.
- * Does not change geometry.
+ * Canonical lengths come from piece.seamLengths (construction polylines,
+ * pre-retag). Role-run arcs are printed only to show the retag shortfall.
  */
 import {
   applyEase,
-  type OutlinePoint,
   type Point,
 } from "../lib/types/measurements";
 import { bodyForSizeCode, DEFAULT_SIZE_CODE } from "../lib/data/standardSizes";
@@ -26,7 +25,7 @@ import {
   type TrouserStyleSettings,
 } from "../lib/pattern/garmentStyles";
 
-const VERTEX_TOL = 0.05; // mm — match construction knot on outline sample
+const VERTEX_TOL = 0.05;
 
 const f3 = (n: number) => n.toFixed(3);
 const pt = (p: Point) => `(${f3(p.x)}, ${f3(p.y)})`;
@@ -53,11 +52,14 @@ function resolveStyle(
       ? { backCrotchExtensionScale: s.backCrotchExtensionScale }
       : {}),
     ...(s.crotchDeparture != null ? { crotchDeparture: s.crotchDeparture } : {}),
-    ...(s.crotchArrivalAngle != null ? { crotchArrivalAngle: s.crotchArrivalAngle } : {}),
+    ...(s.crotchArrivalAngle != null
+      ? { crotchArrivalAngle: s.crotchArrivalAngle }
+      : {}),
     ...(s.waistlineCurveFront != null
       ? { waistlineCurveFront: s.waistlineCurveFront }
       : {}),
     ...(s.frontWaistInset != null ? { frontWaistInset: s.frontWaistInset } : {}),
+    ...(s.waistTaper != null ? { waistTaper: s.waistTaper } : {}),
     ...(s.backCrotchDrop != null ? { backCrotchDrop: s.backCrotchDrop } : {}),
     ...(s.frontCrotchFullness != null
       ? { frontCrotchFullness: s.frontCrotchFullness }
@@ -66,9 +68,18 @@ function resolveStyle(
       ? { backCrotchFullness: s.backCrotchFullness }
       : {}),
   };
+  const finish = s.dartedWaistFinish;
+  if (finish === "elastic") {
+    return withWaistband(
+      { ...base, frontWaistInset: 0, waistTaper: 0 },
+      0,
+      "shaped",
+      body,
+    );
+  }
   const depth =
     s.waistbandMode === "darted"
-      ? s.dartedWaistFinish === "facing"
+      ? finish === "facing"
         ? 0
         : s.dartedBandDepth
       : s.waistbandDepth;
@@ -78,8 +89,10 @@ function resolveStyle(
   return depth > 0 ? withWaistband(base, depth, "shaped", body) : base;
 }
 
-/** Role run as polyline (outline order). Dedupes adjacent duplicates. */
-function rolePolyline(outline: OutlinePoint[], role: string): Point[] {
+function rolePolyline(
+  outline: { at: Point; role?: string }[],
+  role: string,
+): Point[] {
   const pts: Point[] = [];
   for (const o of outline) {
     if (o.role !== role) continue;
@@ -104,10 +117,6 @@ function findVertexIndex(poly: Point[], target: Point, tol = VERTEX_TOL): number
   return best;
 }
 
-/**
- * Canonical net inseam = draft pchip tip→knee→hem (same as draftTrouser*).
- * Knee is an explicit knot, so the split is unambiguous.
- */
 function measureConstructionInseam(tip: Point, knee: Point, hem: Point) {
   const tipToHem = pchipByY([tip, knee, hem]);
   const kneeIdx = findVertexIndex(tipToHem, knee);
@@ -150,11 +159,10 @@ function reportCase(label: string, settings: TrouserStyleSettings) {
   const fSide = rolePolyline(front.outline, "side-seam");
   const bSide = rolePolyline(back.outline, "side-seam");
 
-  // Construction landmarks
   const fTip = frontPts.p9;
   const fKnee = frontPts.p15;
   const fHem = frontPts.p14;
-  const bTip = backPts.p24; // T = crotch tip / inseam start
+  const bTip = backPts.p24;
   const bKnee = backPts.p29;
   const bHem = backPts.p28;
 
@@ -180,64 +188,31 @@ function reportCase(label: string, settings: TrouserStyleSettings) {
   console.log("\n--- Knee y-position ---");
   console.log(`  front knee y: ${f3(fKnee.y)}  at ${pt(fKnee)}`);
   console.log(`  back knee y:  ${f3(bKnee.y)}  at ${pt(bKnee)}`);
-  const kneeYDelta = bKnee.y - fKnee.y;
-  if (Math.abs(kneeYDelta) > 0.01) {
-    console.log(
-      `  NOTE: knee y differs front/back by ${f3(kneeYDelta)} mm — split lengths are not at the same height`,
-    );
-  } else {
-    console.log(`  knee y same front/back (Δ ${f3(kneeYDelta)} mm)`);
-  }
-
-  console.log("\n--- Crotch tip & inseam hem endpoints (construction) ---");
-  console.log(`  front tip (p9):  ${pt(fTip)}`);
-  console.log(`  front hem (p14): ${pt(fHem)}`);
-  console.log(`  back tip (p24):  ${pt(bTip)}`);
-  console.log(`  back hem (p28):  ${pt(bHem)}`);
-
-  // Confirm outline inseam ends match construction tip/hem
-  const fStart = fInseam[0]!;
-  const fEnd = fInseam[fInseam.length - 1]!;
-  const bStart = bInseam[0]!;
-  const bEnd = bInseam[bInseam.length - 1]!;
-  console.log("\n--- Outline role=inseam (caveat) ---");
-  console.log(
-    `  front: ${fInseam.length} verts, start(hem) ${pt(fStart)}, end ${pt(fEnd)}`,
-  );
-  console.log(
-    `  back:  ${bInseam.length} verts, start(hem) ${pt(bStart)}, end ${pt(bEnd)}`,
-  );
-  const tipMatchF = Math.hypot(fEnd.x - fTip.x, fEnd.y - fTip.y);
-  const tipMatchB = Math.hypot(bEnd.x - bTip.x, bEnd.y - bTip.y);
-  console.log(
-    `  tip match Δ (role end vs construction tip): front ${f3(tipMatchF)} mm, back ${f3(tipMatchB)} mm`,
-  );
-  console.log(
-    "  NOTE: segmentsToOutline retags the crotch-tip junction as role=crotch,",
-  );
-  console.log(
-    "  so role=inseam omits the tip itself (~one sample short). Lengths below",
-  );
-  console.log(
-    "  use the draft pchip tip→knee→hem (the actual net stitching line).",
-  );
 
   const fSplit = measureConstructionInseam(fTip, fKnee, fHem);
   const bSplit = measureConstructionInseam(bTip, bKnee, bHem);
 
-  // Sanity: role polyline + missing tip stub ≈ construction total
+  const canonF = front.seamLengths!.inseam;
+  const canonB = back.seamLengths!.inseam;
   const fRole = polylineLength(fInseam);
   const bRole = polylineLength(bInseam);
+
+  console.log("\n--- Canonical seamLengths.inseam (export) vs construction pchip ---");
+  console.log(`  export front: ${f3(canonF)} mm`);
+  console.log(`  export back:  ${f3(canonB)} mm`);
+  console.log(`  pchip front:  ${f3(fSplit.total)} mm  (${fSplit.note})`);
+  console.log(`  pchip back:   ${f3(bSplit.total)} mm  (${bSplit.note})`);
   console.log(
-    `  role-only arc (incomplete): front ${f3(fRole)} mm, back ${f3(bRole)} mm`,
+    `  export − pchip: front ${f3(canonF - fSplit.total)} mm, back ${f3(canonB - bSplit.total)} mm`,
+  );
+  console.log(
+    `  role-only (short, retag): front ${f3(fRole)} mm, back ${f3(bRole)} mm`,
+  );
+  console.log(
+    `  export − role: front ${f3(canonF - fRole)} mm, back ${f3(canonB - bRole)} mm`,
   );
 
-  console.log("\n--- 1. Total net inseam arc length (pchip tip→knee→hem) ---");
-  console.log(`  front: ${f3(fSplit.total)} mm  (${fSplit.note})`);
-  console.log(`  back:  ${f3(bSplit.total)} mm  (${bSplit.note})`);
-  console.log(`  back − front: ${f3(bSplit.total - fSplit.total)} mm`);
-
-  console.log("\n--- 2. Split at knee ---");
+  console.log("\n--- Split at knee (construction pchip; same path as export) ---");
   if (Number.isFinite(fSplit.tipToKnee) && Number.isFinite(bSplit.tipToKnee)) {
     console.log("  crotch tip → knee:");
     console.log(`    front: ${f3(fSplit.tipToKnee)} mm`);
@@ -251,20 +226,31 @@ function reportCase(label: string, settings: TrouserStyleSettings) {
     console.log(
       `    back − front: ${f3(bSplit.kneeToHem - fSplit.kneeToHem)} mm`,
     );
-  } else {
-    console.log("  SPLIT SKIPPED — see AMBIGUOUS notes");
   }
 
+  console.log("\n--- Side / crotch from export ---");
+  console.log(
+    `  side:   F ${f3(front.seamLengths!.side)}  B ${f3(back.seamLengths!.side)}  Δ ${f3(back.seamLengths!.side - front.seamLengths!.side)}`,
+  );
+  console.log(
+    `  crotch: F ${f3(front.seamLengths!.crotch)}  B ${f3(back.seamLengths!.crotch)}  (independent — not a matched pair)`,
+  );
+  console.log(
+    `  side role-arc (diag historical): F ${f3(polylineLength(fSide))} B ${f3(polylineLength(bSide))}`,
+  );
+
   return {
-    totalDelta: bSplit.total - fSplit.total,
-    fSide: polylineLength(fSide),
-    bSide: polylineLength(bSide),
+    totalDelta: canonB - canonF,
+    fSide: front.seamLengths!.side,
+    bSide: back.seamLengths!.side,
+    fInseam: canonF,
+    bInseam: canonB,
   };
 }
 
 console.log("=== DIAG: net inseam length front vs back ===");
 console.log(`body: size ${DEFAULT_SIZE_CODE} + each preset's ease`);
-console.log("measure: role polyline arc length (net stitching line)");
+console.log("canonical source: piece.seamLengths (construction, pre-retag)");
 
 const aldrich = reportCase("Aldrich block defaults", BLOCK_TROUSER_STYLE);
 const Cleo = reportCase("Cleo preset", CLEO_TROUSER_STYLE);
@@ -277,7 +263,7 @@ const Cleo = reportCase("Cleo preset", CLEO_TROUSER_STYLE);
     backInseamKneeInset: 0,
   };
   const z = reportCase("Cleo + insets 0/0 (garment path, chord knees)", zeroed);
-  console.log("\n--- 6. Isolate knee-inset contribution (Cleo) ---");
+  console.log("\n--- Isolate knee-inset contribution (Cleo) ---");
   console.log(`  Cleo as-shipped total Δ (back−front): ${f3(Cleo.totalDelta)} mm`);
   console.log(`  Cleo insets 0/0 total Δ (back−front): ${f3(z.totalDelta)} mm`);
   console.log(
@@ -289,7 +275,7 @@ const Cleo = reportCase("Cleo preset", CLEO_TROUSER_STYLE);
 }
 
 {
-  console.log("\n========== 7. Side-seam comparison (Cleo as-shipped) ==========");
+  console.log("\n========== Side-seam (canonical export) ==========");
   console.log(`  front side-seam: ${f3(Cleo.fSide)} mm`);
   console.log(`  back side-seam:  ${f3(Cleo.bSide)} mm`);
   console.log(`  back − front:    ${f3(Cleo.bSide - Cleo.fSide)} mm`);

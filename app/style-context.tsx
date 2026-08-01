@@ -28,6 +28,8 @@ import {
   WAIST_DROP_MAX,
   WAIST_TAPER_MIN,
   WAIST_TAPER_MAX,
+  BACK_CB_WAIST_RISE_MIN,
+  BACK_CB_WAIST_RISE_MAX,
   type BackHemShape,
   type WaistbandMode,
 } from "@/lib/patterns/trouserBlock";
@@ -53,6 +55,7 @@ export const BLOCK_GEOMETRY_OVERRIDE_KEYS = [
   "waistlineCurveFront",
   "frontWaistInset",
   "waistTaper",
+  "backCbWaistRise",
   "backCrotchDrop",
   "frontCrotchFullness",
   "backCrotchFullness",
@@ -176,6 +179,9 @@ function parseStyle(
     waistTaper: optClamped(o.waistTaper, (n) =>
       Math.max(WAIST_TAPER_MIN, Math.min(WAIST_TAPER_MAX, n)),
     ),
+    backCbWaistRise: optClamped(o.backCbWaistRise, (n) =>
+      Math.max(BACK_CB_WAIST_RISE_MIN, Math.min(BACK_CB_WAIST_RISE_MAX, n)),
+    ),
     backCrotchDrop: optClamped(o.backCrotchDrop, (n) =>
       Math.max(BACK_CROTCH_DROP_MIN, Math.min(BACK_CROTCH_DROP_MAX, n)),
     ),
@@ -207,6 +213,7 @@ type StyleContextValue = TrouserStyleSettings & {
   setWaistlineCurveFront: Dispatch<SetStateAction<number | null>>;
   setFrontWaistInset: Dispatch<SetStateAction<number | null>>;
   setWaistTaper: Dispatch<SetStateAction<number | null>>;
+  setBackCbWaistRise: Dispatch<SetStateAction<number | null>>;
   setBackCrotchDrop: Dispatch<SetStateAction<number | null>>;
   setFrontCrotchFullness: Dispatch<SetStateAction<number | null>>;
   setBackCrotchFullness: Dispatch<SetStateAction<number | null>>;
@@ -324,6 +331,10 @@ export function GarmentStyleProvider({
   const setWaistTaper = useCallback(fieldSetter(setStyle, "waistTaper"), [
     setStyle,
   ]);
+  const setBackCbWaistRise = useCallback(
+    fieldSetter(setStyle, "backCbWaistRise"),
+    [setStyle],
+  );
   const setBackCrotchDrop = useCallback(
     fieldSetter(setStyle, "backCrotchDrop"),
     [setStyle],
@@ -372,6 +383,7 @@ export function GarmentStyleProvider({
       setWaistlineCurveFront,
       setFrontWaistInset,
       setWaistTaper,
+      setBackCbWaistRise,
       setBackCrotchDrop,
       setFrontCrotchFullness,
       setBackCrotchFullness,
@@ -398,6 +410,7 @@ export function GarmentStyleProvider({
       setWaistlineCurveFront,
       setFrontWaistInset,
       setWaistTaper,
+      setBackCbWaistRise,
       setBackCrotchDrop,
       setFrontCrotchFullness,
       setBackCrotchFullness,

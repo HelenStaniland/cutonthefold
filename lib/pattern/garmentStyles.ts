@@ -9,7 +9,11 @@ import type {
   WaistbandMode,
 } from "@/lib/patterns/trouserBlock";
 import { DEFAULT_FIT, easeForFit } from "@/lib/pattern/fitPresets";
-import { CLEO_PRESET, MILA_PRESET } from "@/lib/pattern/blockPresets";
+import {
+  CARGO_PRESET,
+  CLEO_PRESET,
+  MILA_PRESET,
+} from "@/lib/pattern/blockPresets";
 
 export type DartedWaistFinish = "facing" | "waistband" | "elastic";
 /** @deprecated Prefer DartedWaistFinish — alias for the three-way waist finish. */
@@ -40,6 +44,8 @@ export type TrouserStyleSettings = {
   frontWaistInset: number | null;
   /** null = default 1 (full Aldrich taper). */
   waistTaper: number | null;
+  /** null = default 20 (Aldrich CB rise). */
+  backCbWaistRise: number | null;
   backCrotchDrop: number | null;
   frontCrotchFullness: number | null;
   backCrotchFullness: number | null;
@@ -53,6 +59,7 @@ const clearedGeometry = {
   waistlineCurveFront: null,
   frontWaistInset: null,
   waistTaper: null,
+  backCbWaistRise: null,
   backCrotchDrop: null,
   frontCrotchFullness: null,
   backCrotchFullness: null,
@@ -97,6 +104,7 @@ export const CLEO_TROUSER_STYLE: TrouserStyleSettings = (() => {
     waistlineCurveFront: pr.waistlineCurveFront,
     frontWaistInset: m.frontWaistInset,
     waistTaper: m.waistTaper ?? null,
+    backCbWaistRise: m.backCbWaistRise ?? null,
     backCrotchDrop: m.backCrotchDrop,
     frontCrotchFullness: m.frontCrotchFullness,
     backCrotchFullness: m.backCrotchFullness,
@@ -130,6 +138,7 @@ export const MILA_TROUSER_STYLE: TrouserStyleSettings = (() => {
     waistlineCurveFront: pr.waistlineCurveFront,
     frontWaistInset: m.frontWaistInset,
     waistTaper: m.waistTaper ?? null,
+    backCbWaistRise: m.backCbWaistRise ?? null,
     backCrotchDrop: m.backCrotchDrop,
     frontCrotchFullness: m.frontCrotchFullness,
     backCrotchFullness: m.backCrotchFullness,
@@ -138,4 +147,38 @@ export const MILA_TROUSER_STYLE: TrouserStyleSettings = (() => {
 
 export function milaTrouserStyle(): TrouserStyleSettings {
   return { ...MILA_TROUSER_STYLE, ease: { ...MILA_TROUSER_STYLE.ease } };
+}
+
+/** Cargo Pants — pocket sandbox; born identical to Mila, free to diverge. */
+export const CARGO_TROUSER_STYLE: TrouserStyleSettings = (() => {
+  const m = CARGO_PRESET.measured;
+  const pr = CARGO_PRESET.provisional;
+  return {
+    legBottomWidth: m.bottomWidth,
+    frontInseamKneeInset: m.frontInseamKneeInset,
+    backInseamKneeInset: m.backInseamKneeInset,
+    backHemShape: m.backHemShape,
+    waistDrop: m.waistDrop,
+    waistbandDepth: m.waistbandDepth,
+    waistbandMode: m.waistbandMode,
+    dartedWaistFinish: "elastic" as const,
+    dartedBandDepth: 25,
+    zipLength: 180,
+    ease: { ...m.ease },
+    frontCrotchExtensionScale: m.frontCrotchExtensionScale,
+    backCrotchExtensionScale: m.backCrotchExtensionScale,
+    crotchDeparture: m.crotchDeparture,
+    crotchArrivalAngle: m.crotchArrivalAngle,
+    waistlineCurveFront: pr.waistlineCurveFront,
+    frontWaistInset: m.frontWaistInset,
+    waistTaper: m.waistTaper ?? null,
+    backCbWaistRise: m.backCbWaistRise ?? null,
+    backCrotchDrop: m.backCrotchDrop,
+    frontCrotchFullness: m.frontCrotchFullness,
+    backCrotchFullness: m.backCrotchFullness,
+  };
+})();
+
+export function cargoTrouserStyle(): TrouserStyleSettings {
+  return { ...CARGO_TROUSER_STYLE, ease: { ...CARGO_TROUSER_STYLE.ease } };
 }

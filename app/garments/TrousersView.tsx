@@ -37,6 +37,9 @@ import {
   WAIST_TAPER_MIN,
   WAIST_TAPER_MAX,
   DEFAULT_WAIST_TAPER,
+  BACK_CB_WAIST_RISE,
+  BACK_CB_WAIST_RISE_MIN,
+  BACK_CB_WAIST_RISE_MAX,
   WAISTLINE_CURVE_FRONT,
   WAISTLINE_CURVE_FRONT_MIN,
   WAISTLINE_CURVE_FRONT_MAX,
@@ -135,6 +138,7 @@ function styleMatchesPreset(
     style.waistlineCurveFront === defaults.waistlineCurveFront &&
     style.frontWaistInset === defaults.frontWaistInset &&
     style.waistTaper === defaults.waistTaper &&
+    style.backCbWaistRise === defaults.backCbWaistRise &&
     style.backCrotchDrop === defaults.backCrotchDrop &&
     style.frontCrotchFullness === defaults.frontCrotchFullness &&
     style.backCrotchFullness === defaults.backCrotchFullness
@@ -190,6 +194,8 @@ function TrousersViewInner({
     setFrontWaistInset,
     waistTaper,
     setWaistTaper,
+    backCbWaistRise,
+    setBackCbWaistRise,
     backCrotchDrop,
     setBackCrotchDrop,
     frontCrotchFullness,
@@ -221,6 +227,7 @@ function TrousersViewInner({
     ? 0
     : (frontWaistInset ?? DEFAULT_FRONT_WAIST_INSET);
   const taperShown = elasticWaist ? 0 : (waistTaper ?? DEFAULT_WAIST_TAPER);
+  const cbRiseShown = backCbWaistRise ?? BACK_CB_WAIST_RISE;
   const dropShown = backCrotchDrop ?? DEFAULT_BACK_CROTCH_DROP;
   const frontFullShown =
     frontCrotchFullness ?? DEFAULT_FRONT_CROTCH_FULLNESS;
@@ -252,6 +259,7 @@ function TrousersViewInner({
           ...(frontWaistInset != null ? { frontWaistInset } : {}),
           ...(waistTaper != null ? { waistTaper } : {}),
         }),
+    ...(backCbWaistRise != null ? { backCbWaistRise } : {}),
     ...(backCrotchDrop != null ? { backCrotchDrop } : {}),
     ...(frontCrotchFullness != null ? { frontCrotchFullness } : {}),
     ...(backCrotchFullness != null ? { backCrotchFullness } : {}),
@@ -351,6 +359,7 @@ function TrousersViewInner({
     waistlineCurveFront === null &&
     frontWaistInset === null &&
     waistTaper === null &&
+    backCbWaistRise === null &&
     backCrotchDrop === null &&
     frontCrotchFullness === null &&
     backCrotchFullness === null &&
@@ -378,6 +387,7 @@ function TrousersViewInner({
       waistlineCurveFront,
       frontWaistInset,
       waistTaper,
+      backCbWaistRise,
       backCrotchDrop,
       frontCrotchFullness,
       backCrotchFullness,
@@ -392,20 +402,32 @@ function TrousersViewInner({
         : style
       : withWaistband(style, draftWaistDepth, "darted", draftBody);
 
-  const resolvedLegWidths = useMemo(() => {
-    const f = trouserFrontPoints(draftBody, tstyle);
-    const b = trouserBackPoints(draftBody, tstyle);
-    return {
-      frontHem: Math.abs(f.p12.x - f.p14.x),
-      backHem: Math.abs(b.p26.x - b.p28.x),
-    };
-  }, [draftBody, tstyle]);
-
   const validation = validateTrousers(draftBody, tstyle);
   const baseNet = useMemo(
     () => draftTrousers(draftBody, tstyle),
     [draftBody, tstyle],
   );
+  const seamLengths = useMemo(() => {
+    const front = baseNet.pieces.find((p) => p.name === "Trouser front");
+    const back = baseNet.pieces.find((p) => p.name === "Trouser back");
+    if (!front?.seamLengths || !back?.seamLengths) return null;
+    return { front: front.seamLengths, back: back.seamLengths };
+  }, [baseNet]);
+  // Same source as seamLengths.hemWidth (net hem-corner span).
+  const resolvedLegWidths = useMemo(() => {
+    if (!seamLengths) {
+      const f = trouserFrontPoints(draftBody, tstyle);
+      const b = trouserBackPoints(draftBody, tstyle);
+      return {
+        frontHem: Math.abs(f.p12.x - f.p14.x),
+        backHem: Math.abs(b.p26.x - b.p28.x),
+      };
+    }
+    return {
+      frontHem: seamLengths.front.hemWidth,
+      backHem: seamLengths.back.hemWidth,
+    };
+  }, [seamLengths, draftBody, tstyle]);
   const { net, elementSteps } = useMemo((): {
     net: ReturnType<typeof draftTrousers>;
     elementSteps: ConstructionStep[];
@@ -1384,6 +1406,33 @@ function TrousersViewInner({
                   </span>
                 </div>
               </div>
+              <div className={styles.field}>
+                <label
+                  className={styles.fieldLabel}
+                  htmlFor="back-cb-waist-rise"
+                >
+                  Back waist height
+                </label>
+                <span className={styles.fieldHint}>
+                  Raises the centre-back waist. Higher = the back sits up when
+                  seated. Front and sides unchanged.
+                </span>
+                <div className={styles.rangeRow}>
+                  <input
+                    id="back-cb-waist-rise"
+                    type="range"
+                    className={styles.rangeInput}
+                    min={BACK_CB_WAIST_RISE_MIN}
+                    max={BACK_CB_WAIST_RISE_MAX}
+                    step={5}
+                    value={cbRiseShown}
+                    onChange={(e) =>
+                      setBackCbWaistRise(Number(e.target.value))
+                    }
+                  />
+                  <span className={styles.rangeValue}>{cbRiseShown} mm</span>
+                </div>
+              </div>
             </SidebarSubsection>
 
             <SidebarSubsection title="Leg shaping">
@@ -1610,6 +1659,98 @@ function TrousersViewInner({
                   )}
                 </div>
               </article>
+
+              {seamLengths && (
+                <article className={styles.patternSummaryCard}>
+                  <div className={styles.cardHeader}>
+                    <h2 className={styles.cardTitle}>Seam lengths</h2>
+                  </div>
+                  <p className={styles.fieldHint} style={{ margin: "0 0 8px" }}>
+                    Net stitching-line lengths (mm) from the current draft.
+                    Crotch / rise and trouser top edge are settings-dependent —
+                    not fixed body measurements. Front and back top edges are
+                    independent piece lengths; do not add them for a waist girth.
+                  </p>
+                  <div className={styles.summaryChips}>
+                    <span className={styles.chip}>
+                      Inside leg front{" "}
+                      <strong>{seamLengths.front.inseam.toFixed(1)}</strong> mm
+                    </span>
+                    <span className={styles.chip}>
+                      Inside leg back{" "}
+                      <strong>{seamLengths.back.inseam.toFixed(1)}</strong> mm
+                    </span>
+                    <span className={styles.chip}>
+                      Δ inseam{" "}
+                      <strong>
+                        {(
+                          seamLengths.back.inseam - seamLengths.front.inseam
+                        ).toFixed(1)}
+                      </strong>{" "}
+                      mm
+                    </span>
+                    <span className={styles.chip}>
+                      Outside leg front{" "}
+                      <strong>{seamLengths.front.side.toFixed(1)}</strong> mm
+                    </span>
+                    <span className={styles.chip}>
+                      Outside leg back{" "}
+                      <strong>{seamLengths.back.side.toFixed(1)}</strong> mm
+                    </span>
+                    <span className={styles.chip}>
+                      Δ side{" "}
+                      <strong>
+                        {(
+                          seamLengths.back.side - seamLengths.front.side
+                        ).toFixed(1)}
+                      </strong>{" "}
+                      mm
+                    </span>
+                    <span
+                      className={styles.chip}
+                      title="Draft seam length tip → waist at the current settings (waist finish, drop, scoop, etc.). Not a body measurement. Front and back are independent — they are not sewn to each other."
+                    >
+                      Crotch / rise front{" "}
+                      <strong>{seamLengths.front.crotch.toFixed(1)}</strong> mm
+                    </span>
+                    <span
+                      className={styles.chip}
+                      title="Draft seam length tip → waist at the current settings. Independent of the front figure — front and back rises are not a matched pair."
+                    >
+                      Crotch / rise back{" "}
+                      <strong>{seamLengths.back.crotch.toFixed(1)}</strong> mm
+                    </span>
+                    <span
+                      className={styles.chip}
+                      title="Net top-edge arc of this piece as drawn (wr.waistSeam) — where a waistband joins or a casing folds. Changes with finish, drop, scoop and taper. Not finished waist girth; do not add front + back."
+                    >
+                      Trouser top edge front{" "}
+                      <strong>{seamLengths.front.topEdge.toFixed(1)}</strong> mm
+                    </span>
+                    <span
+                      className={styles.chip}
+                      title="Net top-edge arc of this piece as drawn. Independent of the front figure — not a matched pair and not half a waist girth."
+                    >
+                      Trouser top edge back{" "}
+                      <strong>{seamLengths.back.topEdge.toFixed(1)}</strong> mm
+                    </span>
+                    <span
+                      className={styles.chip}
+                      title="Straight span across the net hem corners (side ↔ inseam), not the hem arc. Same value as the Front/Back hem chips above."
+                    >
+                      Hem width front{" "}
+                      <strong>{seamLengths.front.hemWidth.toFixed(1)}</strong> mm
+                    </span>
+                    <span
+                      className={styles.chip}
+                      title="Straight span across the net hem corners (side ↔ inseam), not the hem arc. Same value as the Front/Back hem chips above."
+                    >
+                      Hem width back{" "}
+                      <strong>{seamLengths.back.hemWidth.toFixed(1)}</strong> mm
+                    </span>
+                  </div>
+                </article>
+              )}
             </div>
 
             <div className={styles.mainPanelColumn}>

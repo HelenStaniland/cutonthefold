@@ -82,6 +82,15 @@ export default function Nav({ onNavigate }: NavProps) {
               Mila Pants
             </Link>
           </li>
+          <li>
+            <Link
+              href="/garments/cargo-pants"
+              className={linkClass(pathname, "/garments/cargo-pants")}
+              onClick={onNavigate}
+            >
+              Cargo Pants
+            </Link>
+          </li>
         </ul>
       </li>
     </ul>

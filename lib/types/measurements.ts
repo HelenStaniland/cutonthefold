@@ -130,6 +130,30 @@ export type Marking =
   | { kind: "buttonhole"; at: Point }
   | { kind: "dart"; apex: Point; legs: [Point, Point] };
 
+/**
+ * Net (stitching-line) arc lengths on a trouser leg piece.
+ * Materialised from construction polylines before segmentsToOutline retags
+ * junctions — see draftTrouserFront / draftTrouserBack.
+ */
+export type TrouserSeamLengths = {
+  /** Tip → knee → hem (pchip). Includes the crotch-tip junction. */
+  inseam: Millimetres;
+  /** Waist side → hip → knee → hem (pchip). */
+  side: Millimetres;
+  /** Full rise: crotch tip → waist edge (CF or CB). */
+  crotch: Millimetres;
+  /**
+   * Per-piece top edge arc (wr.waistSeam) — net stitching line where a band
+   * joins or a casing folds. Not finished waist girth; front+back must not be summed.
+   */
+  topEdge: Millimetres;
+  /**
+   * Straight span across the net hem endpoints (side ↔ inseam), not hem arc length.
+   * Same figure as the Pattern-summary Front/Back hem chips.
+   */
+  hemWidth: Millimetres;
+};
+
 export type PatternPiece = {
   name: string;
   cutCount: number;
@@ -143,6 +167,11 @@ export type PatternPiece = {
    */
   netToCutIndex?: number[];
   markings: Marking[];
+  /**
+   * Trouser leg pieces only — net seam lengths from construction polylines
+   * (pre-retag). Absent on waistbands and other pieces.
+   */
+  seamLengths?: TrouserSeamLengths;
 };
 
 export function cutLabel(piece: PatternPiece): string {

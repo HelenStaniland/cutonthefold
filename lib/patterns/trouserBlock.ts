@@ -73,8 +73,14 @@ export type WaistbandMode = "darted" | "shaped";
 export type BackHemShape = "curved" | "straight";
 const DART_TAKEUP = 20;
 
-/** Aldrich back CB step 20→21 — 2 cm up from point 20 (mm). */
-const BACK_CB_WAIST_RISE: Millimetres = 20;
+/**
+ * Aldrich back CB step 20→21 — default vertical rise at centre-back (mm).
+ * Overridable via TrouserFrontStyle.backCbWaistRise.
+ */
+export const BACK_CB_WAIST_RISE: Millimetres = 20;
+export const BACK_CB_WAIST_RISE_MIN = 0;
+/** Headroom past Helen's ~76 mm toile target; beyond this the top-edge slant is extreme. */
+export const BACK_CB_WAIST_RISE_MAX = 120;
 /**
  * Aldrich p.48 §2a — default front waistline scoop depth (mm).
  * Overridable via TrouserFrontStyle.waistlineCurveFront (0 = §2a off).
@@ -471,6 +477,14 @@ export type TrouserFrontStyle = {
    * Default 0.865 (Aldrich). Clamped [0.2, 1.0]; upper bound is loop-proof.
    */
   backCrotchFullness?: number;
+  /**
+   * Vertical rise of the back waist at centre-back (mm). Raises the CB top
+   * corner only; side and front top corners are unaffected. Lengthens the back
+   * rise seam ~1:1. Default 20 (Aldrich / today). Fit control — a higher back
+   * that sits up when seated. Clamped [0, 120]. Independent of the elastic
+   * waist finish.
+   */
+  backCbWaistRise?: Millimetres;
 };
 
 export const withWaistband = (
@@ -752,6 +766,17 @@ export function resolveWaistTaper(
 ): number {
   const raw = style.waistTaper ?? DEFAULT_WAIST_TAPER;
   return Math.max(WAIST_TAPER_MIN, Math.min(WAIST_TAPER_MAX, raw));
+}
+
+/** Back CB waist rise (mm): default Aldrich 20; raises CB only. */
+export function resolveBackCbWaistRise(
+  style: Pick<TrouserFrontStyle, "backCbWaistRise">,
+): Millimetres {
+  const raw = style.backCbWaistRise ?? BACK_CB_WAIST_RISE;
+  return Math.max(
+    BACK_CB_WAIST_RISE_MIN,
+    Math.min(BACK_CB_WAIST_RISE_MAX, raw),
+  );
 }
 
 /** Aldrich 23–24 default (mm below crotch line). 0 = Cleo (no hook). */
@@ -2111,7 +2136,8 @@ export function trouserBackPoints(
   const p18 = { x: p16.x, y: 0 };
   const p19 = { x: p16.x, y: R / 2 };
   const p20x = p18.x + spec.backWaistStep;
-  const p21 = { x: p20x, y: -BACK_CB_WAIST_RISE };
+  const cbRise = resolveBackCbWaistRise(style);
+  const p21 = { x: p20x, y: -cbRise };
   const aldrichBackL = W / 4 + 40;
   const aldrichP22x =
     p21.x + Math.sqrt(aldrichBackL * aldrichBackL - p21.y * p21.y);
@@ -2446,6 +2472,17 @@ export function draftTrouserFront(
   // walks hem→tip, so reverse. Knee is an on-curve landmark, not a joint.
   const inseamTipToHem = pchipByY([p9, p15, p14]);
   const inseamHemToTip = [...inseamTipToHem].reverse();
+  const sideSeam = pchipByY([wr.side, p8, p13, p12]);
+
+  // Canonical net lengths — measured on construction polylines before retag.
+  const seamLengths = {
+    inseam: polylineLength(inseamTipToHem),
+    side: polylineLength(sideSeam),
+    crotch: polylineLength(crotchFromWaist),
+    topEdge: polylineLength(wr.waistSeam),
+    // Straight CF/inseam↔side span (net hem corners) — not hem arc length.
+    hemWidth: Math.abs(p12.x - p14.x),
+  };
 
   const facingFinish = isDartedFacingFinish(style);
 
@@ -2454,6 +2491,17 @@ export function draftTrouserFront(
     crotchFromWaist,
     D,
   );
+  // Junction-once check: tip→waist measured once ≡ sum of role halves (shared vertex has no length).
+  {
+    const halves =
+      polylineLength(crotchSeg.length >= 2 ? crotchSeg : crotchFromWaist) +
+      (cfSeg.length >= 2 ? polylineLength(cfSeg) : 0);
+    if (Math.abs(seamLengths.crotch - halves) > 1e-6) {
+      throw new Error(
+        `Front crotch junction length mismatch: continuous ${seamLengths.crotch} vs halves ${halves}`,
+      );
+    }
+  }
 
   // Hipline balance notch: where the assembled CF/crotch seam crosses y = D.
   // Always emitted (including crotchDeparture = 0). Interpolated along the
@@ -2516,7 +2564,7 @@ export function draftTrouserFront(
       ...(facingFinish ? { waistFinish: "facing" as const } : {}),
     },
     {
-      points: pchipByY([wr.side, p8, p13, p12]),
+      points: sideSeam,
       edge: "seam",
       role: "side-seam",
     },
@@ -2590,6 +2638,7 @@ export function draftTrouserFront(
     onFold: false,
     outline,
     markings,
+    seamLengths,
   };
 }
 
@@ -2607,9 +2656,36 @@ export function draftTrouserBack(
   // Faired inseam tip→knee→hem. Outline walks hem→tip.
   const inseamTipToHem = pchipByY([p24, p29, p28]);
   const inseamHemToTip = [...inseamTipToHem].reverse();
+  const sideSeam = pchipByY([wr.side, p25, p27, p26]);
   // Crotch ends at T (= p24); inseam starts at the same point — no p23→p24 step.
   const crotch = backCrotchBelowHip(b, style);
   const cbTop = crotch[crotch.length - 1]!;
+  const cbJoin: Point[] = [cbTop, wr.cf];
+  // Continuous tip→waist: join at shared CB-hip vertex once (no double-count).
+  const crotchToWaist =
+    Math.hypot(cbTop.x - wr.cf.x, cbTop.y - wr.cf.y) < 0.01
+      ? crotch
+      : [...crotch, { ...wr.cf }];
+  const seamLengths = {
+    inseam: polylineLength(inseamTipToHem),
+    side: polylineLength(sideSeam),
+    crotch: polylineLength(crotchToWaist),
+    topEdge: polylineLength(wr.waistSeam),
+    // Straight span between net hem corners (same as Pattern-summary Back hem).
+    hemWidth: Math.abs(p26.x - p28.x),
+  };
+  {
+    const joinLen =
+      Math.hypot(cbTop.x - wr.cf.x, cbTop.y - wr.cf.y) < 0.01
+        ? 0
+        : polylineLength(cbJoin);
+    const halves = polylineLength(crotch) + joinLen;
+    if (Math.abs(seamLengths.crotch - halves) > 1e-6) {
+      throw new Error(
+        `Back crotch junction length mismatch: continuous ${seamLengths.crotch} vs halves ${halves}`,
+      );
+    }
+  }
   const hipOnCrotch = pointOnPolylineAtY(crotch, b.p17.y);
 
   const fPts = trouserFrontPoints(body, style);
@@ -2638,7 +2714,7 @@ export function draftTrouserBack(
       ...(facingFinish ? { waistFinish: "facing" as const } : {}),
     },
     {
-      points: pchipByY([wr.side, p25, p27, p26]),
+      points: sideSeam,
       edge: "seam",
       role: "side-seam",
     },
@@ -2656,7 +2732,7 @@ export function draftTrouserBack(
       role: "inseam",
     },
     { points: crotch, edge: "seam", role: "crotch" },
-    { points: [cbTop, wr.cf], edge: "seam", role: "centre-back" },
+    { points: cbJoin, edge: "seam", role: "centre-back" },
   ];
   const outline = segmentsToOutline(segments);
 
@@ -2731,6 +2807,7 @@ export function draftTrouserBack(
     onFold: false,
     outline,
     markings,
+    seamLengths,
   };
 }
 
