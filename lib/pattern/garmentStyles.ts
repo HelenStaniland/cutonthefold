@@ -19,6 +19,8 @@ export type DartedWaistFinish = "facing" | "waistband" | "elastic";
 /** @deprecated Prefer DartedWaistFinish — alias for the three-way waist finish. */
 export type WaistFinish = DartedWaistFinish;
 
+export type PocketFrontSetting = "none" | "slant";
+
 export type TrouserStyleSettings = {
   /** Aldrich bottomWidth — front hem B−10, back B+10. */
   legBottomWidth: number;
@@ -49,6 +51,11 @@ export type TrouserStyleSettings = {
   backCrotchDrop: number | null;
   frontCrotchFullness: number | null;
   backCrotchFullness: number | null;
+  /**
+   * Front pocket construction. Default `"none"`. Cargo sets `"slant"`.
+   * Independent of `dartedWaistFinish`.
+   */
+  pocketFront: PocketFrontSetting;
 };
 
 const clearedGeometry = {
@@ -79,6 +86,7 @@ export const BLOCK_TROUSER_STYLE: TrouserStyleSettings = {
   zipLength: 180,
   ease: easeForFit(DEFAULT_FIT)!,
   ...clearedGeometry,
+  pocketFront: "none",
 };
 
 /** Cleo Pants — block + named garment modifications. */
@@ -108,6 +116,7 @@ export const CLEO_TROUSER_STYLE: TrouserStyleSettings = (() => {
     backCrotchDrop: m.backCrotchDrop,
     frontCrotchFullness: m.frontCrotchFullness,
     backCrotchFullness: m.backCrotchFullness,
+    pocketFront: "none" as const,
   };
 })();
 
@@ -142,6 +151,7 @@ export const MILA_TROUSER_STYLE: TrouserStyleSettings = (() => {
     backCrotchDrop: m.backCrotchDrop,
     frontCrotchFullness: m.frontCrotchFullness,
     backCrotchFullness: m.backCrotchFullness,
+    pocketFront: "none" as const,
   };
 })();
 
@@ -149,7 +159,7 @@ export function milaTrouserStyle(): TrouserStyleSettings {
   return { ...MILA_TROUSER_STYLE, ease: { ...MILA_TROUSER_STYLE.ease } };
 }
 
-/** Cargo Pants — pocket sandbox; born identical to Mila, free to diverge. */
+/** Cargo Pants — pocket sandbox; slant front pocket on by default. */
 export const CARGO_TROUSER_STYLE: TrouserStyleSettings = (() => {
   const m = CARGO_PRESET.measured;
   const pr = CARGO_PRESET.provisional;
@@ -176,6 +186,7 @@ export const CARGO_TROUSER_STYLE: TrouserStyleSettings = (() => {
     backCrotchDrop: m.backCrotchDrop,
     frontCrotchFullness: m.frontCrotchFullness,
     backCrotchFullness: m.backCrotchFullness,
+    pocketFront: "slant" as const,
   };
 })();
 

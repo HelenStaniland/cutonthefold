@@ -18,14 +18,22 @@ const CURVE_SAMPLES = 10;
 export type TrouserPreview = {
   /** Continuous outer garment silhouette (includes top waist edge). */
   outline: Point[];
-  /** Straight chord across the yoke height (legacy). */
+  /** Straight chord across the piece-top height when a band lowers the seam (legacy). */
   waistline: Line;
-  /** Lower yoke seam as an internal curve, left → right. Empty when no band. */
+  /**
+   * Piece-top seam as an internal preview curve (left → right) when a band is
+   * present. Empty when the piece top is the outer silhouette edge. Formerly
+   * called "yoke seam" — same curve; one concept.
+   */
+  pieceTopSeam: Point[];
+  /**
+   * @deprecated Alias of `pieceTopSeam` (subsumed name).
+   */
   yokeSeam: Point[];
   darts: Line[];
   /**
    * Unused for drawing (kept for call-site compatibility).
-   * Yoke is an internal seam, not a separate polygon.
+   * Band is a separate piece; not a preview polygon here.
    */
   waistband: Point[];
   zipMark: Line;
@@ -129,16 +137,16 @@ export function previewTrousers(
     ...outerLeftUp,
   ];
 
-  // Internal yoke seam only — endpoints sit on the continuous side seams.
-  let yokeSeam: Point[] = [];
+  // Piece-top seam (band attach) — endpoints sit on the continuous side seams.
+  let pieceTopSeam: Point[] = [];
   if (showYokeSeam) {
-    const yokeSideX = sideXAtDepth(bandDepth, waistHalf, hipHalf, hipY);
-    const yokeL: Point = { x: -yokeSideX, y: bandDepth };
-    const yokeR: Point = { x: yokeSideX, y: bandDepth };
+    const sideX = sideXAtDepth(bandDepth, waistHalf, hipHalf, hipY);
+    const topL: Point = { x: -sideX, y: bandDepth };
+    const topR: Point = { x: sideX, y: bandDepth };
     const bottomCurve = shaped
       ? Math.min(26, bandDepth * 0.3)
       : Math.min(8, bandDepth * 0.12);
-    yokeSeam = sampleQuad(yokeL, { x: 0, y: bandDepth + bottomCurve }, yokeR);
+    pieceTopSeam = sampleQuad(topL, { x: 0, y: bandDepth + bottomCurve }, topR);
   }
 
   const waistline: Line = showYokeSeam
@@ -148,7 +156,7 @@ export function previewTrousers(
       }
     : { from: topL, to: topR };
 
-  // Darts only for darted construction; start below the yoke (or at waist).
+  // Darts only for darted construction; start below the piece top (or at waist).
   const dartOriginY = showYokeSeam ? bandDepth : 0;
   const darts: Line[] =
     mode === "darted"
@@ -177,7 +185,8 @@ export function previewTrousers(
   return {
     outline,
     waistline,
-    yokeSeam,
+    pieceTopSeam,
+    yokeSeam: pieceTopSeam,
     darts,
     waistband: [],
     zipMark,

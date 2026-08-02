@@ -126,9 +126,12 @@ const fromPreset: TrouserStyleSettings = {
   crotchArrivalAngle: m.crotchArrivalAngle,
   waistlineCurveFront: pr.waistlineCurveFront,
   frontWaistInset: m.frontWaistInset,
+  waistTaper: m.waistTaper ?? null,
+  backCbWaistRise: m.backCbWaistRise ?? null,
   backCrotchDrop: m.backCrotchDrop,
   frontCrotchFullness: m.frontCrotchFullness,
   backCrotchFullness: m.backCrotchFullness,
+  pocketFront: "none",
 };
 const dCleo = maxDelta(
   pts(toDraftStyle(fromFn, fromFn.waistDrop)),

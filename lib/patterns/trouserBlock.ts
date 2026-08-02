@@ -27,7 +27,26 @@ import {
   inseamHighNotches,
   sideKneeNotches,
 } from "@/lib/geometry/notchPlacement";
+import {
+  draftSlantFrontPocketPieces,
+  resolveSlantPocketMouth,
+  resolveSlantPocketParams,
+  type PocketFront,
+  type SlantPocketMouth,
+} from "@/lib/elements/slantFrontPocket";
 
+export type { PocketFront, SlantPocketMouth };
+export {
+  DEFAULT_SLANT_MOUTH_INSET,
+  DEFAULT_SLANT_MOUTH_DROP,
+  DEFAULT_SLANT_MOUTH_TOP_DROP,
+  DEFAULT_SLANT_FACING_WIDTH,
+  DEFAULT_SLANT_BAG_DEPTH,
+  resolveSlantPocketMouth,
+  resolveSlantPocketParams,
+  silhouetteInvariantDelta,
+  polylineMaxDelta,
+} from "@/lib/elements/slantFrontPocket";
 export type TrouserBlock = "classic" | "production";
 
 /** Maximum waist drop (mm) — production endpoint; classic is 0. */
@@ -126,7 +145,7 @@ export function normalizeWaistbandMode(mode?: string): WaistbandMode {
   return "shaped";
 }
 
-/** Maximum shaped-band / deep-yoke depth for this body (mm). */
+/** Maximum shaped-band depth before the piece-top seam reaches the hipline (mm). */
 export function maxYokeDepth(
   body: BodyMeasurements,
   block: TrouserBlock = "classic",
@@ -326,8 +345,9 @@ export function blockFromWaistDrop(waistDrop: Millimetres): TrouserBlock {
 }
 
 /**
- * Waist girth W — linear taper from natural waist (d=0) to low waist (d=50).
- * Assumes a linear waist→low-waist taper over the 5 cm drop (estimate from two girths).
+ * Waist girth W at the body-waist plane (`bodyWaistY`) — linear taper from
+ * natural waist (d=0) to low waist (d=50). Assumes a linear waist→low-waist
+ * taper over the 5 cm drop (estimate from two girths).
  */
 function trouserWaistGirth(
   body: BodyMeasurements,
@@ -343,17 +363,54 @@ function trouserBlockSpec(style: TrouserFrontStyle): TrouserBlockSpec {
   return blockSpecForDrop(resolveWaistDrop(style));
 }
 
+/**
+ * Absolute construction waist plane (front / side), mm in the dropped pattern
+ * frame. Finish-invariant: facing, band, and elastic all share this plane;
+ * finishes then place the piece top relative to it. `waistDrop` re-zeros the
+ * frame around this plane, so it follows high/low waist by construction.
+ *
+ * Back CB construction sits at `bodyWaistY − backCbWaistRise` — do not average.
+ */
+export function resolveBodyWaistY(
+  body: BodyMeasurements,
+  style: TrouserFrontStyle,
+): Millimetres {
+  return trouserFrontPoints(body, style).p10.y;
+}
+
+/**
+ * Waist-to-hip gap (mm): hipline D minus the body-waist plane.
+ * Derived — not a second named waist. Equals D when bodyWaistY is 0.
+ */
+export function waistToHipGap(
+  body: BodyMeasurements,
+  style: TrouserFrontStyle,
+): Millimetres {
+  const { D, bodyWaistY } = trouserDraftMeasures(body, style);
+  return D - bodyWaistY;
+}
+
 export function trouserDraftMeasures(
   body: BodyMeasurements,
   style: TrouserFrontStyle,
-): { W: Millimetres; H: Millimetres; R: Millimetres; D: Millimetres; F: Millimetres } {
+): {
+  W: Millimetres;
+  H: Millimetres;
+  R: Millimetres;
+  D: Millimetres;
+  F: Millimetres;
+  /** Absolute construction waist (front/side). CB at bodyWaistY − backCbWaistRise. */
+  bodyWaistY: Millimetres;
+} {
   const spec = trouserBlockSpec(style);
+  const bodyWaistY = resolveBodyWaistY(body, style);
   return {
     W: trouserWaistGirth(body, spec),
     H: body.hip,
     R: body.bodyRise - spec.riseDrop,
     D: body.hipDepth - spec.hipDepthDrop,
     F: body.waistToFloor - spec.riseDrop,
+    bodyWaistY,
   };
 }
 
@@ -485,6 +542,23 @@ export type TrouserFrontStyle = {
    * waist finish.
    */
   backCbWaistRise?: Millimetres;
+  /**
+   * Front pocket construction. Default `"none"` — omit or `"none"` is
+   * byte-identical to today's draft. `"slant"` trims the front waist∩side
+   * corner and adds stay / facing / bag pieces (see `draftSlantFrontPocketPieces`).
+   * Independent of `dartedWaistFinish`.
+   */
+  pocketFront?: "none" | "slant";
+  /** Mouth-top inset from the side along the body-waist edge (mm). Default 75. */
+  slantMouthInset?: Millimetres;
+  /** Mouth-side arc drop down the side from bodyWaistY (mm). Default 160. */
+  slantMouthDrop?: Millimetres;
+  /** Optional mouth-top drop below bodyWaistY (mm). Default 0. */
+  slantMouthTopDrop?: Millimetres;
+  /** Facing strip width (mm). Default 40. */
+  slantFacingWidth?: Millimetres;
+  /** Bag depth below mouth-side (mm). Default 130. */
+  slantBagDepth?: Millimetres;
 };
 
 export const withWaistband = (
@@ -776,6 +850,31 @@ export function resolveBackCbWaistRise(
   return Math.max(
     BACK_CB_WAIST_RISE_MIN,
     Math.min(BACK_CB_WAIST_RISE_MAX, raw),
+  );
+}
+
+/** Front pocket axis: default `"none"` (omit = none). */
+export function resolvePocketFront(
+  style: Pick<TrouserFrontStyle, "pocketFront">,
+): PocketFront {
+  return style.pocketFront === "slant" ? "slant" : "none";
+}
+
+/**
+ * Resolve slant-pocket mouth on the drafted front waist + side (same polylines
+ * as `draftTrouserFront` before trim). Used by the draft and by acceptance.
+ */
+export function resolveFrontSlantPocketMouth(
+  body: BodyMeasurements,
+  style: TrouserFrontStyle,
+): SlantPocketMouth {
+  const f = trouserFrontPoints(body, style);
+  const wr = frontWaistResolved(body, style);
+  const sideSeam = pchipByY([wr.side, f.p8, f.p13, f.p12]);
+  return resolveSlantPocketMouth(
+    wr.waistSeam,
+    sideSeam,
+    resolveSlantPocketParams(style),
   );
 }
 
@@ -2556,32 +2655,93 @@ export function draftTrouserFront(
     });
   }
 
-  const segments: TaggedSegment[] = [
-    {
-      points: wr.waistSeam,
-      edge: "seam",
-      role: "waist",
-      ...(facingFinish ? { waistFinish: "facing" as const } : {}),
-    },
-    {
-      points: sideSeam,
-      edge: "seam",
-      role: "side-seam",
-    },
-    {
-      points: [p12, p14],
-      edge: "hem",
-      role: "hem",
-    },
-    {
-      points: inseamHemToTip,
-      edge: "seam",
-      role: "inseam",
-    },
-    ...crotchCfSegments,
-  ];
+  const slantOn = resolvePocketFront(style) === "slant";
+  const slantMouth = slantOn
+    ? resolveSlantPocketMouth(
+        wr.waistSeam,
+        sideSeam,
+        resolveSlantPocketParams(style),
+      )
+    : null;
+
+  // When slant: waist CF→mouth-top, pocket-mouth slant, side from mouth-side.
+  // Seam lengths stay on the pocket-off construction polylines (garment outer
+  // when closed); the stay restores the trimmed corner.
+  const segments: TaggedSegment[] = slantMouth
+    ? [
+        {
+          points: slantMouth.waistToMouth,
+          edge: "seam",
+          role: "waist",
+          ...(facingFinish ? { waistFinish: "facing" as const } : {}),
+        },
+        {
+          points: slantMouth.slant,
+          edge: "seam",
+          role: "pocket-mouth",
+        },
+        {
+          points: slantMouth.sideFromMouth,
+          edge: "seam",
+          role: "side-seam",
+        },
+        {
+          points: [p12, p14],
+          edge: "hem",
+          role: "hem",
+        },
+        {
+          points: inseamHemToTip,
+          edge: "seam",
+          role: "inseam",
+        },
+        ...crotchCfSegments,
+      ]
+    : [
+        {
+          points: wr.waistSeam,
+          edge: "seam",
+          role: "waist",
+          ...(facingFinish ? { waistFinish: "facing" as const } : {}),
+        },
+        {
+          points: sideSeam,
+          edge: "seam",
+          role: "side-seam",
+        },
+        {
+          points: [p12, p14],
+          edge: "hem",
+          role: "hem",
+        },
+        {
+          points: inseamHemToTip,
+          edge: "seam",
+          role: "inseam",
+        },
+        ...crotchCfSegments,
+      ];
 
   const outline = segmentsToOutline(segments);
+
+  const mouthNotches: Marking[] = slantMouth
+    ? [
+        {
+          kind: "notch",
+          role: "balance",
+          mates: { piece: "Slant pocket facing", seam: "pocket-mouth" },
+          at: slantMouth.mouthTop,
+          label: "mouth-top",
+        },
+        {
+          kind: "notch",
+          role: "balance",
+          mates: { piece: "Slant pocket stay", seam: "pocket-mouth" },
+          at: slantMouth.mouthSide,
+          label: "mouth-side",
+        },
+      ]
+    : [];
 
   const markings: Marking[] = [
     {
@@ -2629,6 +2789,7 @@ export function draftTrouserFront(
       ),
       label: "mid-waist",
     },
+    ...mouthNotches,
     ...markingsHip,
   ];
 
@@ -2815,9 +2976,14 @@ export function draftTrousers(
   body: BodyMeasurements,
   style: TrouserFrontStyle,
 ): Pattern {
-  return {
-    pieces: [draftTrouserFront(body, style), draftTrouserBack(body, style)],
-  };
+  const front = draftTrouserFront(body, style);
+  const back = draftTrouserBack(body, style);
+  if (resolvePocketFront(style) !== "slant") {
+    return { pieces: [front, back] };
+  }
+  const mouth = resolveFrontSlantPocketMouth(body, style);
+  const pocketPieces = draftSlantFrontPocketPieces(mouth);
+  return { pieces: [front, back, ...pocketPieces] };
 }
 
 export function validateTrousers(

@@ -98,6 +98,7 @@ function resolveStyle(
     ...(s.backCrotchFullness != null
       ? { backCrotchFullness: s.backCrotchFullness }
       : {}),
+    ...(s.pocketFront === "slant" ? { pocketFront: "slant" as const } : {}),
   };
   if (elastic) {
     return withWaistband(base, 0, "shaped", body);
@@ -212,15 +213,21 @@ console.log("\n=== 2. CARGO_PRESET == MILA_PRESET on measured + provisional ===\
   } else ok("ease: independent object");
 }
 
-// --- 3. Style equality ---
-console.log("\n=== 3. cargoTrouserStyle() == milaTrouserStyle() ===\n");
+// --- 3. Style: Cargo matches Mila except pocketFront ---
+console.log("\n=== 3. cargoTrouserStyle() vs milaTrouserStyle() ===\n");
 {
   const c = cargoTrouserStyle();
   const m = milaTrouserStyle();
-  const diffs = deepEqual(c, m);
+  if (c.pocketFront !== "slant") fail(`Cargo pocketFront=${c.pocketFront}`);
+  else ok('Cargo pocketFront = "slant"');
+  if (m.pocketFront !== "none") fail(`Mila pocketFront=${m.pocketFront}`);
+  else ok('Mila pocketFront = "none"');
+  const { pocketFront: _cPf, ...cRest } = c;
+  const { pocketFront: _mPf, ...mRest } = m;
+  const diffs = deepEqual(cRest, mRest);
   if (diffs.length) {
     for (const d of diffs) fail(d);
-  } else ok("every style field equal");
+  } else ok("every style field equal except pocketFront");
   if (CARGO_TROUSER_STYLE === MILA_TROUSER_STYLE) {
     fail("CARGO_TROUSER_STYLE is same reference as MILA");
   } else ok("CARGO_TROUSER_STYLE independent of MILA_TROUSER_STYLE");
@@ -241,20 +248,36 @@ console.log("\n=== 4. Mila / Cleo / block identity smoke ===\n");
   else ok("CLEO_TROUSER_STYLE finish intact");
   if (BLOCK_TROUSER_STYLE.dartedWaistFinish !== "facing") fail("Block finish drifted");
   else ok("BLOCK_TROUSER_STYLE finish intact");
+  if (MILA_TROUSER_STYLE.pocketFront !== "none") fail("Mila pocketFront drifted");
+  else ok('Mila pocketFront = "none"');
+  if (CLEO_TROUSER_STYLE.pocketFront !== "none") fail("Cleo pocketFront drifted");
+  else ok('Cleo pocketFront = "none"');
+  if (BLOCK_TROUSER_STYLE.pocketFront !== "none") fail("Block pocketFront drifted");
+  else ok('Block pocketFront = "none"');
 }
 
-// --- 5. Draft byte-identity Cargo ≡ Mila ---
-console.log("\n=== 5. Cargo drafts byte-identical to Mila ===\n");
+// --- 5. Draft: Cargo with pocketFront none ≡ Mila; slant diverges ---
+console.log("\n=== 5. Cargo pocket-off ≡ Mila; pocket-on diverges ===\n");
 for (const bod of bodies) {
   const body = applyEase(bod.body, MILA_TROUSER_STYLE.ease);
   const mila = resolveStyle(MILA_TROUSER_STYLE, body);
-  const cargo = resolveStyle(CARGO_TROUSER_STYLE, body);
+  const cargoOff = resolveStyle(
+    { ...CARGO_TROUSER_STYLE, pocketFront: "none" },
+    body,
+  );
+  const cargoOn = resolveStyle(CARGO_TROUSER_STYLE, body);
   const hM = pairHash(body, mila);
-  const hC = pairHash(body, cargo);
-  if (hM !== hC) {
-    fail(`${bod.name}: Cargo ≠ Mila (${hC.slice(0, 12)}… vs ${hM.slice(0, 12)}…)`);
+  const hOff = pairHash(body, cargoOff);
+  const hOn = pairHash(body, cargoOn);
+  if (hM !== hOff) {
+    fail(`${bod.name}: Cargo(none) ≠ Mila`);
   } else {
-    ok(`${bod.name}: Cargo ≡ Mila (${hM.slice(0, 12)}…)`);
+    ok(`${bod.name}: Cargo(none) ≡ Mila (${hM.slice(0, 12)}…)`);
+  }
+  if (hOn === hM) {
+    fail(`${bod.name}: Cargo(slant) unexpectedly ≡ Mila`);
+  } else {
+    ok(`${bod.name}: Cargo(slant) diverges (${hOn.slice(0, 12)}…)`);
   }
 }
 

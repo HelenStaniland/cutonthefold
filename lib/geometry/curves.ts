@@ -302,3 +302,48 @@ export function pointAtArcDistanceFromEnd(
   }
   return { ...points[0] };
 }
+
+/**
+ * Split a polyline at arc-distance `distanceFromStart` from the first vertex.
+ * `before` ends at the split; `after` starts at the split (shared vertex copied).
+ */
+export function splitPolylineAtArcDistance(
+  points: Point[],
+  distanceFromStart: Millimetres,
+): { before: Point[]; after: Point[]; at: Point } {
+  if (points.length === 0) {
+    throw new Error("empty polyline");
+  }
+  if (distanceFromStart <= 0) {
+    const at = { ...points[0]! };
+    return { before: [at], after: points.map((p) => ({ ...p })), at };
+  }
+  let traveled = 0;
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1]!;
+    const b = points[i]!;
+    const seg = Math.hypot(b.x - a.x, b.y - a.y);
+    if (traveled + seg >= distanceFromStart) {
+      const t = seg > 0 ? (distanceFromStart - traveled) / seg : 0;
+      const at = { x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) };
+      const before = [...points.slice(0, i).map((p) => ({ ...p })), { ...at }];
+      const after = [{ ...at }, ...points.slice(i).map((p) => ({ ...p }))];
+      // If we landed exactly on vertex i, drop the duplicate in after.
+      if (t >= 1 - 1e-12) {
+        return {
+          before,
+          after: [{ ...at }, ...points.slice(i + 1).map((p) => ({ ...p }))],
+          at,
+        };
+      }
+      return { before, after, at };
+    }
+    traveled += seg;
+  }
+  const at = { ...points[points.length - 1]! };
+  return {
+    before: points.map((p) => ({ ...p })),
+    after: [at],
+    at,
+  };
+}

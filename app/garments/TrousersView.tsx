@@ -141,7 +141,8 @@ function styleMatchesPreset(
     style.backCbWaistRise === defaults.backCbWaistRise &&
     style.backCrotchDrop === defaults.backCrotchDrop &&
     style.frontCrotchFullness === defaults.frontCrotchFullness &&
-    style.backCrotchFullness === defaults.backCrotchFullness
+    style.backCrotchFullness === defaults.backCrotchFullness &&
+    style.pocketFront === defaults.pocketFront
   );
 }
 
@@ -202,9 +203,13 @@ function TrousersViewInner({
     setFrontCrotchFullness,
     backCrotchFullness,
     setBackCrotchFullness,
+    pocketFront,
+    // Setter reserved for a future UI toggle; Cargo ships with slant on.
+    setPocketFront: _setPocketFront,
     resetToBlock,
     resetToPreset,
   } = useStyle();
+  void _setPocketFront;
   const block = blockFromWaistDrop(waistDrop);
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [mainPanelTab, setMainPanelTab] = useState<"pattern" | "method">(
@@ -263,6 +268,7 @@ function TrousersViewInner({
     ...(backCrotchDrop != null ? { backCrotchDrop } : {}),
     ...(frontCrotchFullness != null ? { frontCrotchFullness } : {}),
     ...(backCrotchFullness != null ? { backCrotchFullness } : {}),
+    ...(pocketFront === "slant" ? { pocketFront: "slant" as const } : {}),
   };
   const activeFit = fitForEase(ease);
   const draftBody = applyEase(body, ease);
@@ -391,6 +397,7 @@ function TrousersViewInner({
       backCrotchDrop,
       frontCrotchFullness,
       backCrotchFullness,
+      pocketFront,
     },
     defaults,
   );
@@ -550,6 +557,9 @@ function TrousersViewInner({
   const bandPieces = displayPattern.pieces.filter(
     (p) => p.name === "Front waistband" || p.name === "Back waistband",
   );
+  const pocketPieces = displayPattern.pieces.filter((p) =>
+    p.name.startsWith("Slant pocket"),
+  );
   const front = mirrorPieceX(frontRaw);
   const displayConstruction = construction.map((c) =>
     c.pieceName === "Trouser front" ? mirrorConstructionX(c) : c,
@@ -611,6 +621,26 @@ function TrousersViewInner({
     layoutBottom = row2Y + row2Height;
   }
 
+  if (pocketPieces.length > 0) {
+    const rowY = layoutBottom + rowGap;
+    let px = 0;
+    let rowH = 0;
+    for (const piece of pocketPieces) {
+      const pb = pieceBounds(piece);
+      placed.push({
+        piece,
+        dx: px - pb.minX,
+        dy: rowY - pb.minY,
+        top: rowY,
+        labelX: px + pb.w / 2,
+      });
+      px += pb.w + gap;
+      rowH = Math.max(rowH, pb.h);
+    }
+    layoutWidth = Math.max(layoutWidth, px - gap);
+    layoutBottom = rowY + rowH;
+  }
+
   const contentBottom = layoutBottom + gap;
   const topLabelY = row1Y + layoutMinY - labelSpace / 2;
   const sheetY = topLabelY - sheetTopMargin;
@@ -640,7 +670,7 @@ function TrousersViewInner({
   const previewPoints = preview
     ? [
         ...preview.outline,
-        ...preview.yokeSeam,
+        ...preview.pieceTopSeam,
         preview.zipMark.from,
         preview.zipMark.to,
       ]
@@ -1580,9 +1610,9 @@ function TrousersViewInner({
                         points={svgPolygonPoints(preview.outline)}
                         className={styles.previewSkirt}
                       />
-                      {preview.yokeSeam.length > 1 && (
+                      {preview.pieceTopSeam.length > 1 && (
                         <polyline
-                          points={svgPolygonPoints(preview.yokeSeam)}
+                          points={svgPolygonPoints(preview.pieceTopSeam)}
                           className={styles.previewYokeSeam}
                           fill="none"
                         />

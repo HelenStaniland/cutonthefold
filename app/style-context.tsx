@@ -191,6 +191,7 @@ function parseStyle(
     backCrotchFullness: optClamped(o.backCrotchFullness, (n) =>
       Math.max(CROTCH_FULLNESS_MIN, Math.min(CROTCH_FULLNESS_MAX, n)),
     ),
+    pocketFront: o.pocketFront === "slant" ? "slant" : "none",
   };
 }
 
@@ -217,6 +218,7 @@ type StyleContextValue = TrouserStyleSettings & {
   setBackCrotchDrop: Dispatch<SetStateAction<number | null>>;
   setFrontCrotchFullness: Dispatch<SetStateAction<number | null>>;
   setBackCrotchFullness: Dispatch<SetStateAction<number | null>>;
+  setPocketFront: Dispatch<SetStateAction<TrouserStyleSettings["pocketFront"]>>;
   /** Block only: darted, no band, clear geometry; keeps current waistDrop. */
   resetToBlock: () => void;
   /** Garment: replace entire store with this garment's preset defaults. */
@@ -347,6 +349,9 @@ export function GarmentStyleProvider({
     fieldSetter(setStyle, "backCrotchFullness"),
     [setStyle],
   );
+  const setPocketFront = useCallback(fieldSetter(setStyle, "pocketFront"), [
+    setStyle,
+  ]);
 
   const resetToBlock = useCallback(() => {
     setStyle((prev) => ({
@@ -387,6 +392,7 @@ export function GarmentStyleProvider({
       setBackCrotchDrop,
       setFrontCrotchFullness,
       setBackCrotchFullness,
+      setPocketFront,
       resetToBlock,
       resetToPreset,
     }),
@@ -414,6 +420,7 @@ export function GarmentStyleProvider({
       setBackCrotchDrop,
       setFrontCrotchFullness,
       setBackCrotchFullness,
+      setPocketFront,
       resetToBlock,
       resetToPreset,
     ],

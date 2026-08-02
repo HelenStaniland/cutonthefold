@@ -112,7 +112,13 @@ export function applySideOpening(
   pieces: PatternPiece[],
   style: SideOpeningStyle = DEFAULT_SIDE_OPENING,
 ): { pieces: PatternPiece[]; opening: WaistOpening; steps: ConstructionStep[] } {
-  const marked = pieces.map((p) => addOpeningNotch(p, style.length));
+  // Zip notches belong on the leg pieces only — pocket stay also has a
+  // side-seam role for the restored corner and must not get a zip mark.
+  const marked = pieces.map((p) =>
+    p.name === "Trouser front" || p.name === "Trouser back"
+      ? addOpeningNotch(p, style.length)
+      : p,
+  );
 
   const steps: ConstructionStep[] = [
     {
