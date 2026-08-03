@@ -843,6 +843,17 @@
   stroke-linejoin: round;
 }
 
+/* Fold-1 hem crease — lighter dash, between raw edge and fold-2. */
+.casingHem {
+  fill: none;
+  stroke: var(--pattern-instruction);
+  stroke-width: 1.2;
+  stroke-dasharray: 4 2;
+  stroke-linecap: butt;
+  stroke-linejoin: round;
+  opacity: 0.85;
+}
+
 .casingTurndown {
   fill: none;
   stroke: var(--pattern-construction);

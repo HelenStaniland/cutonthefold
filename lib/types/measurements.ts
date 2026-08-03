@@ -126,13 +126,15 @@ export type Marking =
   | { kind: "gather"; line: Line }
   | { kind: "constructionLine"; line: Line }
   /**
-   * Elastic casing fold (internal) — not cut-on-fold. Distinct style + directional
-   * label ("Casing — fold to inside").
+   * Elastic casing fold-2 / finished top (internal) — not cut-on-fold. Distinct
+   * style + directional label ("Casing — fold to inside").
    */
   | { kind: "casingFold"; points: Point[]; label: string }
-  /** Elastic casing turndown / stitch-down line at the net waist. */
+  /** Elastic casing fold-1 / hem crease (10 mm from raw edge). */
+  | { kind: "casingHem"; points: Point[]; label?: string }
+  /** Elastic casing stitch line at the net waist / pocket top. */
   | { kind: "casingTurndown"; points: Point[]; label?: string }
-  /** Light band between casing fold and turndown. */
+  /** Light band between casing fold-2 and stitch. */
   | { kind: "casingRegion"; outline: Point[]; label: string }
   | NotchMarking
   | { kind: "button"; at: Point }
@@ -182,15 +184,18 @@ export type PatternPiece = {
    */
   seamLengths?: TrouserSeamLengths;
   /**
-   * Elastic self-casing reference (fold + turndown), set by the waist casing
-   * post-pass. Absent on non-elastic finishes.
+   * Elastic self-casing reference (double-fold: hem + fold-2 + stitch), set by
+   * the waist casing post-pass. Absent on non-elastic finishes.
    */
   waistCasing?: {
     elasticWidth: 25 | 38 | 50;
     channelDepth: Millimetres;
+    hemDepth: Millimetres;
     turnUnder: Millimetres;
     totalExtension: Millimetres;
+    stitchBelowFinishedTop: Millimetres;
     foldLine: Point[];
+    hemLine: Point[];
     turndownSeam: Point[];
   };
 };

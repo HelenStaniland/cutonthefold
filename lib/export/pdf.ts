@@ -30,6 +30,17 @@ export type DownloadPatternOptions = {
 const CONSTRUCTION_LINE_RGB: [number, number, number] = [70, 90, 130];
 const SUBORDINATE_LINE_RGB: [number, number, number] = [155, 155, 155];
 const CONSTRUCTION_POINT_RGB: [number, number, number] = [70, 90, 130];
+/** Preview --pattern-fold / drafting-green — cut-on-fold + foldLine. */
+const FOLD_MARK_RGB: [number, number, number] = [4, 120, 87];
+/** Preview --pattern-instruction — casing fold / region labels. */
+const CASING_MARK_RGB: [number, number, number] = [2, 132, 199];
+/** Preview --pattern-construction — casing turndown. */
+const CASING_TURNDOWN_RGB: [number, number, number] = [3, 105, 161];
+const CASING_REGION_FILL_RGB: [number, number, number] = [220, 238, 248];
+/** Match drawPieceLineLabel — ~11 pt ≈ 3.9 mm, not preview's ~11 mm CSS. */
+const MARK_LABEL_FONT_PT = 11;
+/** Keep marking labels clear of tile seam dashes / page margin. */
+const MARK_LABEL_SEAM_CLEAR_MM = 10;
 
 const PDF_CONSTRUCTION_LINE_ORDER: DraftingLineKind[] = [
   "helper",
@@ -172,32 +183,287 @@ function drawArrowhead(
   linePP(doc, tip, { x: tip.x + b2.x * len, y: tip.y + b2.y * len }, place);
 }
 
+type Grid = { cols: number; rows: number; stepX: number; stepY: number };
+
+/** Per-tile context so marking labels draw once, off seams (like the info panel). */
+export type MarkTileContext = {
+  grid: Grid;
+  box: { minX: number; minY: number; maxX: number; maxY: number };
+  col: number;
+  row: number;
+  printableW: number;
+  printableH: number;
+};
+
+function tileCellForPoint(
+  p: Point,
+  box: MarkTileContext["box"],
+  grid: Grid,
+): { col: number; row: number } {
+  const col = Math.min(
+    grid.cols - 1,
+    Math.max(0, Math.floor((p.x - box.minX) / grid.stepX)),
+  );
+  const row = Math.min(
+    grid.rows - 1,
+    Math.max(0, Math.floor((p.y - box.minY) / grid.stepY)),
+  );
+  return { col, row };
+}
+
+/**
+ * Clamp a marking label's page position inside the printable area and away from
+ * this tile's seam edges (reuse of the panel off-seam idea).
+ */
+export function clampMarkLabelPage(
+  page: Point,
+  halfWidthMm: number,
+  tile: MarkTileContext,
+): Point {
+  const clear = MARK_LABEL_SEAM_CLEAR_MM;
+  let minX = MARGIN + clear + halfWidthMm;
+  let maxX = MARGIN + tile.printableW - clear - halfWidthMm;
+  let minY = MARGIN + clear;
+  let maxY = MARGIN + tile.printableH - clear;
+
+  // Stay clear of the dashed tile-seam lines drawn at MARGIN+step on non-last tiles,
+  // and fully clear of the overlap band on tiles that are not the first col/row.
+  if (tile.col < tile.grid.cols - 1) {
+    maxX = Math.min(maxX, MARGIN + tile.grid.stepX - clear - halfWidthMm);
+  }
+  if (tile.col > 0) {
+    minX = Math.max(minX, MARGIN + OVERLAP + clear + halfWidthMm);
+  }
+  if (tile.row < tile.grid.rows - 1) {
+    maxY = Math.min(maxY, MARGIN + tile.grid.stepY - clear);
+  }
+  if (tile.row > 0) {
+    minY = Math.max(minY, MARGIN + OVERLAP + clear);
+  }
+
+  // If constraints collapse, fall back to printable centre strip.
+  if (minX > maxX) {
+    const mid = MARGIN + tile.printableW / 2;
+    minX = mid - 1;
+    maxX = mid + 1;
+  }
+  if (minY > maxY) {
+    const mid = MARGIN + tile.printableH / 2;
+    minY = mid - 1;
+    maxY = mid + 1;
+  }
+
+  return {
+    x: Math.min(maxX, Math.max(minX, page.x)),
+    y: Math.min(maxY, Math.max(minY, page.y)),
+  };
+}
+
+function approxLabelHalfWidthMm(text: string): number {
+  // Helvetica ~0.5×fontSize(pt) per char; pt→mm.
+  const mmPerPt = 25.4 / 72;
+  return (text.length * 0.5 * MARK_LABEL_FONT_PT * mmPerPt) / 2;
+}
+
+/**
+ * Resolve where a marking label is drawn on this tile.
+ * Returns null if this tile is not the label's home tile (label drawn once).
+ * Exported for acceptance / diagnostics.
+ */
+export function resolveMarkLabelOnTile(
+  preferredPattern: Point,
+  place: Placement,
+  tile: MarkTileContext | undefined,
+  text: string,
+): { page: Point; homeCol: number; homeRow: number } | null {
+  const half = approxLabelHalfWidthMm(text);
+  if (!tile) {
+    const page = patternToPage(preferredPattern, place);
+    const w = 210 - 2 * MARGIN;
+    const h = 297 - 2 * MARGIN;
+    return {
+      page: {
+        x: Math.min(
+          MARGIN + w - MARK_LABEL_SEAM_CLEAR_MM - half,
+          Math.max(MARGIN + MARK_LABEL_SEAM_CLEAR_MM + half, page.x),
+        ),
+        y: Math.min(
+          MARGIN + h - MARK_LABEL_SEAM_CLEAR_MM,
+          Math.max(MARGIN + MARK_LABEL_SEAM_CLEAR_MM, page.y),
+        ),
+      },
+      homeCol: 0,
+      homeRow: 0,
+    };
+  }
+  const home = tileCellForPoint(preferredPattern, tile.box, tile.grid);
+  if (home.col !== tile.col || home.row !== tile.row) return null;
+  const raw = patternToPage(preferredPattern, place);
+  const page = clampMarkLabelPage(raw, half, tile);
+  return { page, homeCol: home.col, homeRow: home.row };
+}
+
+function drawMarkLabel(
+  doc: jsPDF,
+  text: string,
+  preferredPattern: Point,
+  place: Placement,
+  tile: MarkTileContext | undefined,
+  rgb: [number, number, number],
+): void {
+  const resolved = resolveMarkLabelOnTile(preferredPattern, place, tile, text);
+  if (!resolved) return;
+  doc.setFontSize(MARK_LABEL_FONT_PT);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...rgb);
+  // Upright only — do not rotate (avoids importing the preview mirrored-text bug).
+  doc.text(text, resolved.page.x, resolved.page.y, {
+    align: "center",
+    baseline: "middle",
+  });
+  doc.setTextColor(0);
+  doc.setFont("helvetica", "normal");
+}
+
+function fillPolygon(
+  doc: jsPDF,
+  pts: Point[],
+  place: Placement,
+  rgb: [number, number, number],
+): void {
+  if (pts.length < 3) return;
+  const p = pts.map((pt) => patternToPage(pt, place));
+  const deltas = p.slice(1).map((q, i) => [q.x - p[i]!.x, q.y - p[i]!.y]);
+  doc.setFillColor(...rgb);
+  doc.setDrawColor(...rgb);
+  doc.setLineWidth(0.1);
+  doc.setLineDashPattern([], 0);
+  doc.lines(deltas, p[0]!.x, p[0]!.y, [1, 1], "F", true);
+  doc.setFillColor(0, 0, 0);
+  doc.setDrawColor(0);
+}
+
 function drawMarkings(
   doc: jsPDF,
   piece: PatternPiece,
   place: Placement,
+  tile?: MarkTileContext,
 ): void {
   doc.setLineWidth(0.3);
   doc.setLineDashPattern([], 0);
+  doc.setDrawColor(0);
 
   for (const m of piece.markings) {
     switch (m.kind) {
       case "grainline": {
         const { from, to } = m.line;
+        doc.setDrawColor(0);
+        doc.setLineWidth(0.3);
+        doc.setLineDashPattern([], 0);
         linePP(doc, from, to, place);
         drawArrowhead(doc, to, unit(to.x - from.x, to.y - from.y), place);
         drawArrowhead(doc, from, unit(from.x - to.x, from.y - to.y), place);
         break;
       }
       case "dart": {
+        doc.setDrawColor(0);
+        doc.setLineWidth(0.3);
+        doc.setLineDashPattern([], 0);
         linePP(doc, m.legs[0], m.apex, place);
         linePP(doc, m.legs[1], m.apex, place);
         break;
       }
       case "notch": {
+        doc.setDrawColor(0);
+        doc.setLineWidth(0.3);
+        doc.setLineDashPattern([], 0);
         for (const s of notchSegments(piece, m)) {
           linePP(doc, s.from, s.to, place);
         }
+        break;
+      }
+      case "foldLine": {
+        // Internal fold/roll — long dash, fold green (distinct from casing dash-dot).
+        doc.setDrawColor(...FOLD_MARK_RGB);
+        strokePolyline(doc, [m.line.from, m.line.to], place, {
+          width: 0.45,
+          dash: [16, 10],
+        });
+        doc.setDrawColor(0);
+        break;
+      }
+      case "placeOnFold": {
+        // Cut-on-fold edge bracket + "Place to fold" — solid green, NOT casing style.
+        const A = m.line.from;
+        const B = m.line.to;
+        const n = m.inward;
+        const edgeDx = B.x - A.x;
+        const edgeDy = B.y - A.y;
+        const edgeLen = Math.hypot(edgeDx, edgeDy) || 1;
+        const u = { x: edgeDx / edgeLen, y: edgeDy / edgeLen };
+        const p1 = { x: A.x + 30 * u.x, y: A.y + 30 * u.y };
+        const p2 = { x: p1.x + 15 * n.x, y: p1.y + 15 * n.y };
+        const p3 = {
+          x: B.x - 30 * u.x + 15 * n.x,
+          y: B.y - 30 * u.y + 15 * n.y,
+        };
+        const p4 = { x: B.x - 30 * u.x, y: B.y - 30 * u.y };
+        doc.setDrawColor(...FOLD_MARK_RGB);
+        strokePolyline(doc, [p1, p2, p3, p4], place, { width: 0.5 });
+        doc.setDrawColor(0);
+        const label = m.label ?? "Place to fold";
+        const mid = {
+          x: (A.x + B.x) / 2 + 25 * n.x,
+          y: (A.y + B.y) / 2 + 25 * n.y,
+        };
+        drawMarkLabel(doc, label, mid, place, tile, FOLD_MARK_RGB);
+        break;
+      }
+      case "casingRegion": {
+        fillPolygon(doc, m.outline, place, CASING_REGION_FILL_RGB);
+        const mid = m.outline[Math.floor(m.outline.length / 4)] ?? m.outline[0]!;
+        const midB =
+          m.outline[Math.floor((3 * m.outline.length) / 4)] ??
+          m.outline[m.outline.length - 1]!;
+        const cx = (mid.x + midB.x) / 2;
+        const cy = (mid.y + midB.y) / 2;
+        drawMarkLabel(doc, m.label, { x: cx, y: cy }, place, tile, CASING_MARK_RGB);
+        break;
+      }
+      case "casingFold": {
+        // Fold-2 / finished top — dash-dot instruction blue (≠ placeOnFold bracket).
+        doc.setDrawColor(...CASING_MARK_RGB);
+        strokePolyline(doc, m.points, place, {
+          width: 0.4,
+          dash: [10, 3, 2, 3],
+        });
+        doc.setDrawColor(0);
+        const a = m.points[0]!;
+        const b = m.points[m.points.length - 1]!;
+        const preferred = {
+          x: (a.x + b.x) / 2,
+          y: (a.y + b.y) / 2 + 14,
+        };
+        drawMarkLabel(doc, m.label, preferred, place, tile, CASING_MARK_RGB);
+        break;
+      }
+      case "casingHem": {
+        // Fold-1 hem crease — shorter dash.
+        doc.setDrawColor(...CASING_MARK_RGB);
+        strokePolyline(doc, m.points, place, {
+          width: 0.3,
+          dash: [4, 2],
+        });
+        doc.setDrawColor(0);
+        break;
+      }
+      case "casingTurndown": {
+        doc.setDrawColor(...CASING_TURNDOWN_RGB);
+        strokePolyline(doc, m.points, place, {
+          width: 0.35,
+          dash: [3, 2.5],
+        });
+        doc.setDrawColor(0);
         break;
       }
       default:
@@ -425,16 +691,15 @@ export function drawPiece(
   doc: jsPDF,
   piece: PatternPiece,
   place: Placement,
+  tile?: MarkTileContext,
 ): void {
   const netPts = piece.outline.map((o) => o.at);
   const cutPts = piece.cuttingOutline ?? netPts;
 
   strokePolyline(doc, cutPts, place, { width: 0.5 });
   strokePolyline(doc, netPts, place, { width: 0.3, dash: [1.5, 1.5] });
-  drawMarkings(doc, piece, place);
+  drawMarkings(doc, piece, place, tile);
 }
-
-type Grid = { cols: number; rows: number; stepX: number; stepY: number };
 
 function tileGrid(
   box: { minX: number; minY: number; maxX: number; maxY: number },
@@ -564,7 +829,15 @@ function tilePiece(
       doc.rect(MARGIN, MARGIN, printableW, printableH);
       doc.clip();
       doc.discardPath();
-      drawPiece(doc, piece, place);
+      const markTile: MarkTileContext = {
+        grid,
+        box,
+        col,
+        row,
+        printableW,
+        printableH,
+      };
+      drawPiece(doc, piece, place, markTile);
       if (pdfOptions?.includeConstruction) {
         const overlay = constructionForPiece(
           piece.name,

@@ -924,7 +924,7 @@ function TrousersViewInner({
               <label className={styles.fieldLabel}>Waist finish</label>
               <span className={styles.fieldHint}>
                 {elasticWaist
-                  ? "Pull-on elastic self-casing — fabric extends above the worn waist; fold and turndown are marked on the pattern. Side seam and CF inset stay straight."
+                  ? "Pull-on elastic self-casing — double-fold strip above the worn waist; hem, fold, and stitch lines are marked. Side seam and CF inset stay straight."
                   : waistbandMode === "darted"
                     ? `Facing finishes at the trouser waist; waistband adds a separate straight strip (${DARTED_DEPTH_MIN}–${DARTED_DEPTH_MAX} mm).`
                     : "Shaped mode uses the band depth below. Elastic forces a dartless straight waist for a pull-on."}
@@ -2110,7 +2110,7 @@ function TrousersViewInner({
                     const b = pts[pts.length - 1]!;
                     const mx = (a.x + b.x) / 2;
                     const my = (a.y + b.y) / 2;
-                    // Label sits inside the piece, toward the turndown (+y).
+                    // Label sits inside the piece, toward the stitch (+y).
                     const labelX = svgCoord(mx);
                     const labelY = svgCoord(my + 14);
                     const edgeDx = b.x - a.x;
@@ -2135,6 +2135,20 @@ function TrousersViewInner({
                           {m.label}
                         </text>
                       </g>
+                    );
+                  }
+                  case "casingHem": {
+                    const pts = m.points.map((p) => ({
+                      x: p.x + dx,
+                      y: p.y + dy,
+                    }));
+                    return (
+                      <polyline
+                        key={i}
+                        points={svgPolygonPoints(pts)}
+                        className={styles.casingHem}
+                        fill="none"
+                      />
                     );
                   }
                   case "casingTurndown": {

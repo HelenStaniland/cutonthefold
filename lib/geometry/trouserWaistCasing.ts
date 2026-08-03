@@ -1,9 +1,16 @@
 /**
- * Trouser-local elastic self-casing turn-up.
+ * Trouser-local elastic self-casing turn-up (double-fold model).
  *
- * Placement (settled): casing fabric is added *above* the worn waist
- * (`bodyWaistY` / net waist edge). Drop and casing are independent — `waistDrop`
- * places the worn waist; this post-pass only extends above that plane.
+ * Placement: casing fabric is added *above* the worn waist (`bodyWaistY` /
+ * net waist = channel stitch line = pocket top). Drop and casing are
+ * independent — `waistDrop` places the worn waist; this post-pass only
+ * extends above that plane.
+ *
+ * Double-fold strip (from stitch up to raw cut):
+ *   stitch (0) → fold-2 / finished top (`channelDepth`) → fold-1 / hem crease
+ *   (`2×channelDepth`) → raw (`hemDepth + 2×channelDepth`).
+ * Channel = elasticWidth + 15 (10 ease + 5 foot margin). Stitch sits
+ * `channelDepth − 5` below the finished top.
  *
  * Runs AFTER withSeamAllowance, BEFORE hem turn-back. Rebuilds the waist
  * region of the cutting outline and sets `netToCutIndex`. Not in the shared
@@ -33,36 +40,65 @@ const CASING_PIECE_NAMES = new Set([
 
 export type CasingElasticWidth = 25 | 38 | 50;
 
-/** Ease added to elastic width for the channel (mm). */
-export const CASING_CHANNEL_EASE = 6;
-/** Raw-edge turn-under beyond the fold (mm). */
-export const CASING_TURN_UNDER = 10;
+/**
+ * Added to elastic width for the double-wall channel (mm).
+ * Helen toile: 25 → 40 ⇒ +15 = 10 ease + 5 presser-foot margin.
+ */
+export const CASING_CHANNEL_ADD = 15;
+/** Hem tuck (fold 1) from the raw edge (mm). */
+export const CASING_HEM_DEPTH = 10;
+/** Presser-foot margin: stitch sits this far below the fold-2 crease (mm). */
+export const CASING_FOOT_MARGIN = 5;
 export const DEFAULT_CASING_ELASTIC_WIDTH: CasingElasticWidth = 25;
+
+/** @deprecated Use CASING_CHANNEL_ADD — kept as alias for older scripts. */
+export const CASING_CHANNEL_EASE = CASING_CHANNEL_ADD;
+/** @deprecated Hem depth is CASING_HEM_DEPTH; raw→fold2 is channelDepth+hem. */
+export const CASING_TURN_UNDER = CASING_HEM_DEPTH;
 
 export type CasingDepths = {
   elasticWidth: CasingElasticWidth;
-  /** Fold → turndown (worn waist), perpendicular / vertical on front. */
+  /**
+   * Stitch → fold-2 (finished top), perpendicular / vertical on front.
+   * = elasticWidth + CASING_CHANNEL_ADD.
+   */
   channelDepth: Millimetres;
-  /** Fold → raw cut edge. */
+  /** Fold-1 hem tuck from the raw edge (= CASING_HEM_DEPTH). */
+  hemDepth: Millimetres;
+  /**
+   * Raw → fold-2 = channelDepth + hemDepth (back wall + hem on the flat).
+   * Kept for fold-flat / callers that previously used turnUnder.
+   */
   turnUnder: Millimetres;
-  /** Worn waist → raw cut edge = channelDepth + turnUnder. */
+  /**
+   * Stitch / worn waist → raw cut edge = hemDepth + 2×channelDepth
+   * (front wall + back wall + hem).
+   */
   totalExtension: Millimetres;
+  /** Fold-2 / finished top → stitch = channelDepth − foot margin. */
+  stitchBelowFinishedTop: Millimetres;
 };
 
 /**
- * Derive casing depths from elastic width.
- * channel = width + 6 mm ease; turn-under = 10 mm; total = sum.
+ * Derive double-fold casing depths from elastic width.
+ * channel = width + 15; hem = 10; cut = hem + 2×channel; stitch = channel − 5
+ * below finished top.
  */
 export function resolveCasingDepths(
   width: CasingElasticWidth = DEFAULT_CASING_ELASTIC_WIDTH,
 ): CasingDepths {
-  const channelDepth = width + CASING_CHANNEL_EASE;
-  const turnUnder = CASING_TURN_UNDER;
+  const channelDepth = width + CASING_CHANNEL_ADD;
+  const hemDepth = CASING_HEM_DEPTH;
+  const turnUnder = channelDepth + hemDepth;
+  const totalExtension = hemDepth + 2 * channelDepth;
+  const stitchBelowFinishedTop = channelDepth - CASING_FOOT_MARGIN;
   return {
     elasticWidth: width,
     channelDepth,
+    hemDepth,
     turnUnder,
-    totalExtension: channelDepth + turnUnder,
+    totalExtension,
+    stitchBelowFinishedTop,
   };
 }
 
@@ -75,11 +111,13 @@ export function parseCasingElasticWidth(
 
 /** Reference lines emitted on the piece for later pocket wiring / report. */
 export type WaistCasingRef = CasingDepths & {
-  /** Finished top (fold), CF/CB → side, garment (or stay-local) coords. */
+  /** Fold-2 = finished top edge (main casing crease). */
   foldLine: Point[];
+  /** Fold-1 = hem crease, hemDepth below the raw cut. */
+  hemLine: Point[];
   /**
-   * Turndown seam = worn waist net edge (at bodyWaistY on the legs).
-   * Pocket mouth-top wires here in a later brief.
+   * Channel stitch = worn waist net edge (at bodyWaistY on the legs).
+   * Pocket mouth-top wires here.
    */
   turndownSeam: Point[];
 };
@@ -238,11 +276,11 @@ function mitreTopSideCorner(
  * Apply casing turn-up to one piece. No-ops if not a casing piece or no waist.
  * Must run before hem turn-back (input cut is 1:1 with collapsed net).
  *
- * Cut shape of the casing band:
- * - **Top** (raw fold edge): offset up by `totalExtension` (unchanged depths).
+ * Cut shape of the casing band (double-fold):
+ * - **Top** (raw cut edge): offset up by `totalExtension` (= hem + 2×channel).
  * - **Sides** (CF/CB and side / opening): offset outward by the normal seam
  *   allowance, so those seams continue straight up through the casing.
- * - **Corners**: ordinary top↔side mitres (no 41→10 step).
+ * - **Corners**: ordinary top↔side mitres (no extension→SA step).
  */
 export function applyTrouserWaistCasingTurnup(
   piece: PatternPiece,
@@ -285,12 +323,18 @@ export function applyTrouserWaistCasingTurnup(
   const intoGarment = probe.y > mid.y + 0.5;
   const up = intoGarment ? { x: -nUp.x, y: -nUp.y } : nUp;
 
+  // Fold-2 = finished top (channelDepth above stitch / worn waist).
   const foldLine = waistNet.map((p) =>
     offsetAlong(p, up, depths.channelDepth),
   );
+  // Fold-1 = hem crease (2×channel above stitch = raw − hem).
+  const hemLine = waistNet.map((p) =>
+    offsetAlong(p, up, 2 * depths.channelDepth),
+  );
+  // Stitch = worn waist / pocket top.
   const turndownSeam = waistNet.map((p) => ({ ...p }));
 
-  // Interior top samples: net waist offset by totalExtension (top edge only).
+  // Interior top samples: net waist offset by totalExtension (raw cut edge).
   const cutTopInterior = waistNet.map((p) =>
     offsetAlong(p, up, depths.totalExtension),
   );
@@ -391,7 +435,7 @@ export function applyTrouserWaistCasingTurnup(
 
   // Side wall: waist-level SA at the side corner, then the rest of the piece.
   // Skip oldCut[lastWaistIdx] when the side corner is past it — that point is
-  // the waist-offset mitre and would pull the wall inward (the 41→10 step).
+  // the waist-offset mitre and would pull the wall inward (extension→SA step).
   const sideWallIdx = sideCornerIdx;
   const sideWaistSa = oldCut[sideWallIdx]!;
   if (dist(endCorner, sideWaistSa) > 0.5) {
@@ -430,11 +474,17 @@ export function applyTrouserWaistCasingTurnup(
     points: foldLine.map((p) => ({ ...p })),
     label: "Casing — fold to inside",
   };
-  const turndownMark: Marking = {
+  const hemMark: Marking = {
+    kind: "casingHem",
+    points: hemLine.map((p) => ({ ...p })),
+    label: "Hem",
+  };
+  const stitchMark: Marking = {
     kind: "casingTurndown",
     points: turndownSeam.map((p) => ({ ...p })),
-    label: "Turndown",
+    label: "Stitch",
   };
+  // Channel band between finished top (fold-2) and stitch.
   const regionOutline: Point[] = [
     ...foldLine.map((p) => ({ ...p })),
     ...[...turndownSeam].reverse().map((p) => ({ ...p })),
@@ -448,6 +498,7 @@ export function applyTrouserWaistCasingTurnup(
   const waistCasing: WaistCasingRef = {
     ...depths,
     foldLine,
+    hemLine,
     turndownSeam,
   };
 
@@ -455,7 +506,13 @@ export function applyTrouserWaistCasingTurnup(
     ...piece,
     cuttingOutline: newCut,
     netToCutIndex: netToCut,
-    markings: [...piece.markings, regionMark, foldMark, turndownMark],
+    markings: [
+      ...piece.markings,
+      regionMark,
+      foldMark,
+      hemMark,
+      stitchMark,
+    ],
     waistCasing,
   };
 }
@@ -500,40 +557,44 @@ function pointOnPoly(poly: Point[], t: number): Point {
 }
 
 /**
- * Front fold-flat residual: reflect cut-top across the fold; compare to the
- * turn-under landing (fold toward turndown by turnUnder). Level front → ~0.
- *
- * Skips the CF/side mitred corners (cut[0] and the point past the last waist
- * sample) — those carry normal SA laterally and are not pure turn-under offsets.
+ * Front fold-flat residual at fold-2 (finished top): the hem crease (fold-1)
+ * reflects across fold-2 onto the stitch / worn-waist line. Level front → ~0.
  */
 export function frontCasingFoldTestResidual(
   piece: PatternPiece,
 ): Millimetres | null {
   const ref = piece.waistCasing;
   if (!ref || !piece.cuttingOutline) return null;
-  if (ref.foldLine.length < 2 || ref.turndownSeam.length < 2) return null;
+  if (
+    ref.foldLine.length < 2 ||
+    ref.turndownSeam.length < 2 ||
+    ref.hemLine.length < 2
+  ) {
+    return null;
+  }
 
   const tMid = ref.turndownSeam[Math.floor(ref.turndownSeam.length / 2)]!;
   const fMid = ref.foldLine[Math.floor(ref.foldLine.length / 2)]!;
   const up = unit(fMid.x - tMid.x, fMid.y - tMid.y);
 
-  const cut = piece.cuttingOutline;
-  const nTop = ref.foldLine.length;
-  // cut[0] = CF mitre; cut[1..nTop-1] = waist samples at totalExtension;
-  // cut[nTop] = side mitre (when present). Fold-test the waist samples only.
+  const n = Math.min(
+    ref.foldLine.length,
+    ref.hemLine.length,
+    ref.turndownSeam.length,
+  );
   let max = 0;
-  for (let i = 1; i < nTop; i++) {
-    const c = cut[i]!;
-    const f = ref.foldLine[i]!;
-    const dist = (c.x - f.x) * up.x + (c.y - f.y) * up.y;
+  for (let i = 1; i < n - 1; i++) {
+    const hem = ref.hemLine[i]!;
+    const fold = ref.foldLine[i]!;
+    const stitch = ref.turndownSeam[i]!;
+    const d = (hem.x - fold.x) * up.x + (hem.y - fold.y) * up.y;
     const reflected = {
-      x: c.x - 2 * dist * up.x,
-      y: c.y - 2 * dist * up.y,
+      x: hem.x - 2 * d * up.x,
+      y: hem.y - 2 * d * up.y,
     };
-    const expected = offsetAlong(f, up, -ref.turnUnder);
     max = Math.max(
       max,
-      Math.hypot(reflected.x - expected.x, reflected.y - expected.y),
+      Math.hypot(reflected.x - stitch.x, reflected.y - stitch.y),
     );
   }
   return max;

@@ -21,6 +21,7 @@ export function mirrorPieceX(piece: PatternPiece): PatternPiece {
       ? {
           ...piece.waistCasing,
           foldLine: piece.waistCasing.foldLine.map(fx),
+          hemLine: piece.waistCasing.hemLine.map(fx),
           turndownSeam: piece.waistCasing.turndownSeam.map(fx),
         }
       : undefined,
@@ -38,6 +39,7 @@ export function mirrorPieceX(piece: PatternPiece): PatternPiece {
             inward: fv(m.inward),
           };
         case "casingFold":
+        case "casingHem":
         case "casingTurndown":
           return { ...m, points: m.points.map(fx) };
         case "casingRegion":
@@ -108,6 +110,7 @@ export function orientPieceGrainVertical(piece: PatternPiece): PatternPiece {
       ? {
           ...piece.waistCasing,
           foldLine: piece.waistCasing.foldLine.map(rot),
+          hemLine: piece.waistCasing.hemLine.map(rot),
           turndownSeam: piece.waistCasing.turndownSeam.map(rot),
         }
       : undefined,
@@ -128,6 +131,7 @@ export function orientPieceGrainVertical(piece: PatternPiece): PatternPiece {
             inward: rotV(m.inward),
           };
         case "casingFold":
+        case "casingHem":
         case "casingTurndown":
           return { ...m, points: m.points.map(rot) };
         case "casingRegion":
