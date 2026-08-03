@@ -833,6 +833,37 @@
   stroke-width: 2;
 }
 
+/* Elastic casing — internal fold (not cut-on-fold). Dash-dot roll-line style. */
+.casingFold {
+  fill: none;
+  stroke: var(--pattern-instruction);
+  stroke-width: 1.75;
+  stroke-dasharray: 10 3 2 3;
+  stroke-linecap: butt;
+  stroke-linejoin: round;
+}
+
+.casingTurndown {
+  fill: none;
+  stroke: var(--pattern-construction);
+  stroke-width: 1.35;
+  stroke-dasharray: 3 2.5;
+  stroke-linecap: butt;
+  stroke-linejoin: round;
+}
+
+.casingRegion {
+  fill: color-mix(in srgb, var(--pattern-instruction) 12%, transparent);
+  stroke: none;
+}
+
+.casingLabel {
+  fill: var(--pattern-instruction);
+  font-size: 11px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
 .instructionLine {
   stroke: var(--pattern-instruction);
   stroke-width: 1.75;

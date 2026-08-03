@@ -143,6 +143,9 @@ function reflectAcrossHemY(p: Point, hemY: number): Point {
  * Rebuild the hem region of a trouser leg piece as a fold-back.
  * No-ops for non-leg pieces, pieces without a cutting outline, or curved hems
  * (those keep the addSeamAllowance parallel offset).
+ *
+ * Composes with a prior waist-casing `netToCutIndex` when present (casing runs
+ * before hem): non-hem cut verts are looked up through the existing map.
  */
 export function applyTrouserHemTurnback(
   piece: PatternPiece,
@@ -155,10 +158,32 @@ export function applyTrouserHemTurnback(
 
   const { collapsed, rawToCollapsed } = collapseWithMap(piece.outline);
   const oldCut = piece.cuttingOutline;
-  if (oldCut.length !== collapsed.length) {
-    console.warn(
-      `trouserHemTurnback: ${piece.name} cutting (${oldCut.length}) ≠ collapsed net (${collapsed.length}); skipping`,
-    );
+
+  // collapsed → cut index from a prior post-pass (waist casing), or 1:1.
+  const priorCollapsedToCut: number[] | null = (() => {
+    if (!piece.netToCutIndex) {
+      if (oldCut.length !== collapsed.length) {
+        console.warn(
+          `trouserHemTurnback: ${piece.name} cutting (${oldCut.length}) ≠ collapsed net (${collapsed.length}); skipping`,
+        );
+        return null;
+      }
+      return collapsed.map((_, i) => i);
+    }
+    const map = new Array<number>(collapsed.length).fill(-1);
+    for (let raw = 0; raw < piece.netToCutIndex.length; raw++) {
+      const c = rawToCollapsed[raw]!;
+      map[c] = piece.netToCutIndex[raw]!;
+    }
+    if (map.some((v) => v < 0 || v >= oldCut.length)) {
+      console.warn(
+        `trouserHemTurnback: ${piece.name} prior netToCutIndex incomplete; skipping`,
+      );
+      return null;
+    }
+    return map;
+  })();
+  if (!priorCollapsedToCut) {
     return piece;
   }
 
@@ -218,7 +243,7 @@ export function applyTrouserHemTurnback(
 
   for (let i = 0; i < sideIdx; i++) {
     collapsedToCut[i] = newCut.length;
-    newCut.push(oldCut[i]!);
+    newCut.push(oldCut[priorCollapsedToCut[i]!]!);
   }
 
   const sideFpIdx = newCut.length;
@@ -233,7 +258,7 @@ export function applyTrouserHemTurnback(
 
   for (let i = inseamIdx + 1; i < collapsed.length; i++) {
     collapsedToCut[i] = newCut.length;
-    newCut.push(oldCut[i]!);
+    newCut.push(oldCut[priorCollapsedToCut[i]!]!);
   }
 
   const netToCut = rawToCollapsed.map((c) => collapsedToCut[c]!);

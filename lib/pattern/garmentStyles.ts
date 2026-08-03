@@ -21,6 +21,9 @@ export type WaistFinish = DartedWaistFinish;
 
 export type PocketFrontSetting = "none" | "slant";
 
+/** Elastic casing channel width (mm). Only meaningful when finish is elastic. */
+export type CasingElasticWidthSetting = 25 | 38 | 50;
+
 export type TrouserStyleSettings = {
   /** Aldrich bottomWidth — front hem B−10, back B+10. */
   legBottomWidth: number;
@@ -56,6 +59,11 @@ export type TrouserStyleSettings = {
    * Independent of `dartedWaistFinish`.
    */
   pocketFront: PocketFrontSetting;
+  /**
+   * Elastic casing width (mm). Default 25. Used only when
+   * `dartedWaistFinish === "elastic"` — ignored otherwise (byte-identical).
+   */
+  casingElasticWidth: CasingElasticWidthSetting;
 };
 
 const clearedGeometry = {
@@ -87,6 +95,7 @@ export const BLOCK_TROUSER_STYLE: TrouserStyleSettings = {
   ease: easeForFit(DEFAULT_FIT)!,
   ...clearedGeometry,
   pocketFront: "none",
+  casingElasticWidth: 25,
 };
 
 /** Cleo Pants — block + named garment modifications. */
@@ -117,6 +126,7 @@ export const CLEO_TROUSER_STYLE: TrouserStyleSettings = (() => {
     frontCrotchFullness: m.frontCrotchFullness,
     backCrotchFullness: m.backCrotchFullness,
     pocketFront: "none" as const,
+    casingElasticWidth: 25 as const,
   };
 })();
 
@@ -152,6 +162,7 @@ export const MILA_TROUSER_STYLE: TrouserStyleSettings = (() => {
     frontCrotchFullness: m.frontCrotchFullness,
     backCrotchFullness: m.backCrotchFullness,
     pocketFront: "none" as const,
+    casingElasticWidth: 25 as const,
   };
 })();
 
@@ -187,6 +198,7 @@ export const CARGO_TROUSER_STYLE: TrouserStyleSettings = (() => {
     frontCrotchFullness: m.frontCrotchFullness,
     backCrotchFullness: m.backCrotchFullness,
     pocketFront: "slant" as const,
+    casingElasticWidth: 25 as const,
   };
 })();
 

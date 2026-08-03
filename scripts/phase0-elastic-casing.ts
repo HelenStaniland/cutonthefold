@@ -347,28 +347,31 @@ console.log("\n=== 4. Pocket coexistence (stay vs future casing extension) ===\n
   const pat = draftTrousers(body, style);
   const names = pat.pieces.map((p) => p.name);
   const front = pat.pieces.find((p) => p.name === "Trouser front")!;
-  const stay = pat.pieces.find((p) => p.name === "Slant pocket stay");
+  const bag = pat.pieces.find((p) => p.name === "Slant pocket back");
 
   console.log("What the pocket brief committed (working tree):");
   console.log(`  pocketFront = ${resolvePocketFront(style)}`);
   console.log(`  pieces: ${names.join(", ")}`);
   console.log(
-    `  mouth-top  (${f2(mouth.mouthTop.x)}, ${f2(mouth.mouthTop.y)})  — on bodyWaistY (${f3(bodyY)})`,
+    `  opening-top  (${f2(mouth.openingTop.x)}, ${f2(mouth.openingTop.y)})  — on bodyWaistY (${f3(bodyY)})`,
   );
   console.log(
-    `  mouth-side (${f2(mouth.mouthSide.x)}, ${f2(mouth.mouthSide.y)})  — ${mouth.params.mouthDrop} mm arc down side`,
+    `  opening-bottom (${f2(mouth.openingBottom.x)}, ${f2(mouth.openingBottom.y)})  — ${mouth.params.openingSideDown} mm arc down side`,
   );
   console.log(
-    `  side corner (stay restores) (${f2(mouth.sideCorner.x)}, ${f2(mouth.sideCorner.y)})`,
+    `  side corner (pocket back restores) (${f2(mouth.sideCorner.x)}, ${f2(mouth.sideCorner.y)})`,
   );
   console.log(
-    `  stay waist stub length = ${f2(polylineLength(mouth.waistRestored))} mm`,
+    `  pocket-back waist restored length = ${f2(polylineLength(mouth.waistRestored))} mm`,
   );
   console.log(
-    `  stay side stub length  = ${f2(polylineLength(mouth.sideRestored))} mm`,
+    `  waist catch length = ${f2(polylineLength(mouth.waistCatch))} mm`,
   );
   console.log(
-    `  stay present: ${stay ? "yes" : "NO"}`,
+    `  pocket-back side restored length  = ${f2(polylineLength(mouth.sideRestored))} mm`,
+  );
+  console.log(
+    `  pocket back present: ${bag ? "yes" : "NO"}`,
   );
   console.log("");
   console.log("Overlap analysis (today, extension = 0):");

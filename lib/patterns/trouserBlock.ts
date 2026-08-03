@@ -35,17 +35,22 @@ import {
   type SlantPocketMouth,
 } from "@/lib/elements/slantFrontPocket";
 
-export type { PocketFront, SlantPocketMouth };
+export type { PocketFront, SlantPocketMouth, SpocketGeometry } from "@/lib/elements/slantFrontPocket";
 export {
-  DEFAULT_SLANT_MOUTH_INSET,
-  DEFAULT_SLANT_MOUTH_DROP,
-  DEFAULT_SLANT_MOUTH_TOP_DROP,
-  DEFAULT_SLANT_FACING_WIDTH,
+  DEFAULT_SLANT_OPENING_WAIST_IN,
+  DEFAULT_SLANT_OPENING_SIDE_DOWN,
+  DEFAULT_SLANT_WAIST_ANCHOR,
   DEFAULT_SLANT_BAG_DEPTH,
+  SLANT_HAND_ROOM,
+  SLANT_POCKET_BACK_NAME,
+  SLANT_POCKET_FRONT_NAME,
   resolveSlantPocketMouth,
   resolveSlantPocketParams,
   silhouetteInvariantDelta,
   polylineMaxDelta,
+  bagSideSpanMm,
+  bagWaistCatchMm,
+  pocketFrontIsFullPiece,
 } from "@/lib/elements/slantFrontPocket";
 export type TrouserBlock = "classic" | "production";
 
@@ -545,19 +550,17 @@ export type TrouserFrontStyle = {
   /**
    * Front pocket construction. Default `"none"` — omit or `"none"` is
    * byte-identical to today's draft. `"slant"` trims the front waist∩side
-   * corner and adds stay / facing / bag pieces (see `draftSlantFrontPocketPieces`).
+   * corner and adds pocket back + pocket front (see `draftSlantFrontPocketPieces`).
    * Independent of `dartedWaistFinish`.
    */
   pocketFront?: "none" | "slant";
-  /** Mouth-top inset from the side along the body-waist edge (mm). Default 75. */
-  slantMouthInset?: Millimetres;
-  /** Mouth-side arc drop down the side from bodyWaistY (mm). Default 160. */
-  slantMouthDrop?: Millimetres;
-  /** Optional mouth-top drop below bodyWaistY (mm). Default 0. */
-  slantMouthTopDrop?: Millimetres;
-  /** Facing strip width (mm). Default 40. */
-  slantFacingWidth?: Millimetres;
-  /** Bag depth below mouth-side (mm). Default 130. */
+  /** Opening top: arc in along waist from side corner (mm). Default 100. */
+  slantOpeningWaistIn?: Millimetres;
+  /** Opening bottom: arc down the side from the corner (mm). Default 160. */
+  slantOpeningSideDown?: Millimetres;
+  /** Bag waist catch past the opening top (mm). Default 60. */
+  slantWaistAnchor?: Millimetres;
+  /** Bag side catch past the opening bottom (mm). Default 100. */
   slantBagDepth?: Millimetres;
 };
 
@@ -2664,24 +2667,24 @@ export function draftTrouserFront(
       )
     : null;
 
-  // When slant: waist CF→mouth-top, pocket-mouth slant, side from mouth-side.
-  // Seam lengths stay on the pocket-off construction polylines (garment outer
-  // when closed); the stay restores the trimmed corner.
+  // When slant: waist CF→waistOpenPt (turndown), pocket-mouth = slant from
+  // turndown to side, side from opening-bottom. Seam lengths stay on the
+  // pocket-off construction polylines; the pocket back restores the corner.
   const segments: TaggedSegment[] = slantMouth
     ? [
         {
-          points: slantMouth.waistToMouth,
+          points: slantMouth.waistToOpening,
           edge: "seam",
           role: "waist",
           ...(facingFinish ? { waistFinish: "facing" as const } : {}),
         },
         {
-          points: slantMouth.slant,
+          points: slantMouth.openingPath,
           edge: "seam",
           role: "pocket-mouth",
         },
         {
-          points: slantMouth.sideFromMouth,
+          points: slantMouth.sideFromOpening,
           edge: "seam",
           role: "side-seam",
         },
@@ -2729,15 +2732,15 @@ export function draftTrouserFront(
         {
           kind: "notch",
           role: "balance",
-          mates: { piece: "Slant pocket facing", seam: "pocket-mouth" },
-          at: slantMouth.mouthTop,
+          mates: { piece: "Slant pocket front", seam: "pocket-mouth" },
+          at: slantMouth.openingTop,
           label: "mouth-top",
         },
         {
           kind: "notch",
           role: "balance",
-          mates: { piece: "Slant pocket stay", seam: "pocket-mouth" },
-          at: slantMouth.mouthSide,
+          mates: { piece: "Slant pocket front", seam: "pocket-mouth" },
+          at: slantMouth.openingBottom,
           label: "mouth-side",
         },
       ]

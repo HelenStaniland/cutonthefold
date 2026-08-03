@@ -1,19 +1,22 @@
 /**
- * Slant front pocket — facing, bag, and side/hip stay.
+ * Slant front pocket — four-offset Oliver+S / Camelia shape (Cargo).
  *
- * Functional split (brief):
- * 1. Facing — sewn to the front-leg slant, turns inside (width = facingWidth).
- * 2. Bag — pouch below the mouth (depth = bagDepth), rounded bottom.
- * 3. Stay — restores the trimmed waist∩side corner (silhouette invariant).
+ * Two all-fabric pieces (both cut from trouser fabric):
+ * 1. Pocket back (pouch) — restores the trimmed corner (silhouette
+ *    invariant), caught into the waist over `waistAnchor` and into the side
+ *    over `bagDepth`; square bottom-inner with ~25 mm hand-room.
+ * 2. Pocket front — opening diagonal sews to the front-leg opening; waist
+ *    catch and side catch basted into those seams alongside the back; pouch
+ *    inner sewn to the back to close the bag. No facing / stay.
  *
- * Pieces are independent (no shared outline indexing with the front leg).
+ * Independent pieces (no shared outline indexing with the front leg).
  */
 import {
-  pointAtArcDistanceFromEnd,
   pointAtArcDistanceFromStart,
   polylineLength,
   splitPolylineAtArcDistance,
 } from "@/lib/geometry/curves";
+import { orientPieceGrainVertical } from "@/lib/pattern/mirrorPiece";
 import type {
   Marking,
   Millimetres,
@@ -22,93 +25,108 @@ import type {
   Point,
 } from "@/lib/types/measurements";
 
-/** Mouth inset from the side corner along the body-waist edge (mm). */
-export const DEFAULT_SLANT_MOUTH_INSET = 75;
-/** Mouth drop down the side seam from bodyWaistY, by arc length (mm). */
-export const DEFAULT_SLANT_MOUTH_DROP = 160;
-/** Optional drop of mouth-top below bodyWaistY (mm). Default 0. */
-export const DEFAULT_SLANT_MOUTH_TOP_DROP = 0;
-/** Facing strip width into the front (mm). */
-export const DEFAULT_SLANT_FACING_WIDTH = 40;
-/** Bag depth below the mouth-side (mm). */
-export const DEFAULT_SLANT_BAG_DEPTH = 130;
+/** Opening top: in along the waist from the side∩waist corner (mm). */
+export const DEFAULT_SLANT_OPENING_WAIST_IN = 100;
+/** Opening bottom: down the side seam from the corner (mm). */
+export const DEFAULT_SLANT_OPENING_SIDE_DOWN = 160;
+/** Bag top: further in along the waist past the opening top (mm). */
+export const DEFAULT_SLANT_WAIST_ANCHOR = 60;
+/** Bag: further down the side past the opening bottom (mm). */
+export const DEFAULT_SLANT_BAG_DEPTH = 100;
+/** Fixed hand-room widening on the bag inner edge (mm) — not a style param yet. */
+export const SLANT_HAND_ROOM = 25;
 
-export const SLANT_MOUTH_INSET_MIN = 20;
-export const SLANT_MOUTH_INSET_MAX = 150;
-export const SLANT_MOUTH_DROP_MIN = 40;
-export const SLANT_MOUTH_DROP_MAX = 280;
-export const SLANT_MOUTH_TOP_DROP_MIN = 0;
-export const SLANT_MOUTH_TOP_DROP_MAX = 40;
-export const SLANT_FACING_WIDTH_MIN = 20;
-export const SLANT_FACING_WIDTH_MAX = 80;
-export const SLANT_BAG_DEPTH_MIN = 60;
-export const SLANT_BAG_DEPTH_MAX = 220;
+export const SLANT_POCKET_BACK_NAME = "Slant pocket back";
+export const SLANT_POCKET_FRONT_NAME = "Slant pocket front";
+
+export const SLANT_OPENING_WAIST_IN_MIN = 40;
+export const SLANT_OPENING_WAIST_IN_MAX = 180;
+export const SLANT_OPENING_SIDE_DOWN_MIN = 60;
+export const SLANT_OPENING_SIDE_DOWN_MAX = 280;
+export const SLANT_WAIST_ANCHOR_MIN = 20;
+export const SLANT_WAIST_ANCHOR_MAX = 120;
+export const SLANT_BAG_DEPTH_MIN = 40;
+export const SLANT_BAG_DEPTH_MAX = 200;
 
 export type PocketFront = "none" | "slant";
 
 export type SlantPocketParams = {
-  mouthInset: Millimetres;
-  mouthDrop: Millimetres;
-  mouthTopDrop: Millimetres;
-  facingWidth: Millimetres;
+  openingWaistIn: Millimetres;
+  openingSideDown: Millimetres;
+  waistAnchor: Millimetres;
   bagDepth: Millimetres;
 };
 
-export type SlantPocketMouth = {
-  /** Mouth-top on the waist edge (inset from side). */
-  mouthTop: Point;
-  /** Mouth-side on the side seam (arc drop from body waist). */
-  mouthSide: Point;
-  /** Side corner at the piece waist∩side (removed from front; kept on stay). */
+export type SpocketGeometry = {
+  /**
+   * Slash top — on the turndown / net-waist plane at `openingWaistIn` from the
+   * corner (same point as `waistOpenPt`). Anchored to the turndown seam.
+   */
+  openingTop: Point;
+  /** Waist-plane point at openingWaistIn from the corner (turndown seam). */
+  waistOpenPt: Point;
+  /** Opening bottom on the side (openingSideDown from corner). */
+  openingBottom: Point;
+  /** Bag waist catch end (openingWaistIn + waistAnchor from corner). */
+  waistAnchorPt: Point;
+  /** Bag side catch end (openingSideDown + bagDepth from corner). */
+  bagSideEnd: Point;
   sideCorner: Point;
-  /** Original waist CF→side (pocket-off). */
+  /** Turndown reference y (net waist plane at the opening). */
+  turndownY: Millimetres;
   waistFull: Point[];
-  /** Original side waist→hem (pocket-off). */
   sideFull: Point[];
-  /** Waist CF→mouth-top (front keeps). */
-  waistToMouth: Point[];
-  /** Waist mouth-top→side corner (stay restores). */
+  /** Front keeps: CF → waistOpenPt (on turndown / waist). */
+  waistToOpening: Point[];
+  /** Pocket back restores: waistOpenPt → corner. */
   waistRestored: Point[];
-  /** Side mouth-side→hem (front keeps). */
-  sideFromMouth: Point[];
-  /** Side side-corner→mouth-side (stay restores). */
+  /** Waist catch: waistAnchor → waistOpenPt (both pieces; on turndown). */
+  waistCatch: Point[];
+  /** Front opening path: waistOpenPt → openingBottom (slash at turndown). */
+  openingPath: Point[];
+  /** Front keeps: openingBottom → hem. */
+  sideFromOpening: Point[];
+  /** Pocket back restores: corner → openingBottom. */
   sideRestored: Point[];
-  /** Straight slant mouth-top→mouth-side. */
+  /** Side catch: openingBottom → bagSideEnd (both pieces). */
+  sideCatch: Point[];
+  /** Straight opening diagonal (openingTop → openingBottom). */
   slant: Point[];
   params: SlantPocketParams;
 };
+
+/** @deprecated Alias — prefer SpocketGeometry. */
+export type SlantPocketMouth = SpocketGeometry;
 
 function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n));
 }
 
 export function resolveSlantPocketParams(raw: {
-  slantMouthInset?: Millimetres;
-  slantMouthDrop?: Millimetres;
-  slantMouthTopDrop?: Millimetres;
-  slantFacingWidth?: Millimetres;
+  slantOpeningWaistIn?: Millimetres;
+  slantOpeningSideDown?: Millimetres;
+  slantWaistAnchor?: Millimetres;
   slantBagDepth?: Millimetres;
+  /** @deprecated Ignored — four-offset rebuild. */
+  slantMouthInset?: Millimetres;
+  /** @deprecated Ignored. */
+  slantMouthDrop?: Millimetres;
 }): SlantPocketParams {
   return {
-    mouthInset: clamp(
-      raw.slantMouthInset ?? DEFAULT_SLANT_MOUTH_INSET,
-      SLANT_MOUTH_INSET_MIN,
-      SLANT_MOUTH_INSET_MAX,
+    openingWaistIn: clamp(
+      raw.slantOpeningWaistIn ?? DEFAULT_SLANT_OPENING_WAIST_IN,
+      SLANT_OPENING_WAIST_IN_MIN,
+      SLANT_OPENING_WAIST_IN_MAX,
     ),
-    mouthDrop: clamp(
-      raw.slantMouthDrop ?? DEFAULT_SLANT_MOUTH_DROP,
-      SLANT_MOUTH_DROP_MIN,
-      SLANT_MOUTH_DROP_MAX,
+    openingSideDown: clamp(
+      raw.slantOpeningSideDown ?? DEFAULT_SLANT_OPENING_SIDE_DOWN,
+      SLANT_OPENING_SIDE_DOWN_MIN,
+      SLANT_OPENING_SIDE_DOWN_MAX,
     ),
-    mouthTopDrop: clamp(
-      raw.slantMouthTopDrop ?? DEFAULT_SLANT_MOUTH_TOP_DROP,
-      SLANT_MOUTH_TOP_DROP_MIN,
-      SLANT_MOUTH_TOP_DROP_MAX,
-    ),
-    facingWidth: clamp(
-      raw.slantFacingWidth ?? DEFAULT_SLANT_FACING_WIDTH,
-      SLANT_FACING_WIDTH_MIN,
-      SLANT_FACING_WIDTH_MAX,
+    waistAnchor: clamp(
+      raw.slantWaistAnchor ?? DEFAULT_SLANT_WAIST_ANCHOR,
+      SLANT_WAIST_ANCHOR_MIN,
+      SLANT_WAIST_ANCHOR_MAX,
     ),
     bagDepth: clamp(
       raw.slantBagDepth ?? DEFAULT_SLANT_BAG_DEPTH,
@@ -119,38 +137,35 @@ export function resolveSlantPocketParams(raw: {
 }
 
 /**
- * Resolve mouth anchors on the drafted waist + side polylines.
- *
- * Mouth-top: `mouthInset` mm in from the side along the waist (piece top at
- * bodyWaistY when r = 0). Optional `mouthTopDrop` shifts that point down in y.
- * Mouth-side: `mouthDrop` mm arc down the side from the side corner.
- *
- * Stay restored edges are exact sub-polylines of the pocket-off waist/side so
- * front-trimmed + stay reconstructs the original outline byte-identically.
+ * Resolve four-offset anchors on drafted waist + side polylines.
+ * All waist/side distances are arc-length from the side∩waist corner.
+ * Slash top sits on the turndown (net waist) plane with the waist catch.
  */
 export function resolveSlantPocketMouth(
   waistFull: Point[],
   sideFull: Point[],
   params: SlantPocketParams,
-): SlantPocketMouth {
+): SpocketGeometry {
   if (waistFull.length < 2 || sideFull.length < 2) {
     throw new Error("slant pocket: waist and side need ≥2 points");
   }
   const waistLen = polylineLength(waistFull);
-  if (params.mouthInset >= waistLen - 1) {
+  const sideLen = polylineLength(sideFull);
+  const fromCornerWaist = params.openingWaistIn + params.waistAnchor;
+  const fromCornerSide = params.openingSideDown + params.bagDepth;
+
+  if (fromCornerWaist >= waistLen - 1) {
     throw new Error(
-      `slant pocket: mouthInset ${params.mouthInset} ≥ waist length ${waistLen}`,
+      `slant pocket: openingWaistIn+waistAnchor ${fromCornerWaist} ≥ waist ${waistLen}`,
     );
   }
-  const sideLen = polylineLength(sideFull);
-  if (params.mouthDrop >= sideLen - 1) {
+  if (fromCornerSide >= sideLen - 1) {
     throw new Error(
-      `slant pocket: mouthDrop ${params.mouthDrop} ≥ side length ${sideLen}`,
+      `slant pocket: openingSideDown+bagDepth ${fromCornerSide} ≥ side ${sideLen}`,
     );
   }
 
   const sideCorner = { ...waistFull[waistFull.length - 1]! };
-  // Confirm side starts at the same corner.
   const sideStart = sideFull[0]!;
   if (
     Math.hypot(sideStart.x - sideCorner.x, sideStart.y - sideCorner.y) > 0.05
@@ -163,283 +178,362 @@ export function resolveSlantPocketMouth(
     );
   }
 
-  const mouthTopOnWaist = pointAtArcDistanceFromEnd(
+  // Waist: CF → … → waistAnchor → waistOpenPt → corner (turndown plane)
+  const openWaistSplit = splitPolylineAtArcDistance(
     waistFull,
-    params.mouthInset,
+    waistLen - params.openingWaistIn,
   );
-  const mouthTop =
-    params.mouthTopDrop > 0
-      ? { x: mouthTopOnWaist.x, y: mouthTopOnWaist.y + params.mouthTopDrop }
-      : mouthTopOnWaist;
+  const waistOpenPt = openWaistSplit.at;
+  const waistRestored = openWaistSplit.after; // waistOpenPt → corner
+  const waistToOpening = openWaistSplit.before; // CF → waistOpenPt
 
-  // Split waist by arc from CF so restored/kept edges share samples.
-  const waistSplitDist = waistLen - params.mouthInset;
-  const waistSplit = splitPolylineAtArcDistance(waistFull, waistSplitDist);
-  // If mouthTop was dropped off the waist seam, pin the split vertex to mouthTop
-  // for the front opening; restored stay still uses the on-seam stub.
-  const waistToMouth =
-    params.mouthTopDrop > 0
-      ? [
-          ...waistSplit.before.slice(0, -1).map((p) => ({ ...p })),
-          { ...mouthTop },
-        ]
-      : waistSplit.before;
-  const waistRestored = waistSplit.after; // mouthTop-on-seam → side corner
+  const anchorSplit = splitPolylineAtArcDistance(
+    waistToOpening,
+    polylineLength(waistToOpening) - params.waistAnchor,
+  );
+  const waistAnchorPt = anchorSplit.at;
+  const waistCatch = anchorSplit.after; // waistAnchor → waistOpenPt
 
-  const sideSplit = splitPolylineAtArcDistance(sideFull, params.mouthDrop);
-  const mouthSide = sideSplit.at;
-  const sideRestored = sideSplit.before; // corner → mouth-side
-  const sideFromMouth = sideSplit.after; // mouth-side → hem
+  // Turndown seam ≡ net waist plane here (casing post-pass leaves it in place;
+  // fold/raw extend above). Slash tracks this plane, not bodyWaistY by name.
+  const turndownY = waistOpenPt.y;
+  const openingTop = { ...waistOpenPt };
 
-  const slant: Point[] = [{ ...mouthTop }, { ...mouthSide }];
+  // Side: corner → openingBottom → bagSideEnd → hem
+  const openBotSplit = splitPolylineAtArcDistance(
+    sideFull,
+    params.openingSideDown,
+  );
+  const openingBottom = openBotSplit.at;
+  const sideRestored = openBotSplit.before; // corner → openingBottom
+  const sideAfterOpen = openBotSplit.after; // openingBottom → hem
+
+  const bagSideSplit = splitPolylineAtArcDistance(
+    sideAfterOpen,
+    params.bagDepth,
+  );
+  const bagSideEnd = bagSideSplit.at;
+  const sideCatch = bagSideSplit.before; // openingBottom → bagSideEnd
+  const sideFromOpening = sideAfterOpen; // front keeps full openingBottom → hem
+
+  if (openingTop.y >= openingBottom.y - 1) {
+    throw new Error(
+      `slant pocket: openingTop collides with openingSideDown (openingTop.y=${openingTop.y} openingBottom.y=${openingBottom.y})`,
+    );
+  }
+
+  const slant: Point[] = [{ ...openingTop }, { ...openingBottom }];
+  const openingPath: Point[] = [{ ...openingTop }, { ...openingBottom }];
 
   return {
-    mouthTop,
-    mouthSide,
+    openingTop,
+    waistOpenPt,
+    openingBottom,
+    waistAnchorPt,
+    bagSideEnd,
     sideCorner,
+    turndownY,
     waistFull: waistFull.map((p) => ({ ...p })),
     sideFull: sideFull.map((p) => ({ ...p })),
-    waistToMouth,
+    waistToOpening,
     waistRestored,
-    sideFromMouth,
+    waistCatch,
+    openingPath,
+    sideFromOpening,
     sideRestored,
+    sideCatch,
     slant,
     params,
   };
 }
 
-/** Sample a quadratic Bézier. */
-function quad(
-  p0: Point,
-  p1: Point,
-  p2: Point,
-  n: number,
-): Point[] {
-  const out: Point[] = [];
-  for (let i = 0; i <= n; i++) {
-    const t = i / n;
-    const u = 1 - t;
-    out.push({
-      x: u * u * p0.x + 2 * u * t * p1.x + t * t * p2.x,
-      y: u * u * p0.y + 2 * u * t * p1.y + t * t * p2.y,
-    });
-  }
-  return out;
+/** @deprecated Prefer openingTop / openingBottom field names. */
+export function mouthAliases(g: SpocketGeometry): {
+  mouthTop: Point;
+  mouthSide: Point;
+} {
+  return { mouthTop: g.openingTop, mouthSide: g.openingBottom };
 }
 
-/**
- * Draft the three slant-pocket pieces in a local frame (origin at mouth-top,
- * +x along slant) so they lay out cleanly beside the legs.
- */
-export function draftSlantFrontPocketPieces(
-  mouth: SlantPocketMouth,
-): PatternPiece[] {
-  const { mouthTop, mouthSide, params } = mouth;
-  const fw = params.facingWidth;
-  const depth = params.bagDepth;
+function unit(dx: number, dy: number): Point {
+  const len = Math.hypot(dx, dy) || 1;
+  return { x: dx / len, y: dy / len };
+}
 
-  // --- Stay (garment frame, then shifted to local for layout) ---------------
-  // Outer: restored waist + restored side; inner: slant (bag attaches).
-  const stayWaist = mouth.waistRestored; // mouthTop-on-seam → corner
-  const staySide = mouth.sideRestored; // corner → mouthSide
-  // Stay opens at the on-seam mouth-top when mouthTopDrop>0; notches still at mouthTop.
-  const staySlantClose: Point[] = [
-    { ...mouthSide },
-    params.mouthTopDrop > 0
-      ? { ...stayWaist[0]! }
-      : { ...mouthTop },
-  ];
-  const stayOutline = buildStayOutline(stayWaist, staySide, staySlantClose);
-  const stayLocal = toLocalFrame(stayOutline, mouthTop, mouthSide);
-  const stayMarks: Marking[] = [
-    {
-      kind: "grainline",
-      line: {
-        from: { x: 15, y: 10 },
-        to: { x: 15, y: Math.max(40, params.mouthDrop * 0.4) },
-      },
-    },
-    {
-      kind: "notch",
-      role: "balance",
-      mates: { piece: "Trouser front", seam: "pocket-mouth" },
-      at: localPoint(mouthTop, mouthTop, mouthSide),
-      label: "mouth-top",
-    },
-    {
-      kind: "notch",
-      role: "balance",
-      mates: { piece: "Trouser front", seam: "pocket-mouth" },
-      at: localPoint(mouthSide, mouthTop, mouthSide),
-      label: "mouth-side",
-    },
-  ];
-
-  // --- Facing (local): slant outer + curved inner ----------------------------
-  const fOuter0 = { x: 0, y: 0 };
-  const slantLen = Math.hypot(
-    mouthSide.x - mouthTop.x,
-    mouthSide.y - mouthTop.y,
+/** Shared pouch-inner corners (hand-room + square bottom). */
+function pouchInnerPoints(geom: SpocketGeometry): {
+  handPt: Point;
+  squareInner: Point;
+} {
+  const { waistOpenPt, waistAnchorPt, bagSideEnd, sideCorner } = geom;
+  const waistDir = unit(
+    waistAnchorPt.x - sideCorner.x,
+    waistAnchorPt.y - sideCorner.y,
   );
-  const fOuter1 = { x: slantLen, y: 0 };
-  // In local frame, inward = +y (rotate slant to +x; inward normal → +y).
-  const fInner1 = { x: slantLen, y: fw };
-  const fInner0 = { x: 0, y: fw };
-  const fInnerCtrl = { x: slantLen / 2, y: fw * 1.35 };
-  const fInnerCurve = quad(fInner1, fInnerCtrl, fInner0, 16);
-  const facingOutline: OutlinePoint[] = [
-    { at: fOuter0, edge: "seam", role: "pocket-mouth" },
-    { at: fOuter1, edge: "seam", role: "pocket-mouth" },
-    { at: fInner1, edge: "seam", role: "facing-end" },
-    ...fInnerCurve.slice(1, -1).map(
-      (p): OutlinePoint => ({ at: p, edge: "seam", role: "facing-inner" }),
-    ),
-    { at: fInner0, edge: "seam", role: "facing-inner" },
-    { at: fOuter0, edge: "seam", role: "facing-end" },
-  ];
-  // Drop the closing duplicate of fOuter0 if present as last — keep closed via wrap.
-  facingOutline.pop();
-  const facingMarks: Marking[] = [
-    {
-      kind: "grainline",
-      line: { from: { x: slantLen / 2, y: 4 }, to: { x: slantLen / 2, y: fw - 4 } },
-    },
-    {
-      kind: "notch",
-      role: "balance",
-      mates: { piece: "Trouser front", seam: "pocket-mouth" },
-      at: fOuter0,
-      label: "mouth-top",
-    },
-    {
-      kind: "notch",
-      role: "balance",
-      mates: { piece: "Trouser front", seam: "pocket-mouth" },
-      at: fOuter1,
-      label: "mouth-side",
-    },
-  ];
-
-  // --- Bag (local): from slant, down to rounded bottom -----------------------
-  const bagTop0 = { x: 0, y: 0 };
-  const bagTop1 = { x: slantLen, y: 0 };
-  // Drop below mouth-side (x = slantLen); round across to mouth-top side.
-  const bagRight = { x: slantLen + fw * 0.25, y: depth };
-  const bagBottom = { x: slantLen / 2, y: depth + fw * 0.35 };
-  const bagLeft = { x: -fw * 0.15, y: depth * 0.85 };
-  const bagDown = quad(bagTop1, { x: bagRight.x, y: depth * 0.45 }, bagRight, 10);
-  const bagRound = quad(bagRight, bagBottom, bagLeft, 18);
-  const bagUp = quad(bagLeft, { x: bagTop0.x - fw * 0.1, y: depth * 0.4 }, bagTop0, 10);
-  const bagOutline: OutlinePoint[] = [
-    { at: bagTop0, edge: "seam", role: "pocket-mouth" },
-    { at: bagTop1, edge: "seam", role: "pocket-mouth" },
-    ...bagDown.slice(1).map(
-      (p): OutlinePoint => ({ at: p, edge: "seam", role: "bag-side" }),
-    ),
-    ...bagRound.slice(1).map(
-      (p): OutlinePoint => ({ at: p, edge: "seam", role: "bag-bottom" }),
-    ),
-    ...bagUp.slice(1, -1).map(
-      (p): OutlinePoint => ({ at: p, edge: "seam", role: "bag-side" }),
-    ),
-  ];
-  const bagMarks: Marking[] = [
-    {
-      kind: "grainline",
-      line: {
-        from: { x: slantLen / 2, y: 8 },
-        to: { x: slantLen / 2, y: depth - 8 },
-      },
-    },
-    {
-      kind: "notch",
-      role: "balance",
-      mates: { piece: "Slant pocket facing", seam: "facing-inner" },
-      at: bagTop0,
-      label: "mouth-top",
-    },
-    {
-      kind: "notch",
-      role: "balance",
-      mates: { piece: "Slant pocket stay", seam: "pocket-mouth" },
-      at: bagTop1,
-      label: "mouth-side",
-    },
-  ];
-
-  return [
-    {
-      name: "Slant pocket stay",
-      cutCount: 2,
-      onFold: false,
-      outline: stayLocal,
-      markings: stayMarks,
-    },
-    {
-      name: "Slant pocket facing",
-      cutCount: 2,
-      onFold: false,
-      outline: facingOutline,
-      markings: facingMarks,
-    },
-    {
-      name: "Slant pocket bag",
-      cutCount: 2,
-      onFold: false,
-      outline: bagOutline,
-      markings: bagMarks,
-    },
-  ];
+  const towardCf = unit(
+    waistAnchorPt.x - waistOpenPt.x,
+    waistAnchorPt.y - waistOpenPt.y,
+  );
+  const inboard = unit(
+    towardCf.x !== 0 || towardCf.y !== 0 ? towardCf.x : waistDir.x,
+    towardCf.x !== 0 || towardCf.y !== 0 ? towardCf.y : waistDir.y,
+  );
+  const handPt = {
+    x: waistAnchorPt.x + inboard.x * SLANT_HAND_ROOM,
+    y: waistAnchorPt.y + inboard.y * SLANT_HAND_ROOM,
+  };
+  const squareInner = { x: handPt.x, y: bagSideEnd.y };
+  return { handPt, squareInner };
 }
 
-function buildStayOutline(
-  waistRestored: Point[],
-  sideRestored: Point[],
-  slantClose: Point[],
-): OutlinePoint[] {
-  // waist mouth→corner, side corner→mouth, slant mouth→waist-start
-  const outline: OutlinePoint[] = [];
-  for (let i = 0; i < waistRestored.length; i++) {
-    outline.push({
-      at: { ...waistRestored[i]! },
-      edge: "seam",
-      role: "waist",
-    });
+function pushRoleRun(
+  out: OutlinePoint[],
+  pts: Point[],
+  role: string,
+  skipFirst: boolean,
+): void {
+  const start = skipFirst ? 1 : 0;
+  for (let i = start; i < pts.length; i++) {
+    out.push({ at: { ...pts[i]! }, edge: "seam", role });
   }
-  // Retag corner as side-seam departure.
-  if (outline.length > 0) {
-    outline[outline.length - 1]!.role = "side-seam";
-  }
-  for (let i = 1; i < sideRestored.length; i++) {
-    outline.push({
-      at: { ...sideRestored[i]! },
-      edge: "seam",
-      role: "side-seam",
-    });
-  }
-  if (outline.length > 0) {
-    outline[outline.length - 1]!.role = "pocket-mouth";
-  }
-  // slantClose[0] is mouthSide (already last); add toward waist start
-  for (let i = 1; i < slantClose.length; i++) {
-    outline.push({
-      at: { ...slantClose[i]! },
-      edge: "seam",
-      role: "pocket-mouth",
-    });
+}
+
+function dedupeClose(outline: OutlinePoint[]): OutlinePoint[] {
+  if (
+    outline.length > 1 &&
+    Math.hypot(
+      outline[0]!.at.x - outline[outline.length - 1]!.at.x,
+      outline[0]!.at.y - outline[outline.length - 1]!.at.y,
+    ) < 0.01
+  ) {
+    outline.pop();
   }
   return outline;
 }
 
-/** Map garment point into local frame: origin=mouthTop, +x along slant. */
-function localPoint(p: Point, origin: Point, mouthSide: Point): Point {
-  const dx = mouthSide.x - origin.x;
-  const dy = mouthSide.y - origin.y;
+/**
+ * Draft pocket back + pocket front (both trouser fabric). Outlines start in
+ * garment coords, shift to a local construction frame (origin at opening top,
+ * +x along the slant), then rigid-rotate so the grainline is vertical for
+ * layout — same upright presentation as the trouser pieces. Grain relative to
+ * the piece is unchanged.
+ */
+export function draftSlantFrontPocketPieces(
+  geom: SpocketGeometry,
+): PatternPiece[] {
+  const { openingTop, openingBottom, waistAnchorPt, bagSideEnd } = geom;
+  const { handPt, squareInner } = pouchInnerPoints(geom);
+
+  // --- Pocket back (pouch): restored corner + catch + pouch inner ------------
+  const backWaist: Point[] = [
+    ...geom.waistCatch.map((p) => ({ ...p })),
+    ...geom.waistRestored.slice(1).map((p) => ({ ...p })),
+  ];
+  const backSide: Point[] = [
+    ...geom.sideRestored.map((p) => ({ ...p })),
+    ...geom.sideCatch.slice(1).map((p) => ({ ...p })),
+  ];
+
+  const backOutline: OutlinePoint[] = [];
+  pushRoleRun(backOutline, backWaist, "waist", false);
+  if (backOutline.length > 0) {
+    backOutline[backOutline.length - 1]!.role = "side-seam";
+  }
+  pushRoleRun(backOutline, backSide, "side-seam", true);
+  if (backOutline.length > 0) {
+    backOutline[backOutline.length - 1]!.role = "bag-bottom";
+  }
+  backOutline.push({
+    at: { ...squareInner },
+    edge: "seam",
+    role: "bag-bottom",
+  });
+  backOutline.push({
+    at: { ...handPt },
+    edge: "seam",
+    role: "bag-inner",
+  });
+  backOutline.push({
+    at: { ...waistAnchorPt },
+    edge: "seam",
+    role: "bag-inner",
+  });
+  dedupeClose(backOutline);
+
+  const backLocal = toLocalFrame(backOutline, openingTop, openingBottom);
+  const backMarks: Marking[] = [
+    {
+      kind: "grainline",
+      line: {
+        from: localPoint(
+          { x: (waistAnchorPt.x + bagSideEnd.x) / 2, y: openingTop.y + 20 },
+          openingTop,
+          openingBottom,
+        ),
+        to: localPoint(
+          {
+            x: (waistAnchorPt.x + bagSideEnd.x) / 2,
+            y: bagSideEnd.y - 20,
+          },
+          openingTop,
+          openingBottom,
+        ),
+      },
+    },
+    {
+      kind: "notch",
+      role: "balance",
+      mates: { piece: "Trouser front", seam: "waist" },
+      at: localPoint(waistAnchorPt, openingTop, openingBottom),
+      label: "waist-anchor",
+    },
+    {
+      kind: "notch",
+      role: "balance",
+      mates: { piece: "Trouser front", seam: "side-seam" },
+      at: localPoint(bagSideEnd, openingTop, openingBottom),
+      label: "bag-side",
+    },
+    {
+      kind: "notch",
+      role: "balance",
+      mates: { piece: SLANT_POCKET_FRONT_NAME, seam: "bag-inner" },
+      at: localPoint(handPt, openingTop, openingBottom),
+      label: "pouch-inner",
+    },
+  ];
+
+  // --- Pocket front: waist catch on turndown, clearance drop, slant, side ----
+  const frontOutline: OutlinePoint[] = [];
+  pushRoleRun(frontOutline, geom.waistCatch, "waist", false);
+  frontOutline.push({
+    at: { ...openingTop },
+    edge: "seam",
+    role: "pocket-mouth",
+  });
+  frontOutline.push({
+    at: { ...openingBottom },
+    edge: "seam",
+    role: "pocket-mouth",
+  });
+  pushRoleRun(frontOutline, geom.sideCatch, "side-seam", true);
+  if (frontOutline.length > 0) {
+    frontOutline[frontOutline.length - 1]!.role = "bag-bottom";
+  }
+  frontOutline.push({
+    at: { ...squareInner },
+    edge: "seam",
+    role: "bag-bottom",
+  });
+  frontOutline.push({
+    at: { ...handPt },
+    edge: "seam",
+    role: "bag-inner",
+  });
+  frontOutline.push({
+    at: { ...waistAnchorPt },
+    edge: "seam",
+    role: "bag-inner",
+  });
+  dedupeClose(frontOutline);
+
+  const frontLocal = toLocalFrame(frontOutline, openingTop, openingBottom);
+  // Offset in layout so it doesn't sit on the back
+  const frontLayout = offsetOutline(frontLocal, 0, 40);
+  const frontMarks: Marking[] = [
+    {
+      kind: "grainline",
+      line: {
+        from: offsetPt(
+          localPoint(
+            { x: (waistAnchorPt.x + bagSideEnd.x) / 2, y: openingTop.y + 20 },
+            openingTop,
+            openingBottom,
+          ),
+          0,
+          40,
+        ),
+        to: offsetPt(
+          localPoint(
+            {
+              x: (waistAnchorPt.x + bagSideEnd.x) / 2,
+              y: bagSideEnd.y - 20,
+            },
+            openingTop,
+            openingBottom,
+          ),
+          0,
+          40,
+        ),
+      },
+    },
+    {
+      kind: "notch",
+      role: "balance",
+      mates: { piece: "Trouser front", seam: "pocket-mouth" },
+      at: offsetPt(localPoint(openingTop, openingTop, openingBottom), 0, 40),
+      label: "mouth-top",
+    },
+    {
+      kind: "notch",
+      role: "balance",
+      mates: { piece: "Trouser front", seam: "pocket-mouth" },
+      at: offsetPt(localPoint(openingBottom, openingTop, openingBottom), 0, 40),
+      label: "mouth-side",
+    },
+    {
+      kind: "notch",
+      role: "balance",
+      mates: { piece: "Trouser front", seam: "waist" },
+      at: offsetPt(localPoint(waistAnchorPt, openingTop, openingBottom), 0, 40),
+      label: "waist-anchor",
+    },
+    {
+      kind: "notch",
+      role: "balance",
+      mates: { piece: "Trouser front", seam: "side-seam" },
+      at: offsetPt(localPoint(bagSideEnd, openingTop, openingBottom), 0, 40),
+      label: "bag-side",
+    },
+  ];
+
+  return [
+    orientPieceGrainVertical({
+      name: SLANT_POCKET_BACK_NAME,
+      cutCount: 2,
+      onFold: false,
+      outline: backLocal,
+      markings: backMarks,
+    }),
+    orientPieceGrainVertical({
+      name: SLANT_POCKET_FRONT_NAME,
+      cutCount: 2,
+      onFold: false,
+      outline: frontLayout,
+      markings: frontMarks,
+    }),
+  ];
+}
+
+function offsetPt(p: Point, dx: number, dy: number): Point {
+  return { x: p.x + dx, y: p.y + dy };
+}
+
+function offsetOutline(
+  outline: OutlinePoint[],
+  dx: number,
+  dy: number,
+): OutlinePoint[] {
+  return outline.map((o) => ({ ...o, at: offsetPt(o.at, dx, dy) }));
+}
+
+/** Map garment point into local frame: origin=openingTop, +x along slant. */
+function localPoint(p: Point, origin: Point, openingBottom: Point): Point {
+  const dx = openingBottom.x - origin.x;
+  const dy = openingBottom.y - origin.y;
   const len = Math.hypot(dx, dy) || 1;
   const ux = dx / len;
   const uy = dy / len;
-  // +y = rotate +x by +90° in y-down: (-uy, ux) … check: for slant down-right,
-  // inward toward CF is typically up-left in garment; we only need consistent local.
   const vx = -uy;
   const vy = ux;
   const qx = p.x - origin.x;
@@ -450,19 +544,14 @@ function localPoint(p: Point, origin: Point, mouthSide: Point): Point {
 function toLocalFrame(
   outline: OutlinePoint[],
   origin: Point,
-  mouthSide: Point,
+  openingBottom: Point,
 ): OutlinePoint[] {
   return outline.map((o) => ({
     ...o,
-    at: localPoint(o.at, origin, mouthSide),
+    at: localPoint(o.at, origin, openingBottom),
   }));
 }
 
-/**
- * Max Hausdorff-style sample distance between two polylines of equal topology
- * (same vertex count preferred). Returns max point-to-point distance when
- * lengths match; otherwise samples by arc fraction.
- */
 export function polylineMaxDelta(a: Point[], b: Point[]): number {
   if (a.length === 0 || b.length === 0) return Infinity;
   const n = 48;
@@ -479,34 +568,72 @@ export function polylineMaxDelta(a: Point[], b: Point[]): number {
 }
 
 /**
- * Compose trimmed front edges + stay restored edges and compare to pocket-off.
- * With mouthTopDrop = 0, both deltas must be 0 (acceptance #2).
+ * Silhouette invariant: front trim + pocket-back restored edges ≡ pocket-off
+ * waist/side. Waist junction is waistOpenPt (turndown); the 5 mm slash drop is
+ * not part of the waist reconstruction.
  */
-export function silhouetteInvariantDelta(mouth: SlantPocketMouth): {
+export function silhouetteInvariantDelta(geom: SpocketGeometry): {
   waistDelta: number;
   sideDelta: number;
-  /** Stay waist stub + on-seam mouth (excludes dropped mouth-top bridge). */
   waistOnSeamComposed: Point[];
   sideComposed: Point[];
 } {
-  // On-seam reconstruction: use the seam-split mouth (waistRestored[0]), not a
-  // dropped mouth-top. Front's waistToMouth may end off-seam when topDrop > 0.
-  const waistOnSeamToMouth = splitPolylineAtArcDistance(
-    mouth.waistFull,
-    polylineLength(mouth.waistFull) - mouth.params.mouthInset,
-  ).before;
   const waistOnSeamComposed = [
-    ...waistOnSeamToMouth,
-    ...mouth.waistRestored.slice(1),
+    ...geom.waistToOpening,
+    ...geom.waistRestored.slice(1),
   ];
   const sideComposed = [
-    ...mouth.sideRestored,
-    ...mouth.sideFromMouth.slice(1),
+    ...geom.sideRestored,
+    ...geom.sideFromOpening.slice(1),
   ];
   return {
-    waistDelta: polylineMaxDelta(waistOnSeamComposed, mouth.waistFull),
-    sideDelta: polylineMaxDelta(sideComposed, mouth.sideFull),
+    waistDelta: polylineMaxDelta(waistOnSeamComposed, geom.waistFull),
+    sideDelta: polylineMaxDelta(sideComposed, geom.sideFull),
     waistOnSeamComposed,
     sideComposed,
   };
+}
+
+/** Convenience: total side span on the pocket back (restored + catch). */
+export function bagSideSpanMm(geom: SpocketGeometry): Millimetres {
+  return polylineLength(geom.sideRestored) + polylineLength(geom.sideCatch);
+}
+
+/** Convenience: waist catch span (opening top → waist anchor). */
+export function bagWaistCatchMm(geom: SpocketGeometry): Millimetres {
+  return polylineLength(geom.waistCatch);
+}
+
+/** Pocket-front outline span check: not a thin strip along the opening. */
+export function pocketFrontIsFullPiece(front: PatternPiece): {
+  ok: boolean;
+  openingLen: Millimetres;
+  maxExtent: Millimetres;
+  roles: string[];
+} {
+  const roles = [
+    ...new Set(front.outline.map((o) => o.role).filter(Boolean) as string[]),
+  ];
+  const mouth = front.outline.filter((o) => o.role === "pocket-mouth");
+  let openingLen = 0;
+  for (let i = 1; i < mouth.length; i++) {
+    openingLen += Math.hypot(
+      mouth[i]!.at.x - mouth[i - 1]!.at.x,
+      mouth[i]!.at.y - mouth[i - 1]!.at.y,
+    );
+  }
+  const xs = front.outline.map((o) => o.at.x);
+  const ys = front.outline.map((o) => o.at.y);
+  const maxExtent = Math.max(
+    Math.max(...xs) - Math.min(...xs),
+    Math.max(...ys) - Math.min(...ys),
+  );
+  const ok =
+    roles.includes("pocket-mouth") &&
+    roles.includes("waist") &&
+    roles.includes("side-seam") &&
+    (roles.includes("bag-inner") || roles.includes("bag-bottom")) &&
+    maxExtent > openingLen * 0.35 &&
+    maxExtent > 80;
+  return { ok, openingLen, maxExtent, roles };
 }

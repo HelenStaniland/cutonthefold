@@ -125,6 +125,15 @@ export type Marking =
   | { kind: "placeOnFold"; line: Line; inward: { x: number; y: number }; label?: string }
   | { kind: "gather"; line: Line }
   | { kind: "constructionLine"; line: Line }
+  /**
+   * Elastic casing fold (internal) — not cut-on-fold. Distinct style + directional
+   * label ("Casing — fold to inside").
+   */
+  | { kind: "casingFold"; points: Point[]; label: string }
+  /** Elastic casing turndown / stitch-down line at the net waist. */
+  | { kind: "casingTurndown"; points: Point[]; label?: string }
+  /** Light band between casing fold and turndown. */
+  | { kind: "casingRegion"; outline: Point[]; label: string }
   | NotchMarking
   | { kind: "button"; at: Point }
   | { kind: "buttonhole"; at: Point }
@@ -162,8 +171,8 @@ export type PatternPiece = {
   cuttingOutline?: Point[]; // derived; the solid cut edge (set by the transform)
   /**
    * Optional map net-vertex-index → cuttingOutline index.
-   * Set by trouser hem turn-back when cutting.length > net.length; used so
-   * highlight runs derived from the net outline can address the cutting edge.
+   * Set by trouser hem turn-back / waist casing when cutting.length > net.length;
+   * used so highlight runs derived from the net outline can address the cutting edge.
    */
   netToCutIndex?: number[];
   markings: Marking[];
@@ -172,6 +181,18 @@ export type PatternPiece = {
    * (pre-retag). Absent on waistbands and other pieces.
    */
   seamLengths?: TrouserSeamLengths;
+  /**
+   * Elastic self-casing reference (fold + turndown), set by the waist casing
+   * post-pass. Absent on non-elastic finishes.
+   */
+  waistCasing?: {
+    elasticWidth: 25 | 38 | 50;
+    channelDepth: Millimetres;
+    turnUnder: Millimetres;
+    totalExtension: Millimetres;
+    foldLine: Point[];
+    turndownSeam: Point[];
+  };
 };
 
 export function cutLabel(piece: PatternPiece): string {

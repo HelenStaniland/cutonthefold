@@ -132,6 +132,7 @@ const fromPreset: TrouserStyleSettings = {
   frontCrotchFullness: m.frontCrotchFullness,
   backCrotchFullness: m.backCrotchFullness,
   pocketFront: "none",
+  casingElasticWidth: 25,
 };
 const dCleo = maxDelta(
   pts(toDraftStyle(fromFn, fromFn.waistDrop)),

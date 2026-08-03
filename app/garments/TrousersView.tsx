@@ -74,6 +74,11 @@ import {
 } from "@/lib/geometry/seamAllowance";
 import { applyTrouserHemTurnbackToPattern } from "@/lib/geometry/trouserHemTurnback";
 import {
+  applyTrouserWaistCasingToPattern,
+  resolveCasingDepths,
+  type CasingElasticWidth,
+} from "@/lib/geometry/trouserWaistCasing";
+import {
   edgeRunsForRoles,
   findPieceHighlight,
   isWholePieceTarget,
@@ -142,7 +147,8 @@ function styleMatchesPreset(
     style.backCrotchDrop === defaults.backCrotchDrop &&
     style.frontCrotchFullness === defaults.frontCrotchFullness &&
     style.backCrotchFullness === defaults.backCrotchFullness &&
-    style.pocketFront === defaults.pocketFront
+    style.pocketFront === defaults.pocketFront &&
+    style.casingElasticWidth === defaults.casingElasticWidth
   );
 }
 
@@ -206,6 +212,8 @@ function TrousersViewInner({
     pocketFront,
     // Setter reserved for a future UI toggle; Cargo ships with slant on.
     setPocketFront: _setPocketFront,
+    casingElasticWidth,
+    setCasingElasticWidth,
     resetToBlock,
     resetToPreset,
   } = useStyle();
@@ -398,6 +406,7 @@ function TrousersViewInner({
       frontCrotchFullness,
       backCrotchFullness,
       pocketFront,
+      casingElasticWidth,
     },
     defaults,
   );
@@ -487,9 +496,19 @@ function TrousersViewInner({
     dartedWaistFinish,
   ]);
   const construction = validation.valid ? trouserConstruction(draftBody, tstyle) : [];
-  const pattern = applyTrouserHemTurnbackToPattern(
-    withSeamAllowance(net, DEFAULT_SEAM_ALLOWANCE),
-  );
+  // SA → waist casing (elastic only) → hem turn-back. Casing must precede hem
+  // so cut is still 1:1 with collapsed net when the waist region is rebuilt.
+  const pattern = (() => {
+    const withSa = withSeamAllowance(net, DEFAULT_SEAM_ALLOWANCE);
+    const withCasing =
+      elasticWaist
+        ? applyTrouserWaistCasingToPattern(
+            withSa,
+            resolveCasingDepths(casingElasticWidth as CasingElasticWidth),
+          )
+        : withSa;
+    return applyTrouserHemTurnbackToPattern(withCasing);
+  })();
   const patternSpec = useMemo<PatternSpec>(
     () => {
       const baseLabel = "Trouser block";
@@ -857,7 +876,7 @@ function TrousersViewInner({
               <label className={styles.fieldLabel}>Waistband mode</label>
               <span className={styles.fieldHint}>
                 {elasticWaist
-                  ? "Elastic waistband — draft uses a dartless waist with a straight side seam. Casing geometry comes later."
+                  ? "Elastic waistband — dartless straight waist; self-casing extends above the worn waist."
                   : waistbandMode === "darted"
                     ? dartedWaistFinish === "facing"
                       ? "Darted finish — waist facing, darts kept at drafted length."
@@ -905,7 +924,7 @@ function TrousersViewInner({
               <label className={styles.fieldLabel}>Waist finish</label>
               <span className={styles.fieldHint}>
                 {elasticWaist
-                  ? "Pull-on elastic casing (shape next). Side seam and CF inset are held straight while this is selected."
+                  ? "Pull-on elastic self-casing — fabric extends above the worn waist; fold and turndown are marked on the pattern. Side seam and CF inset stay straight."
                   : waistbandMode === "darted"
                     ? `Facing finishes at the trouser waist; waistband adds a separate straight strip (${DARTED_DEPTH_MIN}–${DARTED_DEPTH_MAX} mm).`
                     : "Shaped mode uses the band depth below. Elastic forces a dartless straight waist for a pull-on."}
@@ -950,6 +969,34 @@ function TrousersViewInner({
                 </button>
               </div>
             </div>
+            {elasticWaist && (
+              <div className={styles.field}>
+                <span className={styles.fieldLabel}>Elastic width</span>
+                <span className={styles.fieldHint}>
+                  Channel = width + 6 mm; turn-under 10 mm above the fold.
+                </span>
+                <div
+                  className={styles.fitPresetList}
+                  role="group"
+                  aria-label="Elastic casing width"
+                >
+                  {([25, 38, 50] as const).map((w) => (
+                    <button
+                      key={w}
+                      type="button"
+                      className={
+                        casingElasticWidth === w
+                          ? styles.fitPresetActive
+                          : styles.fitPreset
+                      }
+                      onClick={() => setCasingElasticWidth(w)}
+                    >
+                      {w} mm
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {!elasticWaist &&
               (waistbandMode === "darted" ? (
                 dartedWaistFinish === "waistband" ? (
@@ -2026,6 +2073,84 @@ function TrousersViewInner({
                         )}
                         className={styles.foldLine} />
                     );
+                  case "casingRegion": {
+                    const pts = m.outline.map((p) => ({
+                      x: p.x + dx,
+                      y: p.y + dy,
+                    }));
+                    const mid = pts[Math.floor(pts.length / 4)] ?? pts[0]!;
+                    const midB =
+                      pts[Math.floor((3 * pts.length) / 4)] ?? pts[pts.length - 1]!;
+                    const cx = svgCoord((mid.x + midB.x) / 2);
+                    const cy = svgCoord((mid.y + midB.y) / 2);
+                    return (
+                      <g key={i}>
+                        <polygon
+                          points={svgPolygonPoints(pts)}
+                          className={styles.casingRegion}
+                        />
+                        <text
+                          x={cx}
+                          y={cy}
+                          className={styles.casingLabel}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                        >
+                          {m.label}
+                        </text>
+                      </g>
+                    );
+                  }
+                  case "casingFold": {
+                    const pts = m.points.map((p) => ({
+                      x: p.x + dx,
+                      y: p.y + dy,
+                    }));
+                    const a = pts[0]!;
+                    const b = pts[pts.length - 1]!;
+                    const mx = (a.x + b.x) / 2;
+                    const my = (a.y + b.y) / 2;
+                    // Label sits inside the piece, toward the turndown (+y).
+                    const labelX = svgCoord(mx);
+                    const labelY = svgCoord(my + 14);
+                    const edgeDx = b.x - a.x;
+                    const edgeDy = b.y - a.y;
+                    const labelAngle =
+                      (Math.atan2(edgeDy, edgeDx) * 180) / Math.PI;
+                    return (
+                      <g key={i}>
+                        <polyline
+                          points={svgPolygonPoints(pts)}
+                          className={styles.casingFold}
+                          fill="none"
+                        />
+                        <text
+                          x={labelX}
+                          y={labelY}
+                          className={styles.casingLabel}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          transform={`rotate(${labelAngle}, ${labelX}, ${labelY})`}
+                        >
+                          {m.label}
+                        </text>
+                      </g>
+                    );
+                  }
+                  case "casingTurndown": {
+                    const pts = m.points.map((p) => ({
+                      x: p.x + dx,
+                      y: p.y + dy,
+                    }));
+                    return (
+                      <polyline
+                        key={i}
+                        points={svgPolygonPoints(pts)}
+                        className={styles.casingTurndown}
+                        fill="none"
+                      />
+                    );
+                  }
                   case "placeOnFold": {
                     const A = m.line.from;
                     const B = m.line.to;
