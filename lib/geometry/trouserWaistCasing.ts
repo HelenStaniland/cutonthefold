@@ -2,19 +2,25 @@
  * Trouser-local elastic self-casing turn-up (double-fold model).
  *
  * Placement: casing fabric is added *above* the worn waist (`bodyWaistY` /
- * net waist = channel stitch line = pocket top). Drop and casing are
- * independent — `waistDrop` places the worn waist; this post-pass only
- * extends above that plane.
+ * channel stitch = pocket top). Drop and casing are independent —
+ * `waistDrop` places the worn waist; this post-pass only extends above that
+ * plane.
  *
  * Double-fold strip (from stitch up to raw cut):
  *   stitch (0) → fold-2 / finished top (`channelDepth`) → fold-1 / hem crease
- *   (`2×channelDepth`) → raw (`hemDepth + 2×channelDepth`).
+ *   (`2×channelDepth`) → raw (`seamAllowance + 2×channelDepth`).
  * Channel = elasticWidth + 15 (10 ease + 5 foot margin). Stitch sits
  * `channelDepth − 5` below the finished top.
  *
+ * Cut: raw top at `totalExtension`; sides and top-outer corners are a constant
+ * `seamAllowance` outward offset of the sewing U (sewing corner + up·SA +
+ * sideOut·SA). Sewing (net) outline continues up both casing sides and across
+ * the hem fold (`2×channelDepth` above stitch) — same style as the body
+ * sewing line. Marks: channel stitch only (no fold-2, shading, or casing label).
+ *
  * Runs AFTER withSeamAllowance, BEFORE hem turn-back. Rebuilds the waist
- * region of the cutting outline and sets `netToCutIndex`. Not in the shared
- * allowance engine.
+ * region of the cutting outline, extends the net sewing outline through the
+ * casing, and sets `netToCutIndex`. Not in the shared allowance engine.
  *
  * Front: level fold-flat top. Back: constant-width parallelogram along the
  * slant. Pocket pieces are excluded — their waist catch is a plain seam edge,
@@ -45,7 +51,10 @@ export type CasingElasticWidth = 25 | 38 | 50;
  * Helen toile: 25 → 40 ⇒ +15 = 10 ease + 5 presser-foot margin.
  */
 export const CASING_CHANNEL_ADD = 15;
-/** Hem tuck (fold 1) from the raw edge (mm). */
+/**
+ * @deprecated Casing hem fold now tracks `seamAllowance` (see resolveCasingDepths).
+ * Kept only so older scripts that imported the literal still resolve.
+ */
 export const CASING_HEM_DEPTH = 10;
 /** Presser-foot margin: stitch sits this far below the fold-2 crease (mm). */
 export const CASING_FOOT_MARGIN = 5;
@@ -53,7 +62,7 @@ export const DEFAULT_CASING_ELASTIC_WIDTH: CasingElasticWidth = 25;
 
 /** @deprecated Use CASING_CHANNEL_ADD — kept as alias for older scripts. */
 export const CASING_CHANNEL_EASE = CASING_CHANNEL_ADD;
-/** @deprecated Hem depth is CASING_HEM_DEPTH; raw→fold2 is channelDepth+hem. */
+/** @deprecated Hem depth tracks seamAllowance; raw→fold2 is channelDepth+hem. */
 export const CASING_TURN_UNDER = CASING_HEM_DEPTH;
 
 export type CasingDepths = {
@@ -63,7 +72,10 @@ export type CasingDepths = {
    * = elasticWidth + CASING_CHANNEL_ADD.
    */
   channelDepth: Millimetres;
-  /** Fold-1 hem tuck from the raw edge (= CASING_HEM_DEPTH). */
+  /**
+   * Fold-1 hem tuck from the raw edge. Equals `seamAllowance` for now
+   * (may later become its own param).
+   */
   hemDepth: Millimetres;
   /**
    * Raw → fold-2 = channelDepth + hemDepth (back wall + hem on the flat).
@@ -71,8 +83,8 @@ export type CasingDepths = {
    */
   turnUnder: Millimetres;
   /**
-   * Stitch / worn waist → raw cut edge = hemDepth + 2×channelDepth
-   * (front wall + back wall + hem).
+   * Stitch / worn waist → raw cut edge = seamAllowance + 2×channelDepth
+   * (front wall + back wall + hem). Floats with SA.
    */
   totalExtension: Millimetres;
   /** Fold-2 / finished top → stitch = channelDepth − foot margin. */
@@ -80,17 +92,18 @@ export type CasingDepths = {
 };
 
 /**
- * Derive double-fold casing depths from elastic width.
- * channel = width + 15; hem = 10; cut = hem + 2×channel; stitch = channel − 5
- * below finished top.
+ * Derive double-fold casing depths from elastic width and seam allowance.
+ * channel = width + 15; hem fold = seamAllowance; cut = SA + 2×channel;
+ * stitch = channel − 5 below finished top.
  */
 export function resolveCasingDepths(
   width: CasingElasticWidth = DEFAULT_CASING_ELASTIC_WIDTH,
+  seamAllowance: Millimetres = DEFAULT_SEAM_ALLOWANCE.seam,
 ): CasingDepths {
   const channelDepth = width + CASING_CHANNEL_ADD;
-  const hemDepth = CASING_HEM_DEPTH;
+  const hemDepth = seamAllowance;
   const turnUnder = channelDepth + hemDepth;
-  const totalExtension = hemDepth + 2 * channelDepth;
+  const totalExtension = seamAllowance + 2 * channelDepth;
   const stitchBelowFinishedTop = channelDepth - CASING_FOOT_MARGIN;
   return {
     elasticWidth: width,
@@ -111,13 +124,13 @@ export function parseCasingElasticWidth(
 
 /** Reference lines emitted on the piece for later pocket wiring / report. */
 export type WaistCasingRef = CasingDepths & {
-  /** Fold-2 = finished top edge (main casing crease). */
+  /** Fold-2 = finished top edge (construction; not drawn as a mark). */
   foldLine: Point[];
-  /** Fold-1 = hem crease, hemDepth below the raw cut. */
+  /** Fold-1 = hem crease = sewing line across the casing top. */
   hemLine: Point[];
   /**
    * Channel stitch = worn waist net edge (at bodyWaistY on the legs).
-   * Pocket mouth-top wires here.
+   * Pocket mouth-top wires here. Drawn as the sole casing mark.
    */
   turndownSeam: Point[];
 };
@@ -211,65 +224,23 @@ function dist(a: Point, b: Point): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-const PARALLEL_ANGLE = (5 * Math.PI) / 180;
-const MITER_LIMIT = 2.5;
-
-function lineIntersection(
-  p1: Point,
-  d1: Point,
-  p2: Point,
-  d2: Point,
-): Point | null {
-  const cross = d1.x * d2.y - d1.y * d2.x;
-  if (Math.abs(cross) < 1e-9) return null;
-  const dx = p2.x - p1.x;
-  const dy = p2.y - p1.y;
-  const t = (dx * d2.y - dy * d2.x) / cross;
-  return { x: p1.x + t * d1.x, y: p1.y + t * d1.y };
-}
-
-function normalsNearlyParallel(n1: Point, n2: Point): boolean {
-  const dot = Math.max(-1, Math.min(1, n1.x * n2.x + n1.y * n2.y));
-  const angle = Math.acos(dot);
-  return angle < PARALLEL_ANGLE || Math.PI - angle < PARALLEL_ANGLE;
-}
-
 /**
- * Mitre between the casing top (offset along `topNormal` by `topAllowance`)
- * and a side seam continuing through the casing (offset along `sideNormal` by
- * `sideAllowance`). Yields the cut corner where top meets CF/CB or side.
+ * Constant-`seamAllowance` outward offset of a sewing-U corner.
+ * Sewing turns a square L (up the casing side, across the hem fold); the cut
+ * corner sits `seamAllowance` out along both outward normals so the allowance
+ * does not pinch at the tip.
  */
-function mitreTopSideCorner(
-  vertex: Point,
-  topDir: Point,
-  sideDir: Point,
-  topNormal: Point,
-  sideNormal: Point,
-  topAllowance: Millimetres,
-  sideAllowance: Millimetres,
+function offsetSewingCornerBySa(
+  sewCorner: Point,
+  topOutNormal: Point,
+  sideOutNormal: Point,
+  seamAllowance: Millimetres,
 ): Point {
-  if (normalsNearlyParallel(topNormal, sideNormal)) {
-    const avg = unit(topNormal.x + sideNormal.x, topNormal.y + sideNormal.y);
-    return offsetAlong(vertex, avg, (topAllowance + sideAllowance) / 2);
-  }
-  const topStart = offsetAlong(vertex, topNormal, topAllowance);
-  const sideStart = offsetAlong(vertex, sideNormal, sideAllowance);
-  const hit = lineIntersection(topStart, topDir, sideStart, sideDir);
-  if (!hit) {
-    // Parallelogram fallback: both offsets from the vertex.
-    return {
-      x: vertex.x + topNormal.x * topAllowance + sideNormal.x * sideAllowance,
-      y: vertex.y + topNormal.y * topAllowance + sideNormal.y * sideAllowance,
-    };
-  }
-  const miterDist = dist(hit, vertex);
-  const maxMiter = Math.max(topAllowance, sideAllowance) * MITER_LIMIT;
-  if (miterDist <= maxMiter) return hit;
-  // Bevel: parallelogram corner (continuous SA sides + full top).
-  return {
-    x: vertex.x + topNormal.x * topAllowance + sideNormal.x * sideAllowance,
-    y: vertex.y + topNormal.y * topAllowance + sideNormal.y * sideAllowance,
-  };
+  return offsetAlong(
+    offsetAlong(sewCorner, topOutNormal, seamAllowance),
+    sideOutNormal,
+    seamAllowance,
+  );
 }
 
 /**
@@ -277,10 +248,15 @@ function mitreTopSideCorner(
  * Must run before hem turn-back (input cut is 1:1 with collapsed net).
  *
  * Cut shape of the casing band (double-fold):
- * - **Top** (raw cut edge): offset up by `totalExtension` (= hem + 2×channel).
- * - **Sides** (CF/CB and side / opening): offset outward by the normal seam
- *   allowance, so those seams continue straight up through the casing.
- * - **Corners**: ordinary top↔side mitres (no extension→SA step).
+ * - **Top** (raw cut edge): sewing hem fold offset up by `seamAllowance`
+ *   (= `totalExtension` above stitch).
+ * - **Sides**: sewing U sides offset outward by `seamAllowance` (parallel to
+ *   the sewing climb, which follows `up`).
+ * - **Corners**: sewing corner offset by `seamAllowance` on both normals —
+ *   full allowance on top and side, no convergence.
+ *
+ * Sewing (net) outline: waist chord replaced by CF/side up → hem fold across
+ * → down, so the stitch line is continuous around the piece (like the hem).
  */
 export function applyTrouserWaistCasingTurnup(
   piece: PatternPiece,
@@ -316,9 +292,15 @@ export function applyTrouserWaistCasingTurnup(
   }
   if (waistNet.length < 2) return piece;
 
+  // Depths that float with the seam-allowance parameter (do not use a literal).
+  // Sewing hem crease stays at 2×channel above stitch; cut raw = that + SA.
+  const hemDepthAlong = 2 * depths.channelDepth;
+  const totalExtension = seamAllowance + hemDepthAlong;
+  const hemDepth = seamAllowance;
+
   const nUp = waistOutwardNormal(waistNet, clockwise);
   const mid = waistNet[Math.floor(waistNet.length / 2)]!;
-  const probe = offsetAlong(mid, nUp, depths.totalExtension);
+  const probe = offsetAlong(mid, nUp, totalExtension);
   // y-down: larger y = into the leg — flip if the normal points into the garment.
   const intoGarment = probe.y > mid.y + 0.5;
   const up = intoGarment ? { x: -nUp.x, y: -nUp.y } : nUp;
@@ -327,52 +309,40 @@ export function applyTrouserWaistCasingTurnup(
   const foldLine = waistNet.map((p) =>
     offsetAlong(p, up, depths.channelDepth),
   );
-  // Fold-1 = hem crease (2×channel above stitch = raw − hem).
-  const hemLine = waistNet.map((p) =>
-    offsetAlong(p, up, 2 * depths.channelDepth),
-  );
+  // Fold-1 = hem crease (2×channel above stitch) = sewing across top.
+  const hemLine = waistNet.map((p) => offsetAlong(p, up, hemDepthAlong));
   // Stitch = worn waist / pocket top.
   const turndownSeam = waistNet.map((p) => ({ ...p }));
 
-  // Interior top samples: net waist offset by totalExtension (raw cut edge).
-  const cutTopInterior = waistNet.map((p) =>
-    offsetAlong(p, up, depths.totalExtension),
+  // Interior top samples: sewing hem offset outward by seamAllowance.
+  const cutTopInterior = hemLine.map((p) =>
+    offsetAlong(p, up, seamAllowance),
   );
 
   const n = collapsed.length;
   const at = (i: number) => collapsed[((i % n) + n) % n]!.at;
 
-  // --- CF/CB top corner: seam continues up with SA; top at totalExtension ----
+  // --- CF/CB: sewing corner → cut corner (constant SA offset) ------------
   const startVertex = waistNet[0]!;
-  const startPrev = at(run.start - 1); // along CF/CB into the waist
-  const startWaistNext = waistNet[1]!;
-  const cfDir = unit(
-    startVertex.x - startPrev.x,
-    startVertex.y - startPrev.y,
-  ); // continues past waist into the casing
-  const cfNormal = outwardNormalForEdge(startPrev, startVertex, clockwise);
-  const waistDirStart = unit(
-    startWaistNext.x - startVertex.x,
-    startWaistNext.y - startVertex.y,
-  );
-  const startCorner = mitreTopSideCorner(
+  const sewStartCorner = offsetAlong(startVertex, up, hemDepthAlong);
+  const cfSideOut = outwardNormalForEdge(
     startVertex,
-    waistDirStart,
-    cfDir,
+    sewStartCorner,
+    clockwise,
+  );
+  const startCorner = offsetSewingCornerBySa(
+    sewStartCorner,
     up,
-    cfNormal,
-    depths.totalExtension,
+    cfSideOut,
     seamAllowance,
   );
+  const cfWaistCutPt = offsetAlong(startVertex, cfSideOut, seamAllowance);
 
-  // --- Side / opening top corner --------------------------------------------
+  // --- Side / opening ---------------------------------------------------
   // Waist-role run often stops a few mm before the side-seam (or pocket-mouth)
-  // vertex that sits on the same waist plane. Mitre at that junction so the
-  // side-seam SA continues straight up; do not mitre on the last waist-only
-  // sample (its SA sits on the waist offset, not the side wall).
+  // vertex that sits on the same waist plane.
   const lastWaistIdx = run.end;
   const lastWaist = waistNet[waistNet.length - 1]!;
-  const endWaistPrev = waistNet[waistNet.length - 2]!;
   let sideCornerIdx = lastWaistIdx;
   {
     const nextIdx = ((lastWaistIdx + 1) % n + n) % n;
@@ -386,29 +356,71 @@ export function applyTrouserWaistCasingTurnup(
       sideCornerIdx = nextIdx;
     }
   }
-  const endVertex = collapsed[sideCornerIdx]!.at;
-  const endBelow = at(sideCornerIdx + 1);
-  const sideDir = unit(
-    endVertex.x - endBelow.x,
-    endVertex.y - endBelow.y,
-  ); // continues past the waist into the casing
-  const sideNormal = outwardNormalForEdge(endVertex, endBelow, clockwise);
-  const waistDirEnd = unit(
-    endVertex.x - endWaistPrev.x,
-    endVertex.y - endWaistPrev.y,
-  );
-  const endCorner = mitreTopSideCorner(
-    endVertex,
-    waistDirEnd,
-    sideDir,
+
+  // When the waist plane ends on a pocket-mouth, the true outer casing wall is
+  // still the side seam (further along the outline). Using the mouth as the
+  // top-outer corner makes the slash mitre run to the top and slices off the
+  // upright side wall. Front-only: find the side seam and build the wall there.
+  let sideSeamIdx = sideCornerIdx;
+  let mouthIdxForCut = -1;
+  if (collapsed[sideCornerIdx]!.role === "pocket-mouth") {
+    for (let i = sideCornerIdx + 1; i < n; i++) {
+      if (collapsed[i]!.role === "side-seam") {
+        sideSeamIdx = i;
+        mouthIdxForCut = sideCornerIdx;
+        break;
+      }
+    }
+  }
+
+  // Wall foot at waist: side-seam ∩ waist plane (slash) or the side/mouth vert.
+  const wallCornerIdx = sideSeamIdx;
+  let wallVertex: Point;
+  if (mouthIdxForCut >= 0) {
+    const sideAt = collapsed[sideSeamIdx]!.at;
+    const sideNext = at(sideSeamIdx + 1);
+    const waistY = lastWaist.y;
+    if (Math.abs(sideNext.y - sideAt.y) < 1e-9) {
+      wallVertex = { x: sideAt.x, y: waistY };
+    } else {
+      const t = (waistY - sideAt.y) / (sideNext.y - sideAt.y);
+      if (t <= 1 && t >= -2) {
+        wallVertex = {
+          x: sideAt.x + t * (sideNext.x - sideAt.x),
+          y: waistY,
+        };
+      } else {
+        const sdir = unit(sideAt.x - sideNext.x, sideAt.y - sideNext.y);
+        const upAlong =
+          Math.abs(sdir.y) > 1e-9 ? (waistY - sideAt.y) / sdir.y : 0;
+        wallVertex = {
+          x: sideAt.x + sdir.x * upAlong,
+          y: waistY,
+        };
+      }
+    }
+  } else {
+    wallVertex = collapsed[wallCornerIdx]!.at;
+  }
+
+  // Cut top-outer = SA offset of the sewing corner above the wall foot.
+  // Sewing U sides follow `up`; the outline traverses the outer side from the
+  // hem fold *down* to the waist, so the outward normal uses that direction.
+  const sewWallCorner = offsetAlong(wallVertex, up, hemDepthAlong);
+  const sideOut = outwardNormalForEdge(sewWallCorner, wallVertex, clockwise);
+  const endCorner = offsetSewingCornerBySa(
+    sewWallCorner,
     up,
-    sideNormal,
-    depths.totalExtension,
+    sideOut,
     seamAllowance,
   );
+  const sideWaistCutPt = offsetAlong(wallVertex, sideOut, seamAllowance);
 
-  // Top cut: CF mitre + waist samples (incl. last waist) + side mitre.
-  // Keeping the last waist sample matters when the side corner sits past it.
+  // endVertex still names the sewing U's side end (mouth or side).
+  const endVertex = collapsed[sideCornerIdx]!.at;
+
+  // Top cut: CF corner + waist samples + outer side corner (at the side seam
+  // when a slash mouth had been the waist-plane end).
   const cutTop: Point[] = [{ ...startCorner }];
   for (let i = 1; i < cutTopInterior.length; i++) {
     cutTop.push(cutTopInterior[i]!);
@@ -420,99 +432,208 @@ export function applyTrouserWaistCasingTurnup(
   }
 
   const newCut: Point[] = [];
-  const collapsedToCut: number[] = new Array(collapsed.length);
   const topBase = 0;
   for (let i = 0; i < cutTop.length; i++) {
     newCut.push(cutTop[i]!);
   }
-  collapsedToCut[run.start] = topBase;
-  for (let i = 1; i < waistNet.length; i++) {
-    // waist sample i → cutTop[i] (startCorner at 0; interiors follow)
-    collapsedToCut[run.start + i] = topBase + i;
-  }
-  // Side-corner net maps to the top mitre (last cutTop point).
-  collapsedToCut[sideCornerIdx] = topBase + cutTop.length - 1;
+  const endCornerCutIdx = newCut.length - 1;
 
-  // Side wall: waist-level SA at the side corner, then the rest of the piece.
-  // Skip oldCut[lastWaistIdx] when the side corner is past it — that point is
-  // the waist-offset mitre and would pull the wall inward (extension→SA step).
-  const sideWallIdx = sideCornerIdx;
-  const sideWaistSa = oldCut[sideWallIdx]!;
-  if (dist(endCorner, sideWaistSa) > 0.5) {
-    collapsedToCut[sideWallIdx] = newCut.length;
-    newCut.push({ ...sideWaistSa });
+  // Casing side wall: top-outer → waist-level SA (parallel to sewing climb).
+  let sideWaistSaIdx = -1;
+  if (dist(endCorner, sideWaistCutPt) > 0.5) {
+    sideWaistSaIdx = newCut.length;
+    newCut.push({ ...sideWaistCutPt });
+  } else {
+    sideWaistSaIdx = endCornerCutIdx;
   }
-  for (let i = sideWallIdx + 1; i < collapsed.length; i++) {
-    collapsedToCut[i] = newCut.length;
-    newCut.push(oldCut[i]!);
+
+  // Slash front: after the side wall, keep the mouth SA then jump to the
+  // side-seam (slash edge mouth→side), then the rest of the leg.
+  let mouthCutIdx = -1;
+  if (mouthIdxForCut >= 0) {
+    const mouthSa = oldCut[mouthIdxForCut]!;
+    if (dist(sideWaistCutPt, mouthSa) > 0.5) {
+      mouthCutIdx = newCut.length;
+      newCut.push({ ...mouthSa });
+    } else {
+      mouthCutIdx = sideWaistSaIdx;
+    }
+    for (let i = sideSeamIdx; i < collapsed.length; i++) {
+      newCut.push(oldCut[i]!);
+    }
+  } else {
+    // Plain side: wall bottom then the rest of the piece from the side corner.
+    for (let i = wallCornerIdx + 1; i < collapsed.length; i++) {
+      newCut.push(oldCut[i]!);
+    }
   }
   for (let i = 0; i < run.start; i++) {
-    collapsedToCut[i] = newCut.length;
     newCut.push(oldCut[i]!);
   }
-  // CF/CB: keep the waist-level SA mitre so the centre-seam allowance runs
-  // continuously up to the top-side mitre (… → oldCut[0] → startCorner).
-  if (run.start === 0) {
-    const cfWaistSa = oldCut[0]!;
-    if (dist(startCorner, cfWaistSa) > 0.5) {
-      newCut.push({ ...cfWaistSa });
+  // CF/CB: waist-level SA on the sewing-U side (parallel climb to startCorner).
+  let cfWaistSaIdx = -1;
+  if (dist(startCorner, cfWaistCutPt) > 0.5) {
+    cfWaistSaIdx = newCut.length;
+    newCut.push({ ...cfWaistCutPt });
+  } else {
+    cfWaistSaIdx = topBase;
+  }
+
+  // --- Sewing outline: replace waist chord with casing U ----------------
+  // Path: … → start (waist CF) → up → hem fold across → down → end (side) → …
+  // Hem fold = 2×channel above stitch (= raw − seamAllowance).
+  const sewingHem: Point[] = [];
+  sewingHem.push(offsetAlong(startVertex, up, hemDepthAlong));
+  for (let i = 1; i < waistNet.length - 1; i++) {
+    sewingHem.push(offsetAlong(waistNet[i]!, up, hemDepthAlong));
+  }
+  sewingHem.push(offsetAlong(endVertex, up, hemDepthAlong));
+
+  // Map old collapsed index → cut index for body verts that we keep.
+  const oldCollapsedToCut = new Array<number>(collapsed.length);
+  oldCollapsedToCut[run.start] = cfWaistSaIdx >= 0 ? cfWaistSaIdx : topBase;
+  // Mouth (sewing U end) maps to mouth cut; side seam maps into the side run.
+  if (mouthIdxForCut >= 0) {
+    oldCollapsedToCut[mouthIdxForCut] =
+      mouthCutIdx >= 0 ? mouthCutIdx : sideWaistSaIdx;
+    oldCollapsedToCut[sideSeamIdx] =
+      (mouthCutIdx >= 0 ? mouthCutIdx : sideWaistSaIdx) + 1;
+    let bodyCut = oldCollapsedToCut[sideSeamIdx]! + 1;
+    for (let i = sideSeamIdx + 1; i < collapsed.length; i++) {
+      oldCollapsedToCut[i] = bodyCut++;
+    }
+  } else {
+    oldCollapsedToCut[sideCornerIdx] = sideWaistSaIdx;
+    const bodyStartCut =
+      cutTop.length + (sideWaistSaIdx > endCornerCutIdx ? 1 : 0);
+    for (let i = sideCornerIdx + 1; i < collapsed.length; i++) {
+      oldCollapsedToCut[i] = bodyStartCut + (i - (sideCornerIdx + 1));
+    }
+  }
+  {
+    const afterWrapBase = (() => {
+      if (mouthIdxForCut >= 0) {
+        return (
+          oldCollapsedToCut[collapsed.length - 1]! + 1
+        );
+      }
+      const bodyStartCut =
+        cutTop.length + (sideWaistSaIdx > endCornerCutIdx ? 1 : 0);
+      return bodyStartCut + (collapsed.length - (sideCornerIdx + 1));
+    })();
+    for (let i = 0; i < run.start; i++) {
+      oldCollapsedToCut[i] = afterWrapBase + i;
+    }
+  }
+  // Waist interiors (replaced by sewing U) inherit nearest cut on the top.
+  for (let i = run.start + 1; i <= run.end; i++) {
+    if (oldCollapsedToCut[i] === undefined) {
+      oldCollapsedToCut[i] = Math.min(
+        topBase + (i - run.start),
+        endCornerCutIdx,
+      );
     }
   }
 
-  // Any collapsed index still unset (e.g. lastWaist when side is past it)
-  // inherits the nearest cut already assigned on the waist top.
-  for (let i = 0; i < collapsed.length; i++) {
-    if (collapsedToCut[i] === undefined) {
-      collapsedToCut[i] = collapsedToCut[run.end] ?? topBase;
+  const newOutline: OutlinePoint[] = [];
+  const netToCut: number[] = [];
+
+  const pushNet = (op: OutlinePoint, cutIdx: number) => {
+    newOutline.push(op);
+    netToCut.push(cutIdx);
+  };
+
+  // Raw outline: keep verts before first waist; replace waist→sideCorner with U;
+  // keep verts after sideCorner.
+  const rawRun = findWaistRun(piece.outline);
+  if (!rawRun) return piece;
+
+  // First raw index that collapses to sideCornerIdx (inclusive end of replaced span).
+  let rawSideCorner = -1;
+  for (let r = 0; r < piece.outline.length; r++) {
+    if (rawToCollapsed[r] === sideCornerIdx) {
+      rawSideCorner = r;
+      break;
     }
   }
+  if (rawSideCorner < 0) rawSideCorner = rawRun.end;
 
-  const netToCut = rawToCollapsed.map((c) => collapsedToCut[c]!);
+  for (let r = 0; r < rawRun.start; r++) {
+    const c = rawToCollapsed[r]!;
+    pushNet({ ...piece.outline[r]! }, oldCollapsedToCut[c]!);
+  }
 
-  const foldMark: Marking = {
-    kind: "casingFold",
-    points: foldLine.map((p) => ({ ...p })),
-    label: "Casing — fold to inside",
-  };
-  const hemMark: Marking = {
-    kind: "casingHem",
-    points: hemLine.map((p) => ({ ...p })),
-    label: "Hem",
-  };
+  // Waist CF / start — sewing climbs from here.
+  pushNet(
+    { ...piece.outline[rawRun.start]! },
+    cfWaistSaIdx >= 0 ? cfWaistSaIdx : topBase,
+  );
+
+  // Hem-fold sewing across the casing top (seamAllowance in from raw cut).
+  // Last hem vert sits above the mouth/side sewing end — map to the cut near
+  // that end (mouth SA when slash, else side-wall waist SA), not the far
+  // side-seam top corner.
+  const sewingEndCutIdx =
+    mouthCutIdx >= 0
+      ? mouthCutIdx
+      : sideWaistSaIdx >= 0
+        ? sideWaistSaIdx
+        : endCornerCutIdx;
+  for (let i = 0; i < sewingHem.length; i++) {
+    const cutIdx =
+      i === 0
+        ? topBase
+        : i === sewingHem.length - 1
+          ? sewingEndCutIdx
+          : Math.min(topBase + i, endCornerCutIdx);
+    pushNet({ at: { ...sewingHem[i]! } }, cutIdx);
+  }
+
+  // Side / pocket-mouth at waist — sewing comes back down here.
+  const endRaw =
+    rawSideCorner > rawRun.start ? rawSideCorner : rawRun.end;
+  if (endRaw !== rawRun.start) {
+    pushNet(
+      { ...piece.outline[endRaw]! },
+      mouthCutIdx >= 0 ? mouthCutIdx : sideWaistSaIdx,
+    );
+  }
+
+  for (let r = endRaw + 1; r < piece.outline.length; r++) {
+    const c = rawToCollapsed[r]!;
+    // Skip any remaining waist-plane verts between old waist end and side corner
+    // that were part of the replaced span (already handled).
+    if (c > run.start && c < sideCornerIdx) continue;
+    if (c === sideCornerIdx || c === run.start) continue;
+    pushNet({ ...piece.outline[r]! }, oldCollapsedToCut[c]!);
+  }
+
   const stitchMark: Marking = {
     kind: "casingTurndown",
     points: turndownSeam.map((p) => ({ ...p })),
     label: "Stitch",
   };
-  // Channel band between finished top (fold-2) and stitch.
-  const regionOutline: Point[] = [
-    ...foldLine.map((p) => ({ ...p })),
-    ...[...turndownSeam].reverse().map((p) => ({ ...p })),
-  ];
-  const regionMark: Marking = {
-    kind: "casingRegion",
-    outline: regionOutline,
-    label: "Casing",
-  };
 
   const waistCasing: WaistCasingRef = {
     ...depths,
+    // Re-assert SA-dependent depths so a stale resolveCasingDepths call cannot
+    // desync the stored ref from the geometry built with `seamAllowance`.
+    hemDepth,
+    turnUnder: depths.channelDepth + hemDepth,
+    totalExtension,
     foldLine,
+    // Waist-aligned hem crease (fold-flat / channel maths). Sewing path may
+    // end above the pocket-mouth corner when that sits past the last waist role.
     hemLine,
     turndownSeam,
   };
 
   return {
     ...piece,
+    outline: newOutline,
     cuttingOutline: newCut,
     netToCutIndex: netToCut,
-    markings: [
-      ...piece.markings,
-      regionMark,
-      foldMark,
-      hemMark,
-      stitchMark,
-    ],
+    markings: [...piece.markings, stitchMark],
     waistCasing,
   };
 }
@@ -587,6 +708,8 @@ export function frontCasingFoldTestResidual(
     const hem = ref.hemLine[i]!;
     const fold = ref.foldLine[i]!;
     const stitch = ref.turndownSeam[i]!;
+    // hemLine may be longer than foldLine when side corner ≠ last waist —
+    // sample shared interior by fold/turndown indices.
     const d = (hem.x - fold.x) * up.x + (hem.y - fold.y) * up.y;
     const reflected = {
       x: hem.x - 2 * d * up.x,

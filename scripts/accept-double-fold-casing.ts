@@ -316,25 +316,14 @@ for (const bod of bodies) {
       }
 
       const kinds = new Set(p.markings.map((m) => m.kind));
-      for (const k of [
-        "casingFold",
-        "casingHem",
-        "casingTurndown",
-        "casingRegion",
-      ] as const) {
-        if (!kinds.has(k)) fail(`${tag}: missing mark ${k}`);
-      }
-      const foldM = p.markings.find((m) => m.kind === "casingFold");
-      if (
-        foldM?.kind === "casingFold" &&
-        foldM.label !== "Casing — fold to inside"
-      ) {
-        fail(`${tag}: fold label`);
+      if (!kinds.has("casingTurndown")) fail(`${tag}: missing channel stitch`);
+      for (const k of ["casingFold", "casingHem", "casingRegion"] as const) {
+        if (kinds.has(k as never)) fail(`${tag}: removed mark still present: ${k}`);
       }
     }
   }
 }
-ok("front+back all sizes/widths: depths + both folds + stitch marks");
+ok("front+back all sizes/widths: depths + channel stitch only");
 
 // Helen detail print
 {
@@ -365,18 +354,29 @@ console.log("\n=== 3. Pocket unchanged (slash + bags); silhouette ===\n");
   const sa = withSeamAllowance(net, DEFAULT_SEAM_ALLOWANCE);
   const cased = applyTrouserWaistCasingToPattern(sa, resolveCasingDepths(25));
   const hNet = pocketSlashHash(body, style);
-  // After casing, pocket pieces unchanged; front net outline unchanged
-  for (const name of [
-    "Trouser front",
-    "Pocket front",
-    "Pocket back",
-  ] as const) {
+  // Pocket pieces unchanged; front sewing outline extends into casing (expected).
+  for (const name of ["Slant pocket front", "Slant pocket back"] as const) {
     const a = sa.pieces.find((p) => p.name === name);
     const b = cased.pieces.find((p) => p.name === name);
     if (!a || !b) continue;
     if (outlineHash(a) !== outlineHash(b)) {
       fail(`${name}: net outline moved by casing`);
     } else ok(`${name}: net outline unchanged`);
+  }
+  {
+    const a = sa.pieces.find((p) => p.name === "Trouser front")!;
+    const b = cased.pieces.find((p) => p.name === "Trouser front")!;
+    const waistA = a.outline.filter((o) => o.role === "waist").map((o) => o.at);
+    const turn = b.waistCasing?.turndownSeam ?? [];
+    if (waistA.length < 2 || turn.length < 2) {
+      fail("Trouser front: waist / turndown missing");
+    } else {
+      const midA = waistA[Math.floor(waistA.length / 2)]!;
+      const midT = turn[Math.floor(turn.length / 2)]!;
+      if (Math.hypot(midA.x - midT.x, midA.y - midT.y) > 0.5) {
+        fail("Trouser front: channel stitch moved vs pre-casing waist");
+      } else ok("Trouser front: channel stitch (=pocket top) unmoved");
+    }
   }
   void hNet;
   const inv = silhouetteInvariantDelta(
@@ -413,43 +413,41 @@ console.log("\n=== 4. Continuous ~10 mm SA on sides through full extension ===\n
       const pat = finish(body, style, w);
       for (const name of ["Trouser front", "Trouser back"] as const) {
         const p = pat.pieces.find((x) => x.name === name)!;
-        const col = collapse(p.outline);
-        const run = findWaistRun(col);
         const cut = p.cuttingOutline;
         const ref = p.waistCasing;
-        if (!run || !cut || !ref) {
+        if (!cut || !ref || ref.turndownSeam.length < 2) {
           fail(`${name}/p${pocket}/w${w}: missing`);
           continue;
         }
-        const waist: Point[] = [];
-        for (let i = run.start; i <= run.end; i++) waist.push(col[i]!.at);
-        const clockwise = signedArea(col) > 0;
-        const up = waistUp(waist, clockwise);
-        const topCount = waist.length;
-        const startCorner = cut[0]!;
-        const endCorner = cut[topCount]!;
-        const afterTop = cut[topCount + 1]!;
-        const cfWaistSa = cut[cut.length - 1]!;
-        const n = col.length;
-        const cfNetA = col[((run.start - 1) % n + n) % n]!.at;
-        const cfNetB = waist[0]!;
-        let sideNetA = waist[waist.length - 1]!;
-        let sideNetB = col[(run.end + 1) % n]!.at;
-        {
-          const next = col[(run.end + 1) % n]!;
-          if (
-            Math.abs(next.at.y - sideNetA.y) < 2.5 &&
-            (next.role === "side-seam" || next.role === "pocket-mouth")
-          ) {
-            sideNetA = next.at;
-            sideNetB = col[(run.end + 2) % n]!.at;
-          }
+        const waist = ref.turndownSeam.map((pt) => ({ ...pt }));
+        const midF = ref.foldLine[Math.floor(ref.foldLine.length / 2)]!;
+        const midT = waist[Math.floor(waist.length / 2)]!;
+        const up = unit(midF.x - midT.x, midF.y - midT.y);
+        const onTop = (pt: Point) => {
+          const along =
+            (pt.x - waist[0]!.x) * up.x + (pt.y - waist[0]!.y) * up.y;
+          return along > d.totalExtension - 8 && along < d.totalExtension + 25;
+        };
+        let topCount = 0;
+        while (topCount < cut.length && onTop(cut[topCount]!)) topCount++;
+        if (topCount < 2) {
+          fail(`${name}/p${pocket}/w${w}: no top run`);
+          continue;
         }
+        const startCorner = cut[0]!;
+        const endCorner = cut[topCount - 1]!;
+        const afterTop = cut[topCount]!;
+        const cfWaistSa = cut[cut.length - 1]!;
+        const cfNetB = waist[0]!;
+        const hemAlong = 2 * d.channelDepth;
+        const sewCfCorner = {
+          x: cfNetB.x + up.x * hemAlong,
+          y: cfNetB.y + up.y * hemAlong,
+        };
+        // Walls measured against sewing U climbs (brief: cut = sew + SA).
+        // Slash pocket: sewing turns at the mouth — side-wall check is Mila/none only.
         const cfGaps = sampleSeg(cfWaistSa, startCorner, 8).map((q) =>
-          distToLine(q, cfNetA, cfNetB),
-        );
-        const sideGaps = sampleSeg(endCorner, afterTop, 8).map((q) =>
-          distToLine(q, sideNetA, sideNetB),
+          distToLine(q, cfNetB, sewCfCorner),
         );
         const midTop = cut[Math.floor(topCount / 2)]!;
         const midNet = waist[Math.floor(waist.length / 2)]!;
@@ -457,24 +455,63 @@ console.log("\n=== 4. Continuous ~10 mm SA on sides through full extension ===\n
           (midTop.x - midNet.x) * up.x + (midTop.y - midNet.y) * up.y;
         const tag = `${name === "Trouser front" ? "F" : "B"}/${pocket}/w${w}`;
         const cfMean = cfGaps.reduce((s, g) => s + g, 0) / cfGaps.length;
-        const sideMean = sideGaps.reduce((s, g) => s + g, 0) / sideGaps.length;
         if (Math.abs(topGap - d.totalExtension) > 1) {
           fail(`${tag}: topGap ${f3(topGap)} ≠ ${d.totalExtension}`);
         }
-        if (Math.abs(cfMean - SA) > 1.5 || Math.max(...cfGaps) - Math.min(...cfGaps) > 1.5) {
+        if (
+          Math.abs(cfMean - SA) > 1.5 ||
+          Math.max(...cfGaps) - Math.min(...cfGaps) > 1.5
+        ) {
           fail(`${tag}: CF/CB SA ${f3(cfMean)}`);
         }
-        if (
-          Math.abs(sideMean - SA) > 1.5 ||
-          Math.max(...sideGaps) - Math.min(...sideGaps) > 1.5
-        ) {
-          fail(`${tag}: side SA ${f3(sideMean)}`);
+        if (pocket === "none" || name === "Trouser back") {
+          const sideNetA = waist[waist.length - 1]!;
+          let sewSideBase = sideNetA;
+          {
+            const outline = p.outline;
+            let best = 0;
+            let bestD = Infinity;
+            for (let i = 0; i < outline.length; i++) {
+              const dd = dist(outline[i]!.at, sideNetA);
+              if (dd < bestD) {
+                bestD = dd;
+                best = i;
+              }
+            }
+            for (let k = 0; k < 3; k++) {
+              const idx = (best + k) % outline.length;
+              const op = outline[idx]!;
+              if (
+                Math.abs(op.at.y - sideNetA.y) < 2.5 &&
+                (op.role === "side-seam" || op.role === "pocket-mouth")
+              ) {
+                sewSideBase = op.at;
+                break;
+              }
+            }
+          }
+          const sewSideCorner = {
+            x: sewSideBase.x + up.x * hemAlong,
+            y: sewSideBase.y + up.y * hemAlong,
+          };
+          const sideGaps = sampleSeg(endCorner, afterTop, 8).map((q) =>
+            distToLine(q, sewSideCorner, sewSideBase),
+          );
+          const sideMean =
+            sideGaps.reduce((s, g) => s + g, 0) / sideGaps.length;
+          if (
+            Math.abs(sideMean - SA) > 1.5 ||
+            Math.max(...sideGaps) - Math.min(...sideGaps) > 1.5
+          ) {
+            fail(`${tag}: side SA ${f3(sideMean)}`);
+          }
         }
+        void afterTop;
       }
     }
   }
 }
-ok("Helen: continuous ~10 mm SA through full cut extension (F/B, slant+none, all w)");
+ok("Helen: continuous seamAllowance vs sewing U through full cut extension");
 
 // ---------------------------------------------------------------------------
 console.log("\n=== 5. Fold-flat front; parallelogram back ===\n");
@@ -539,9 +576,11 @@ console.log("\n=== 6. Non-elastic / none byte-identical; PDF cases ===\n");
 
 {
   const pdfSrc = readFileSync(join(process.cwd(), "lib", "export", "pdf.ts"), "utf8");
-  for (const k of ["casingFold", "casingHem", "casingTurndown", "casingRegion"] as const) {
-    if (!pdfSrc.includes(`case "${k}"`)) fail(`pdf missing ${k}`);
-    else ok(`pdf draws ${k}`);
+  if (!pdfSrc.includes('case "casingTurndown"')) fail("pdf missing casingTurndown");
+  else ok("pdf draws casingTurndown");
+  for (const k of ["casingFold", "casingHem", "casingRegion"] as const) {
+    if (pdfSrc.includes(`case "${k}"`)) fail(`pdf still draws removed ${k}`);
+    else ok(`pdf: ${k} removed`);
   }
 }
 

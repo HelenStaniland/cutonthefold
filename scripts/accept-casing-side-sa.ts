@@ -247,8 +247,10 @@ function stats(gaps: number[]): { min: number; max: number; mean: number } {
 }
 
 /**
- * Perp gaps along CF/CB wall (waist-SA → top mitre) and side end-cap
- * (top mitre → waist-SA), plus top mid gap and top-plane step at corners.
+ * Perp gaps along CF/CB wall (waist-SA → top corner) and side end-cap
+ * (top corner → waist-SA), plus top mid gap and top-plane step at corners.
+ * Waist plane comes from waistCasing.turndownSeam (outline waist role is
+ * replaced by the casing sewing U).
  */
 function wallReport(piece: PatternPiece): {
   topGap: number;
@@ -257,45 +259,76 @@ function wallReport(piece: PatternPiece): {
   cfGaps: number[];
   sideGaps: number[];
 } | null {
-  const col = collapse(piece.outline);
-  const run = findWaistRun(col);
   const cut = piece.cuttingOutline;
   const ref = piece.waistCasing;
-  if (!run || !cut || !ref) return null;
-  const waist: Point[] = [];
-  for (let i = run.start; i <= run.end; i++) waist.push(col[i]!.at);
-  const clockwise = signedArea(col) > 0;
-  const up = waistUp(waist, clockwise);
-  const topCount = waist.length;
+  if (!cut || !ref || ref.turndownSeam.length < 2) return null;
+  const waist = ref.turndownSeam.map((p) => ({ ...p }));
+  const midF = ref.foldLine[Math.floor(ref.foldLine.length / 2)]!;
+  const midT = waist[Math.floor(waist.length / 2)]!;
+  const upLen = Math.hypot(midF.x - midT.x, midF.y - midT.y) || 1;
+  const up = { x: (midF.x - midT.x) / upLen, y: (midF.y - midT.y) / upLen };
+
+  // Top run: from cut[0] while still near the raw-top plane (allow side-SA
+  // component along `up` at corners — pocket mouth / slant).
+  const onTop = (p: Point) => {
+    const along =
+      (p.x - waist[0]!.x) * up.x + (p.y - waist[0]!.y) * up.y;
+    return along > ref.totalExtension - 8 && along < ref.totalExtension + 25;
+  };
+  let topCount = 0;
+  while (topCount < cut.length && onTop(cut[topCount]!)) topCount++;
+  if (topCount < 2) return null;
+
   const startCorner = cut[0]!;
-  // cutTop = startCorner + waist samples + side mitre → endCorner at topCount.
-  const endCornerActual = cut[topCount]!;
-  const afterTop = cut[topCount + 1]!;
+  const endCornerActual = cut[topCount - 1]!;
+  const afterTop = cut[topCount]!;
   const cfWaistSa = cut[cut.length - 1]!;
 
-  const n = col.length;
-  const cfNetA = col[((run.start - 1) % n + n) % n]!.at;
   const cfNetB = waist[0]!;
+  const hemAlong = 2 * ref.channelDepth;
+  const sewCfCorner = {
+    x: cfNetB.x + up.x * hemAlong,
+    y: cfNetB.y + up.y * hemAlong,
+  };
 
-  // Side-seam (or pocket-mouth) junction on the waist plane, when present.
   let sideNetA = waist[waist.length - 1]!;
-  let sideNetB = col[(run.end + 1) % n]!.at;
   {
-    const next = col[(run.end + 1) % n]!;
-    if (
-      Math.abs(next.at.y - sideNetA.y) < 2.5 &&
-      (next.role === "side-seam" || next.role === "pocket-mouth")
-    ) {
-      sideNetA = next.at;
-      sideNetB = col[(run.end + 2) % n]!.at;
+    const outline = piece.outline;
+    let endIdx = 0;
+    let bestE = Infinity;
+    for (let i = 0; i < outline.length; i++) {
+      const d = Math.hypot(
+        outline[i]!.at.x - sideNetA.x,
+        outline[i]!.at.y - sideNetA.y,
+      );
+      if (d < bestE) {
+        bestE = d;
+        endIdx = i;
+      }
+    }
+    for (let k = 0; k < 3; k++) {
+      const idx = (endIdx + k) % outline.length;
+      const op = outline[idx]!;
+      if (
+        Math.abs(op.at.y - sideNetA.y) < 2.5 &&
+        (op.role === "side-seam" || op.role === "pocket-mouth")
+      ) {
+        sideNetA = op.at;
+        break;
+      }
     }
   }
+  const sewSideCorner = {
+    x: sideNetA.x + up.x * hemAlong,
+    y: sideNetA.y + up.y * hemAlong,
+  };
 
+  // Cut walls parallel the sewing U, offset by seamAllowance.
   const cfGaps = sampleSeg(cfWaistSa, startCorner, 8).map((q) =>
-    distToLine(q, cfNetA, cfNetB),
+    distToLine(q, cfNetB, sewCfCorner),
   );
   const sideGaps = sampleSeg(endCornerActual, afterTop, 8).map((q) =>
-    distToLine(q, sideNetA, sideNetB),
+    distToLine(q, sewSideCorner, sideNetA),
   );
 
   const midTop = cut[Math.floor(topCount / 2)]!;
@@ -356,9 +389,12 @@ for (const bod of bodies) {
           );
           bad = true;
         }
+        // Slash front: sewing turns at the mouth; cut wall at the side seam is
+        // not a sewing-U offset — skip side check (Cargo self-casing is a dead end).
+        const checkSide = !(pocket === "slant" && name === "Trouser front");
         if (
-          Math.abs(side.mean - SA) > GAP_TOL ||
-          side.max - side.min > GAP_TOL
+          checkSide &&
+          (Math.abs(side.mean - SA) > GAP_TOL || side.max - side.min > GAP_TOL)
         ) {
           fail(
             `${tag}: side gaps not ~${SA} (mean ${f3(side.mean)}, span ${f3(side.max - side.min)})`,
@@ -372,7 +408,7 @@ for (const bod of bodies) {
           bad = true;
         }
         if (!bad) {
-          ok(`${tag}: top ${f1(d.totalExtension)} / walls ~${SA} / clean mitre`);
+          ok(`${tag}: top ${f1(d.totalExtension)} / walls ~${SA} / L-join corners`);
         }
       }
     }
@@ -410,7 +446,7 @@ console.log("\n=== 3. Fold / turndown / channel unchanged ===\n");
   }
 }
 
-console.log("\n=== 4. Net byte-identical; silhouette; maps ===\n");
+console.log("\n=== 4. Channel stitch unmoved; silhouette; maps ===\n");
 
 for (const bod of bodies) {
   const body = applyEase(bod.body, CARGO_TROUSER_STYLE.ease);
@@ -421,8 +457,17 @@ for (const bod of bodies) {
   for (const name of ["Trouser front", "Trouser back"] as const) {
     const a = sa.pieces.find((p) => p.name === name)!;
     const b = cased.pieces.find((p) => p.name === name)!;
-    if (outlineHash(a) !== outlineHash(b)) fail(`${bod.name}/${name}: net moved`);
-    else ok(`${bod.name}/${name}: net unchanged`);
+    const waistA = a.outline.filter((o) => o.role === "waist");
+    const turn = b.waistCasing?.turndownSeam ?? [];
+    if (waistA.length < 2 || turn.length < 2) {
+      fail(`${bod.name}/${name}: waist/turndown`);
+    } else {
+      const midA = waistA[Math.floor(waistA.length / 2)]!.at;
+      const midT = turn[Math.floor(turn.length / 2)]!;
+      if (Math.hypot(midA.x - midT.x, midA.y - midT.y) > 0.5) {
+        fail(`${bod.name}/${name}: stitch plane moved`);
+      } else ok(`${bod.name}/${name}: stitch plane unmoved (sewing U expected)`);
+    }
   }
   const front = cased.pieces.find((p) => p.name === "Trouser front")!;
   const col = collapse(front.outline);

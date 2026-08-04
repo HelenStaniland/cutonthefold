@@ -238,27 +238,53 @@ export function applyTrouserHemTurnback(
   const inseamRc = reflectAcrossHemY(inseamAbove, hemY);
 
   // Straight hem: Fp, Rc, Rc′, Fp′ (corners only — no interior raw samples).
-  const newCut: Point[] = [];
-  const collapsedToCut: number[] = new Array(collapsed.length);
-
-  for (let i = 0; i < sideIdx; i++) {
-    collapsedToCut[i] = newCut.length;
-    newCut.push(oldCut[priorCollapsedToCut[i]!]!);
+  //
+  // Rebuild in *cutting* order, not net order. A prior waist-casing pass
+  // inserts cut-only verts (top-outer corner, vertical casing side wall) that
+  // are not targets of netToCutIndex. Walking the net and looking up one cut
+  // point per net vert drops those and joins the last mapped top sample
+  // straight to the mouth SA — a diagonal mitre that is not on the sewing
+  // line. Splicing the hem span out of the existing cut keeps casing geometry.
+  const sideCutIdx = priorCollapsedToCut[sideIdx]!;
+  const inseamCutIdx = priorCollapsedToCut[inseamIdx]!;
+  if (sideCutIdx > inseamCutIdx) {
+    console.warn(
+      `trouserHemTurnback: ${piece.name} side cut ${sideCutIdx} > inseam cut ${inseamCutIdx}; skipping`,
+    );
+    return piece;
   }
 
+  const newCut: Point[] = [];
+  for (let i = 0; i < sideCutIdx; i++) {
+    newCut.push(oldCut[i]!);
+  }
   const sideFpIdx = newCut.length;
   newCut.push(sideFp);
   newCut.push(sideRc);
-  collapsedToCut[sideIdx] = sideFpIdx;
-
   newCut.push(inseamRc);
   const inseamFpIdx = newCut.length;
   newCut.push(inseamFp);
-  collapsedToCut[inseamIdx] = inseamFpIdx;
+  for (let i = inseamCutIdx + 1; i < oldCut.length; i++) {
+    newCut.push(oldCut[i]!);
+  }
 
-  for (let i = inseamIdx + 1; i < collapsed.length; i++) {
-    collapsedToCut[i] = newCut.length;
-    newCut.push(oldCut[priorCollapsedToCut[i]!]!);
+  const removed = inseamCutIdx - sideCutIdx + 1;
+  const inserted = 4;
+  const delta = inserted - removed;
+  const remapOldCut = (oldIdx: number): number => {
+    if (oldIdx < sideCutIdx) return oldIdx;
+    if (oldIdx > inseamCutIdx) return oldIdx + delta;
+    // Old hem-span vert: prefer the nearer new fold corner.
+    return oldIdx - sideCutIdx <= inseamCutIdx - oldIdx
+      ? sideFpIdx
+      : inseamFpIdx;
+  };
+
+  const collapsedToCut: number[] = new Array(collapsed.length);
+  for (let i = 0; i < collapsed.length; i++) {
+    if (i === sideIdx) collapsedToCut[i] = sideFpIdx;
+    else if (i === inseamIdx) collapsedToCut[i] = inseamFpIdx;
+    else collapsedToCut[i] = remapOldCut(priorCollapsedToCut[i]!);
   }
 
   const netToCut = rawToCollapsed.map((c) => collapsedToCut[c]!);

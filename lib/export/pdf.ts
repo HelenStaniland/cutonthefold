@@ -32,11 +32,8 @@ const SUBORDINATE_LINE_RGB: [number, number, number] = [155, 155, 155];
 const CONSTRUCTION_POINT_RGB: [number, number, number] = [70, 90, 130];
 /** Preview --pattern-fold / drafting-green — cut-on-fold + foldLine. */
 const FOLD_MARK_RGB: [number, number, number] = [4, 120, 87];
-/** Preview --pattern-instruction — casing fold / region labels. */
-const CASING_MARK_RGB: [number, number, number] = [2, 132, 199];
-/** Preview --pattern-construction — casing turndown. */
+/** Preview --pattern-construction — casing channel stitch. */
 const CASING_TURNDOWN_RGB: [number, number, number] = [3, 105, 161];
-const CASING_REGION_FILL_RGB: [number, number, number] = [220, 238, 248];
 /** Match drawPieceLineLabel — ~11 pt ≈ 3.9 mm, not preview's ~11 mm CSS. */
 const MARK_LABEL_FONT_PT = 11;
 /** Keep marking labels clear of tile seam dashes / page margin. */
@@ -325,24 +322,6 @@ function drawMarkLabel(
   doc.setFont("helvetica", "normal");
 }
 
-function fillPolygon(
-  doc: jsPDF,
-  pts: Point[],
-  place: Placement,
-  rgb: [number, number, number],
-): void {
-  if (pts.length < 3) return;
-  const p = pts.map((pt) => patternToPage(pt, place));
-  const deltas = p.slice(1).map((q, i) => [q.x - p[i]!.x, q.y - p[i]!.y]);
-  doc.setFillColor(...rgb);
-  doc.setDrawColor(...rgb);
-  doc.setLineWidth(0.1);
-  doc.setLineDashPattern([], 0);
-  doc.lines(deltas, p[0]!.x, p[0]!.y, [1, 1], "F", true);
-  doc.setFillColor(0, 0, 0);
-  doc.setDrawColor(0);
-}
-
 function drawMarkings(
   doc: jsPDF,
   piece: PatternPiece,
@@ -419,45 +398,8 @@ function drawMarkings(
         drawMarkLabel(doc, label, mid, place, tile, FOLD_MARK_RGB);
         break;
       }
-      case "casingRegion": {
-        fillPolygon(doc, m.outline, place, CASING_REGION_FILL_RGB);
-        const mid = m.outline[Math.floor(m.outline.length / 4)] ?? m.outline[0]!;
-        const midB =
-          m.outline[Math.floor((3 * m.outline.length) / 4)] ??
-          m.outline[m.outline.length - 1]!;
-        const cx = (mid.x + midB.x) / 2;
-        const cy = (mid.y + midB.y) / 2;
-        drawMarkLabel(doc, m.label, { x: cx, y: cy }, place, tile, CASING_MARK_RGB);
-        break;
-      }
-      case "casingFold": {
-        // Fold-2 / finished top — dash-dot instruction blue (≠ placeOnFold bracket).
-        doc.setDrawColor(...CASING_MARK_RGB);
-        strokePolyline(doc, m.points, place, {
-          width: 0.4,
-          dash: [10, 3, 2, 3],
-        });
-        doc.setDrawColor(0);
-        const a = m.points[0]!;
-        const b = m.points[m.points.length - 1]!;
-        const preferred = {
-          x: (a.x + b.x) / 2,
-          y: (a.y + b.y) / 2 + 14,
-        };
-        drawMarkLabel(doc, m.label, preferred, place, tile, CASING_MARK_RGB);
-        break;
-      }
-      case "casingHem": {
-        // Fold-1 hem crease — shorter dash.
-        doc.setDrawColor(...CASING_MARK_RGB);
-        strokePolyline(doc, m.points, place, {
-          width: 0.3,
-          dash: [4, 2],
-        });
-        doc.setDrawColor(0);
-        break;
-      }
       case "casingTurndown": {
+        // Channel stitch — only casing-specific mark (sewing line is the net outline).
         doc.setDrawColor(...CASING_TURNDOWN_RGB);
         strokePolyline(doc, m.points, place, {
           width: 0.35,

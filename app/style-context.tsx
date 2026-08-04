@@ -130,7 +130,12 @@ function parseStyle(
     return null;
   }
   const finish = o.dartedWaistFinish;
-  if (finish !== "facing" && finish !== "waistband" && finish !== "elastic") {
+  if (
+    finish !== "facing" &&
+    finish !== "waistband" &&
+    finish !== "elastic" &&
+    finish !== "elasticWaistband"
+  ) {
     return null;
   }
   const backHemShape =

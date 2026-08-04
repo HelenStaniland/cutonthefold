@@ -456,6 +456,16 @@
   border-color: var(--accent);
 }
 
+.fitPreset:disabled,
+.fitPresetActive:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.fitPreset:disabled:hover {
+  border-color: var(--border-strong);
+}
+
 .fitPresetActive {
   border-color: var(--accent);
   background: var(--accent-soft);

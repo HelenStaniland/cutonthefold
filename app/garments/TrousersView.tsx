@@ -5,6 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useMeasurements } from "@/app/measurements-context";
 import { useStyle, GarmentStyleProvider, type TrouserStyleSettings } from "@/app/style-context";
 import {
+  effectiveDartedWaistFinish,
+  isPullOnWaistFinish,
+} from "@/lib/pattern/garmentStyles";
+import {
   draftTrousers,
   type TrouserFrontStyle,
   type WaistbandMode,
@@ -58,6 +62,11 @@ import {
   trouserFacingSteps,
 } from "@/lib/patterns/trouserBlock";
 import { draftWaistband } from "@/lib/elements/waistband";
+import {
+  draftElasticWaistband,
+  ELASTIC_WAISTBAND_PIECE_NAME,
+  resolveElasticWaistbandSpec,
+} from "@/lib/elements/elasticWaistband";
 import { applySideOpening } from "@/lib/elements/sideOpening";
 import { downloadPattern } from "@/lib/export/pdf";
 import { downloadInstructions } from "@/lib/export/instructions";
@@ -235,7 +244,15 @@ function TrousersViewInner({
     backCrotchExtensionScale ?? DEFAULT_BACK_CROTCH_EXTENSION_SCALE;
   const arrivalShown = crotchArrivalAngle ?? DEFAULT_CROTCH_ARRIVAL_ANGLE;
   const scoopShown = waistlineCurveFront ?? WAISTLINE_CURVE_FRONT;
-  const elasticWaist = dartedWaistFinish === "elastic";
+  // Self-casing + slant is forbidden — derive at draft; do not write stored state.
+  const effectiveWaistFinish = effectiveDartedWaistFinish(
+    dartedWaistFinish,
+    pocketFront,
+  );
+  const selfCasing = effectiveWaistFinish === "elastic";
+  const separateElasticBand = effectiveWaistFinish === "elasticWaistband";
+  const elasticWaist = isPullOnWaistFinish(effectiveWaistFinish);
+  const selfCasingUnavailableWithSlash = pocketFront === "slant";
   const insetShown = elasticWaist
     ? 0
     : (frontWaistInset ?? DEFAULT_FRONT_WAIST_INSET);
@@ -462,6 +479,20 @@ function TrousersViewInner({
         elementSteps: [...opened.steps, ...trouserFacingSteps()],
       };
     }
+    if (separateElasticBand) {
+      const band = draftElasticWaistband(
+        resolveElasticWaistbandSpec(
+          draftBody,
+          tstyle,
+          casingElasticWidth,
+          DEFAULT_SEAM_ALLOWANCE.seam,
+        ),
+      );
+      return {
+        net: { pieces: [...opened.pieces, band.piece] },
+        elementSteps: [...opened.steps, ...band.steps],
+      };
+    }
     if (draftWaistDepth <= 0) {
       return { net: { pieces: opened.pieces }, elementSteps: opened.steps };
     }
@@ -494,17 +525,24 @@ function TrousersViewInner({
     draftWaistDepth,
     waistbandMode,
     dartedWaistFinish,
+    separateElasticBand,
+    casingElasticWidth,
   ]);
   const construction = validation.valid ? trouserConstruction(draftBody, tstyle) : [];
-  // SA → waist casing (elastic only) → hem turn-back. Casing must precede hem
-  // so cut is still 1:1 with collapsed net when the waist region is rebuilt.
+  // SA → waist casing (self-casing elastic only) → hem turn-back. Casing must
+  // precede hem so cut is still 1:1 with collapsed net when the waist region is rebuilt.
+  // Separate elastic waistband skips the casing post-pass (plain top + SA).
   const pattern = (() => {
     const withSa = withSeamAllowance(net, DEFAULT_SEAM_ALLOWANCE);
     const withCasing =
-      elasticWaist
+      selfCasing
         ? applyTrouserWaistCasingToPattern(
             withSa,
-            resolveCasingDepths(casingElasticWidth as CasingElasticWidth),
+            resolveCasingDepths(
+              casingElasticWidth as CasingElasticWidth,
+              DEFAULT_SEAM_ALLOWANCE.seam,
+            ),
+            DEFAULT_SEAM_ALLOWANCE.seam,
           )
         : withSa;
     return applyTrouserHemTurnbackToPattern(withCasing);
@@ -574,7 +612,10 @@ function TrousersViewInner({
   const frontRaw = displayPattern.pieces.find((p) => p.name === "Trouser front")!;
   const back = displayPattern.pieces.find((p) => p.name === "Trouser back")!;
   const bandPieces = displayPattern.pieces.filter(
-    (p) => p.name === "Front waistband" || p.name === "Back waistband",
+    (p) =>
+      p.name === "Front waistband" ||
+      p.name === "Back waistband" ||
+      p.name === ELASTIC_WAISTBAND_PIECE_NAME,
   );
   const pocketPieces = displayPattern.pieces.filter((p) =>
     p.name.startsWith("Slant pocket"),
@@ -875,15 +916,17 @@ function TrousersViewInner({
             <div className={styles.field}>
               <label className={styles.fieldLabel}>Waistband mode</label>
               <span className={styles.fieldHint}>
-                {elasticWaist
-                  ? "Elastic waistband — dartless straight waist; self-casing extends above the worn waist."
-                  : waistbandMode === "darted"
-                    ? dartedWaistFinish === "facing"
-                      ? "Darted finish — waist facing, darts kept at drafted length."
-                      : "Darted waistband — straight strip, darts kept at drafted length."
-                    : waistbandDepth === 0
-                      ? "Set waistband depth for a shaped band, or switch to darted for a facing finish."
-                      : "Shaped band following the body; dart remainder eased into the side seam."}
+                {separateElasticBand
+                  ? "Separate elastic waistband — dartless straight waist; fold-in-half band bridges the trouser top."
+                  : selfCasing
+                    ? "Elastic self-casing — dartless straight waist; self-casing extends above the worn waist."
+                    : waistbandMode === "darted"
+                      ? dartedWaistFinish === "facing"
+                        ? "Darted finish — waist facing, darts kept at drafted length."
+                        : "Darted waistband — straight strip, darts kept at drafted length."
+                      : waistbandDepth === 0
+                        ? "Set waistband depth for a shaped band, or switch to darted for a facing finish."
+                        : "Shaped band following the body; dart remainder eased into the side seam."}
               </span>
               <div className={styles.fitPresetList} role="group" aria-label="Waistband mode">
                 <button
@@ -894,7 +937,7 @@ function TrousersViewInner({
                       : styles.fitPreset
                   }
                   onClick={() => {
-                    if (dartedWaistFinish === "elastic") {
+                    if (isPullOnWaistFinish(dartedWaistFinish)) {
                       setDartedWaistFinish("facing");
                     }
                     setWaistbandModeAndClamp("darted");
@@ -910,7 +953,7 @@ function TrousersViewInner({
                       : styles.fitPreset
                   }
                   onClick={() => {
-                    if (dartedWaistFinish === "elastic") {
+                    if (isPullOnWaistFinish(dartedWaistFinish)) {
                       setDartedWaistFinish("waistband");
                     }
                     setWaistbandModeAndClamp("shaped");
@@ -923,11 +966,13 @@ function TrousersViewInner({
             <div className={styles.field}>
               <label className={styles.fieldLabel}>Waist finish</label>
               <span className={styles.fieldHint}>
-                {elasticWaist
-                  ? "Pull-on elastic self-casing — double-fold strip above the worn waist; hem, fold, and stitch lines are marked. Side seam and CF inset stay straight."
-                  : waistbandMode === "darted"
-                    ? `Facing finishes at the trouser waist; waistband adds a separate straight strip (${DARTED_DEPTH_MIN}–${DARTED_DEPTH_MAX} mm).`
-                    : "Shaped mode uses the band depth below. Elastic forces a dartless straight waist for a pull-on."}
+                {separateElasticBand
+                  ? "Separate fold-in-half elastic band — drafted from the construction waist so a slant pocket cannot shorten it. Trouser top is plain (no casing extension)."
+                  : selfCasing
+                    ? "Pull-on elastic self-casing — fold the top over like a hem; channel stitch marked at the worn waist. Side seam and CF inset stay straight."
+                    : waistbandMode === "darted"
+                      ? `Facing finishes at the trouser waist; waistband adds a separate straight strip (${DARTED_DEPTH_MIN}–${DARTED_DEPTH_MAX} mm).`
+                      : "Shaped mode uses the band depth below. Elastic finishes force a dartless straight waist for a pull-on."}
               </span>
               <div
                 className={styles.fitPresetList}
@@ -937,7 +982,7 @@ function TrousersViewInner({
                 <button
                   type="button"
                   className={
-                    dartedWaistFinish === "facing"
+                    effectiveWaistFinish === "facing"
                       ? styles.fitPresetActive
                       : styles.fitPreset
                   }
@@ -948,7 +993,7 @@ function TrousersViewInner({
                 <button
                   type="button"
                   className={
-                    dartedWaistFinish === "waistband"
+                    effectiveWaistFinish === "waistband"
                       ? styles.fitPresetActive
                       : styles.fitPreset
                   }
@@ -959,21 +1004,47 @@ function TrousersViewInner({
                 <button
                   type="button"
                   className={
-                    dartedWaistFinish === "elastic"
+                    dartedWaistFinish === "elastic" && !selfCasingUnavailableWithSlash
                       ? styles.fitPresetActive
                       : styles.fitPreset
                   }
+                  disabled={selfCasingUnavailableWithSlash}
+                  title={
+                    selfCasingUnavailableWithSlash
+                      ? "Not available with a slant pocket — a self-casing band would be too short to pull over the hips; use the elastic waistband"
+                      : undefined
+                  }
                   onClick={() => setDartedWaistFinish("elastic")}
+                >
+                  Self-casing
+                </button>
+                <button
+                  type="button"
+                  className={
+                    effectiveWaistFinish === "elasticWaistband"
+                      ? styles.fitPresetActive
+                      : styles.fitPreset
+                  }
+                  onClick={() => setDartedWaistFinish("elasticWaistband")}
                 >
                   Elastic waistband
                 </button>
               </div>
+              {selfCasingUnavailableWithSlash && (
+                <span className={styles.fieldHint}>
+                  Self-casing is not available with a slant pocket — a self-casing
+                  band would be too short to pull over the hips; use the elastic
+                  waistband.
+                </span>
+              )}
             </div>
             {elasticWaist && (
               <div className={styles.field}>
                 <span className={styles.fieldLabel}>Elastic width</span>
                 <span className={styles.fieldHint}>
-                  Channel = width + 6 mm; turn-under 10 mm above the fold.
+                  {separateElasticBand
+                    ? "Band cut width = 2 × (elastic + 20 mm channel ease + seam allowance)."
+                    : "Channel = width + 6 mm; turn-under 10 mm above the fold."}
                 </span>
                 <div
                   className={styles.fitPresetList}
@@ -2073,84 +2144,6 @@ function TrousersViewInner({
                         )}
                         className={styles.foldLine} />
                     );
-                  case "casingRegion": {
-                    const pts = m.outline.map((p) => ({
-                      x: p.x + dx,
-                      y: p.y + dy,
-                    }));
-                    const mid = pts[Math.floor(pts.length / 4)] ?? pts[0]!;
-                    const midB =
-                      pts[Math.floor((3 * pts.length) / 4)] ?? pts[pts.length - 1]!;
-                    const cx = svgCoord((mid.x + midB.x) / 2);
-                    const cy = svgCoord((mid.y + midB.y) / 2);
-                    return (
-                      <g key={i}>
-                        <polygon
-                          points={svgPolygonPoints(pts)}
-                          className={styles.casingRegion}
-                        />
-                        <text
-                          x={cx}
-                          y={cy}
-                          className={styles.casingLabel}
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                        >
-                          {m.label}
-                        </text>
-                      </g>
-                    );
-                  }
-                  case "casingFold": {
-                    const pts = m.points.map((p) => ({
-                      x: p.x + dx,
-                      y: p.y + dy,
-                    }));
-                    const a = pts[0]!;
-                    const b = pts[pts.length - 1]!;
-                    const mx = (a.x + b.x) / 2;
-                    const my = (a.y + b.y) / 2;
-                    // Label sits inside the piece, toward the stitch (+y).
-                    const labelX = svgCoord(mx);
-                    const labelY = svgCoord(my + 14);
-                    const edgeDx = b.x - a.x;
-                    const edgeDy = b.y - a.y;
-                    const labelAngle =
-                      (Math.atan2(edgeDy, edgeDx) * 180) / Math.PI;
-                    return (
-                      <g key={i}>
-                        <polyline
-                          points={svgPolygonPoints(pts)}
-                          className={styles.casingFold}
-                          fill="none"
-                        />
-                        <text
-                          x={labelX}
-                          y={labelY}
-                          className={styles.casingLabel}
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                          transform={`rotate(${labelAngle}, ${labelX}, ${labelY})`}
-                        >
-                          {m.label}
-                        </text>
-                      </g>
-                    );
-                  }
-                  case "casingHem": {
-                    const pts = m.points.map((p) => ({
-                      x: p.x + dx,
-                      y: p.y + dy,
-                    }));
-                    return (
-                      <polyline
-                        key={i}
-                        points={svgPolygonPoints(pts)}
-                        className={styles.casingHem}
-                        fill="none"
-                      />
-                    );
-                  }
                   case "casingTurndown": {
                     const pts = m.points.map((p) => ({
                       x: p.x + dx,

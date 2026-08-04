@@ -18,6 +18,8 @@ import {
   MILA_TROUSER_STYLE,
   cargoTrouserStyle,
   milaTrouserStyle,
+  effectiveDartedWaistFinish,
+  isPullOnWaistFinish,
   type TrouserStyleSettings,
 } from "../lib/pattern/garmentStyles";
 import {
@@ -57,7 +59,8 @@ function resolveStyle(
   s: TrouserStyleSettings,
   body: BodyMeasurements,
 ): TrouserFrontStyle {
-  const elastic = s.dartedWaistFinish === "elastic";
+  const finish = effectiveDartedWaistFinish(s.dartedWaistFinish, s.pocketFront);
+  const elastic = isPullOnWaistFinish(finish);
   const base: TrouserFrontStyle = {
     bottomWidth: s.legBottomWidth,
     block: blockFromWaistDrop(s.waistDrop),
@@ -213,7 +216,7 @@ console.log("\n=== 2. CARGO_PRESET == MILA_PRESET on measured + provisional ===\
   } else ok("ease: independent object");
 }
 
-// --- 3. Style: Cargo matches Mila except pocketFront ---
+// --- 3. Style: Cargo matches Mila except pocketFront + waist finish ---
 console.log("\n=== 3. cargoTrouserStyle() vs milaTrouserStyle() ===\n");
 {
   const c = cargoTrouserStyle();
@@ -222,17 +225,28 @@ console.log("\n=== 3. cargoTrouserStyle() vs milaTrouserStyle() ===\n");
   else ok('Cargo pocketFront = "slant"');
   if (m.pocketFront !== "none") fail(`Mila pocketFront=${m.pocketFront}`);
   else ok('Mila pocketFront = "none"');
-  const { pocketFront: _cPf, ...cRest } = c;
-  const { pocketFront: _mPf, ...mRest } = m;
+  if (c.dartedWaistFinish !== "elasticWaistband") {
+    fail(`Cargo finish=${c.dartedWaistFinish}`);
+  } else ok('Cargo dartedWaistFinish = "elasticWaistband"');
+  if (m.dartedWaistFinish !== "elastic") fail(`Mila finish=${m.dartedWaistFinish}`);
+  else ok('Mila dartedWaistFinish = "elastic"');
+  const {
+    pocketFront: _cPf,
+    dartedWaistFinish: _cFin,
+    ...cRest
+  } = c;
+  const {
+    pocketFront: _mPf,
+    dartedWaistFinish: _mFin,
+    ...mRest
+  } = m;
   const diffs = deepEqual(cRest, mRest);
   if (diffs.length) {
     for (const d of diffs) fail(d);
-  } else ok("every style field equal except pocketFront");
+  } else ok("every style field equal except pocketFront + dartedWaistFinish");
   if (CARGO_TROUSER_STYLE === MILA_TROUSER_STYLE) {
     fail("CARGO_TROUSER_STYLE is same reference as MILA");
   } else ok("CARGO_TROUSER_STYLE independent of MILA_TROUSER_STYLE");
-  if (c.dartedWaistFinish !== "elastic") fail("Cargo finish not elastic");
-  else ok('dartedWaistFinish = "elastic"');
 }
 
 // --- 4. Mila / Cleo / block untouched (identity smoke) ---

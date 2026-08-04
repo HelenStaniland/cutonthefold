@@ -126,16 +126,10 @@ export type Marking =
   | { kind: "gather"; line: Line }
   | { kind: "constructionLine"; line: Line }
   /**
-   * Elastic casing fold-2 / finished top (internal) — not cut-on-fold. Distinct
-   * style + directional label ("Casing — fold to inside").
+   * Elastic casing channel stitch (worn waist / pocket top). The casing hem
+   * fold is the sewing outline itself — no separate fold/region marks.
    */
-  | { kind: "casingFold"; points: Point[]; label: string }
-  /** Elastic casing fold-1 / hem crease (10 mm from raw edge). */
-  | { kind: "casingHem"; points: Point[]; label?: string }
-  /** Elastic casing stitch line at the net waist / pocket top. */
   | { kind: "casingTurndown"; points: Point[]; label?: string }
-  /** Light band between casing fold-2 and stitch. */
-  | { kind: "casingRegion"; outline: Point[]; label: string }
   | NotchMarking
   | { kind: "button"; at: Point }
   | { kind: "buttonhole"; at: Point }
@@ -184,8 +178,8 @@ export type PatternPiece = {
    */
   seamLengths?: TrouserSeamLengths;
   /**
-   * Elastic self-casing reference (double-fold: hem + fold-2 + stitch), set by
-   * the waist casing post-pass. Absent on non-elastic finishes.
+   * Elastic self-casing reference (double-fold depths + fold/hem/stitch
+   * polylines for construction). Absent on non-elastic finishes.
    */
   waistCasing?: {
     elasticWidth: 25 | 38 | 50;

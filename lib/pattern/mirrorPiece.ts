@@ -38,12 +38,8 @@ export function mirrorPieceX(piece: PatternPiece): PatternPiece {
             line: { from: fx(m.line.from), to: fx(m.line.to) },
             inward: fv(m.inward),
           };
-        case "casingFold":
-        case "casingHem":
         case "casingTurndown":
           return { ...m, points: m.points.map(fx) };
-        case "casingRegion":
-          return { ...m, outline: m.outline.map(fx) };
         case "notch":
           return { ...m, at: fx(m.at), dir: m.dir ? fv(m.dir) : undefined };
         case "button":
@@ -130,12 +126,8 @@ export function orientPieceGrainVertical(piece: PatternPiece): PatternPiece {
             line: { from: rot(m.line.from), to: rot(m.line.to) },
             inward: rotV(m.inward),
           };
-        case "casingFold":
-        case "casingHem":
         case "casingTurndown":
           return { ...m, points: m.points.map(rot) };
-        case "casingRegion":
-          return { ...m, outline: m.outline.map(rot) };
         case "notch":
           return {
             ...m,

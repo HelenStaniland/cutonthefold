@@ -237,7 +237,30 @@ for (const label of ["Mila", "Cargo"] as const) {
       const bodyY = resolveBodyWaistY(body, style);
       const turnY = front.waistCasing.turndownSeam[0]!.y;
       const foldY = front.waistCasing.foldLine[0]!.y;
-      const cutTopY = front.cuttingOutline![0]!.y;
+      // Raw top mid (not cut[0] — after hem turnback cut[0] is a hem corner).
+      const midFold = front.waistCasing.foldLine[
+        Math.floor(front.waistCasing.foldLine.length / 2)
+      ]!;
+      const midTurn = front.waistCasing.turndownSeam[
+        Math.floor(front.waistCasing.turndownSeam.length / 2)
+      ]!;
+      const upLen =
+        Math.hypot(midFold.x - midTurn.x, midFold.y - midTurn.y) || 1;
+      const up = {
+        x: (midFold.x - midTurn.x) / upLen,
+        y: (midFold.y - midTurn.y) / upLen,
+      };
+      const cut = front.cuttingOutline!;
+      let cutTopY = cut[0]!.y;
+      let bestAlong = -Infinity;
+      for (const q of cut) {
+        const along =
+          (q.x - midTurn.x) * up.x + (q.y - midTurn.y) * up.y;
+        if (along > bestAlong) {
+          bestAlong = along;
+          cutTopY = q.y;
+        }
+      }
       // Above worn waist ⇒ foldY < bodyY (y-down)
       if (!(foldY < bodyY - 0.5)) {
         fail(
@@ -252,9 +275,18 @@ for (const label of ["Mila", "Cargo"] as const) {
       if (Math.abs(bodyY - foldY - d.channelDepth) > 0.05) {
         fail(`${label}/${bod.name}/w${w}: fold↔turndown ≠ channel`);
       }
-      if (Math.abs(foldY - cutTopY - d.turnUnder) > 0.05) {
-        fail(`${label}/${bod.name}/w${w}: fold↔cutTop ≠ turnUnder`);
+      // fold-2 → raw = turnUnder (= channel + hem)
+      const foldToRaw =
+        (midFold.x - midTurn.x) * up.x + (midFold.y - midTurn.y) * up.y;
+      // Actually measure raw along up from fold:
+      const rawAlong = bestAlong;
+      if (Math.abs(rawAlong - foldToRaw - d.turnUnder) > 0.5) {
+        fail(
+          `${label}/${bod.name}/w${w}: fold↔cutTop ≠ turnUnder ` +
+            `(rawAlong=${f3(rawAlong)} foldAlong=${f3(foldToRaw)} turnUnder=${d.turnUnder})`,
+        );
       }
+      void cutTopY;
     }
   }
   ok(`${label}: casing depths + placement above bodyWaistY on all bodies/widths`);
@@ -407,15 +439,20 @@ console.log("\n=== 7. Pocket intact; no casing fold-over on pocket pieces ===\n"
   if (pocketFront.waistCasing) fail("pocket front still has waistCasing fold-over");
   else ok("RULE: pocket front excluded from casing fold-over");
 
-  // Net pocket geometry unchanged by post-pass (outline hash of net draft)
+  // Sewing outline extends into the casing (hem-fold U); channel stitch stays
+  // at the pre-casing waist plane. Pocket pieces unchanged.
   const frontAfter = pat.pieces.find((p) => p.name === "Trouser front")!;
-  if (outlineHash(frontNet) !== outlineHash({ ...frontAfter, cuttingOutline: undefined, netToCutIndex: undefined, waistCasing: undefined, markings: frontNet.markings })) {
-    // Compare outline only
-    const a = frontNet.outline.map((o) => `${o.at.x},${o.at.y}`).join("|");
-    const b = frontAfter.outline.map((o) => `${o.at.x},${o.at.y}`).join("|");
-    if (a !== b) fail("front net outline changed by casing post-pass");
-    else ok("front net outline unchanged by casing post-pass");
-  } else ok("front net outline unchanged");
+  const waistA = frontNet.outline.filter((o) => o.role === "waist");
+  const turn = frontAfter.waistCasing?.turndownSeam ?? [];
+  if (waistA.length < 2 || turn.length < 2) {
+    fail("front waist / turndown missing");
+  } else {
+    const midA = waistA[Math.floor(waistA.length / 2)]!.at;
+    const midT = turn[Math.floor(turn.length / 2)]!;
+    if (Math.hypot(midA.x - midT.x, midA.y - midT.y) > 0.5) {
+      fail("front channel stitch moved by casing post-pass");
+    } else ok("front channel stitch unmoved (sewing U into casing expected)");
+  }
 }
 
 console.log(

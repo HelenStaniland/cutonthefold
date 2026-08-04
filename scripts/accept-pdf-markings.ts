@@ -238,10 +238,10 @@ function distToPageVSeam(pageX: number, tile: MarkTileContext): number {
   return best;
 }
 
-console.log("=== ACCEPT: PDF markings (casing + foldLine + placeOnFold) ===\n");
+console.log("=== ACCEPT: PDF markings (channel stitch + foldLine + placeOnFold) ===\n");
 
 // ---------------------------------------------------------------------------
-console.log("=== 0. Source: PDF cases present; preview untouched ===\n");
+console.log("=== 0. Source: PDF cases present; preview matches ===\n");
 
 {
   const pdfSrc = readFileSync(join(process.cwd(), "lib", "export", "pdf.ts"), "utf8");
@@ -249,33 +249,25 @@ console.log("=== 0. Source: PDF cases present; preview untouched ===\n");
     join(process.cwd(), "app", "garments", "TrousersView.tsx"),
     "utf8",
   );
-  for (const k of [
-    "casingFold",
-    "casingTurndown",
-    "casingRegion",
-    "foldLine",
-    "placeOnFold",
-  ] as const) {
+  for (const k of ["casingTurndown", "foldLine", "placeOnFold"] as const) {
     if (!pdfSrc.includes(`case "${k}"`)) fail(`pdf.ts missing case ${k}`);
     else ok(`pdf.ts handles ${k}`);
   }
-  // Distinct styles in PDF source
-  if (!pdfSrc.includes("[10, 3, 2, 3]") && !pdfSrc.includes("10, 3, 2, 3")) {
-    fail("casingFold dash-dot pattern missing");
-  } else ok("casingFold dash-dot [10,3,2,3]");
-  if (!pdfSrc.includes("FOLD_MARK_RGB") || !pdfSrc.includes("CASING_MARK_RGB")) {
-    fail("fold vs casing colours not separated");
-  } else ok("placeOnFold green vs casing instruction blue");
+  for (const k of ["casingFold", "casingHem", "casingRegion"] as const) {
+    if (pdfSrc.includes(`case "${k}"`)) fail(`pdf.ts still has removed ${k}`);
+    else ok(`pdf.ts: ${k} removed`);
+  }
+  if (!pdfSrc.includes("FOLD_MARK_RGB")) fail("fold colour missing");
+  else ok("placeOnFold green intact");
   if (!pdfSrc.includes("Place to fold") && !pdfSrc.includes('m.label ?? "Place to fold"')) {
     fail("placeOnFold default label missing");
   } else ok('placeOnFold wording "Place to fold"');
-  if (!pdfSrc.includes("Casing — fold to inside") && !pdfSrc.includes("m.label")) {
-    // label comes from mark data
-    ok("casingFold uses mark label (Casing — fold to inside from geometry)");
+  if (!viewSrc.includes('case "casingTurndown"')) fail("preview casingTurndown gone");
+  else ok("preview draws channel stitch");
+  for (const k of ["casingFold", "casingHem", "casingRegion"] as const) {
+    if (viewSrc.includes(`case "${k}"`)) fail(`preview still has ${k}`);
   }
-  // Preview still has its cases (unchanged path)
-  if (!viewSrc.includes('case "casingFold"')) fail("preview casingFold gone");
-  else ok("preview path still draws casing (unchanged)");
+  ok("preview: fold-2 / region / hem-mark removed");
 }
 
 // ---------------------------------------------------------------------------
@@ -289,15 +281,15 @@ for (const bod of bodies) {
     for (const name of ["Trouser front", "Trouser back"] as const) {
       const p = pat.pieces.find((x) => x.name === name)!;
       const kinds = new Set(p.markings.map((m) => m.kind));
-      const need = ["casingFold", "casingTurndown", "casingRegion"] as const;
-      const missing = need.filter((k) => !kinds.has(k));
-      if (missing.length) {
-        fail(`${bod.name}/${name}/w${w}: missing ${missing.join(",")}`);
+      if (!kinds.has("casingTurndown")) {
+        fail(`${bod.name}/${name}/w${w}: missing channel stitch`);
       } else {
-        const fold = p.markings.find((m) => m.kind === "casingFold");
-        if (fold?.kind === "casingFold" && fold.label !== "Casing — fold to inside") {
-          fail(`${bod.name}/${name}: bad fold label`);
-        } else ok(`${bod.name}/${name}/w${w}: casing marks present`);
+        for (const k of ["casingFold", "casingHem", "casingRegion"] as const) {
+          if (kinds.has(k as never)) {
+            fail(`${bod.name}/${name}/w${w}: removed ${k}`);
+          }
+        }
+        ok(`${bod.name}/${name}/w${w}: channel stitch only`);
       }
     }
   }
@@ -333,7 +325,7 @@ console.log("\n=== 2. Distinct in PDF (glyph / style / wording) ===\n");
 
 {
   console.log(
-    '  casingFold:  dash-dot [10,3,2,3], instruction blue, label "Casing — fold to inside"',
+    "  casing: sewing outline (hem fold) + channel stitch mark only — no fold-2/shading/label",
   );
   console.log(
     '  placeOnFold: solid U-bracket, fold green, label "Place to fold"',
@@ -345,109 +337,10 @@ console.log("\n=== 2. Distinct in PDF (glyph / style / wording) ===\n");
 }
 
 // ---------------------------------------------------------------------------
-console.log("\n=== 3. No label splits a tile seam (off-seam clamp) ===\n");
+console.log("\n=== 3. No casing labels to clamp (channel stitch unlabeled) ===\n");
 
 {
-  const body = applyEase(helenBody(), CARGO_TROUSER_STYLE.ease);
-  const style = resolveStyle(CARGO_TROUSER_STYLE, body, "elastic");
-  const pat = finishCargo(body, style, 25);
-  const front = pat.pieces.find((p) => p.name === "Trouser front")!;
-  const cutPts = front.cuttingOutline ?? front.outline.map((o) => o.at);
-  const grid = tileGrid(bbox(cutPts));
-  const fold = front.markings.find((m) => m.kind === "casingFold");
-  if (!fold || fold.kind !== "casingFold") {
-    fail("no casingFold on Helen front");
-  } else {
-    const preferred = casingFoldPreferred(fold);
-    const placed = labelOnHomeTile(preferred, fold.label, grid);
-    if (!placed) {
-      fail("fold label not resolved on home tile");
-    } else {
-      const dSeam = distToPageVSeam(placed.page.x, placed.tile);
-      const dRaw = distToPageVSeam(placed.rawPage.x, placed.tile);
-      console.log(
-        `  Helen front casing fold-label preferred pattern (${f1(preferred.x)},${f1(preferred.y)})`,
-      );
-      console.log(
-        `    raw page (${f1(placed.rawPage.x)},${f1(placed.rawPage.y)}) ` +
-          `distVSeam=${f1(dRaw)} mm (was ~1.5–2 before clamp)`,
-      );
-      console.log(
-        `    clamped page (${f1(placed.page.x)},${f1(placed.page.y)}) ` +
-          `tile C${placed.homeCol + 1}R${placed.homeRow + 1} ` +
-          `distVSeam=${f1(dSeam)} mm`,
-      );
-      if (dSeam < SEAM_CLEAR - 0.5) {
-        fail(`still within ${SEAM_CLEAR} mm of V-seam after clamp (${f1(dSeam)})`);
-      } else ok(`fold label clear of V-seam (≥${SEAM_CLEAR} mm)`);
-
-      // Must stay on piece (pattern point after clamp)
-      const patAfter = {
-        x: placed.page.x - placed.place.offsetX,
-        y: placed.page.y - placed.place.offsetY,
-      };
-      const box = grid.box;
-      const onPiece =
-        patAfter.x >= box.minX - 5 &&
-        patAfter.x <= box.maxX + 5 &&
-        patAfter.y >= box.minY - 5 &&
-        patAfter.y <= box.maxY + 5;
-      if (!onPiece) {
-        fail(
-          `STOP: clamp pushed label off piece bbox → (${f1(patAfter.x)},${f1(patAfter.y)})`,
-        );
-      } else {
-        console.log(
-          `    pattern after clamp (${f1(patAfter.x)},${f1(patAfter.y)}) still in cut bbox`,
-        );
-        ok("clamp kept label on piece");
-      }
-
-      // Nudge should have moved left from ~178 toward ≤170
-      if (placed.rawPage.x > placed.page.x + 0.5) {
-        ok(
-          `nudged off seam by ${f1(placed.rawPage.x - placed.page.x)} mm`,
-        );
-      } else if (dRaw >= SEAM_CLEAR) {
-        ok("already clear; no nudge needed");
-      } else {
-        fail("expected leftward nudge away from seam");
-      }
-    }
-  }
-
-  let seamFails = 0;
-  for (const bod of bodies) {
-    const b = applyEase(bod.body, CARGO_TROUSER_STYLE.ease);
-    const st = resolveStyle(CARGO_TROUSER_STYLE, b, "elastic");
-    const p = finishCargo(b, st, 25);
-    for (const name of ["Trouser front", "Trouser back"] as const) {
-      const piece = p.pieces.find((x) => x.name === name)!;
-      const g = tileGrid(
-        bbox(piece.cuttingOutline ?? piece.outline.map((o) => o.at)),
-      );
-      for (const m of piece.markings) {
-        if (m.kind !== "casingFold" && m.kind !== "casingRegion") continue;
-        const pref =
-          m.kind === "casingFold" ? casingFoldPreferred(m) : regionPreferred(m);
-        const text = m.label;
-        const placed = labelOnHomeTile(pref, text, g);
-        if (!placed) {
-          fail(`${bod.name}/${name}/${m.kind}: no home placement`);
-          seamFails++;
-          continue;
-        }
-        const d = distToPageVSeam(placed.page.x, placed.tile);
-        if (d < SEAM_CLEAR - 0.5) {
-          fail(`${bod.name}/${name}/${m.kind}: seam dist ${f1(d)}`);
-          seamFails++;
-        }
-      }
-    }
-  }
-  if (seamFails === 0) {
-    ok("all front/back casing labels seam-clear (sizes + Helen, w25)");
-  }
+  ok("no casing fold/region labels on pieces (nothing to land on tile seams)");
 }
 
 // ---------------------------------------------------------------------------
@@ -477,12 +370,21 @@ console.log("\n=== 5. Geometry / Aldrich / non-elastic ===\n");
   const net = draftTrousers(body, style);
   const sa = withSeamAllowance(net, DEFAULT_SEAM_ALLOWANCE);
   const cased = applyTrouserWaistCasingToPattern(sa, resolveCasingDepths(25));
-  // PDF change must not touch outlines
+  // Sewing outline extends into casing; channel stitch plane stays put.
   for (const name of ["Trouser front", "Trouser back"] as const) {
     const a = sa.pieces.find((p) => p.name === name)!;
     const b = cased.pieces.find((p) => p.name === name)!;
-    if (outlineHash(a) !== outlineHash(b)) fail(`${name}: net moved by casing`);
-    else ok(`${name}: net unchanged (geometry path intact)`);
+    const waistA = a.outline.filter((o) => o.role === "waist");
+    const turn = b.waistCasing?.turndownSeam ?? [];
+    if (waistA.length < 2 || turn.length < 2) {
+      fail(`${name}: waist/turndown`);
+    } else {
+      const midA = waistA[Math.floor(waistA.length / 2)]!.at;
+      const midT = turn[Math.floor(turn.length / 2)]!;
+      if (Math.hypot(midA.x - midT.x, midA.y - midT.y) > 0.5) {
+        fail(`${name}: stitch plane moved`);
+      } else ok(`${name}: stitch plane unmoved (sewing U expected)`);
+    }
   }
 
   const mila = applyEase(helenBody(), MILA_TROUSER_STYLE.ease);

@@ -15,14 +15,37 @@ import {
   MILA_PRESET,
 } from "@/lib/pattern/blockPresets";
 
-export type DartedWaistFinish = "facing" | "waistband" | "elastic";
-/** @deprecated Prefer DartedWaistFinish — alias for the three-way waist finish. */
+export type DartedWaistFinish =
+  | "facing"
+  | "waistband"
+  | "elastic"
+  | "elasticWaistband";
+/** @deprecated Prefer DartedWaistFinish — alias for the waist finish axis. */
 export type WaistFinish = DartedWaistFinish;
 
 export type PocketFrontSetting = "none" | "slant";
 
 /** Elastic casing channel width (mm). Only meaningful when finish is elastic. */
 export type CasingElasticWidthSetting = 25 | 38 | 50;
+
+/**
+ * Self-casing + slant pocket is forbidden (band too short). Derive at draft
+ * time — do not write stored state.
+ */
+export function effectiveDartedWaistFinish(
+  finish: DartedWaistFinish,
+  pocketFront: PocketFrontSetting,
+): DartedWaistFinish {
+  if (finish === "elastic" && pocketFront === "slant") {
+    return "elasticWaistband";
+  }
+  return finish;
+}
+
+/** Pull-on finishes that force dartless straight waist (inset/taper 0, shaped@0). */
+export function isPullOnWaistFinish(finish: DartedWaistFinish): boolean {
+  return finish === "elastic" || finish === "elasticWaistband";
+}
 
 export type TrouserStyleSettings = {
   /** Aldrich bottomWidth — front hem B−10, back B+10. */
@@ -60,8 +83,8 @@ export type TrouserStyleSettings = {
    */
   pocketFront: PocketFrontSetting;
   /**
-   * Elastic casing width (mm). Default 25. Used only when
-   * `dartedWaistFinish === "elastic"` — ignored otherwise (byte-identical).
+   * Elastic width (mm). Used by self-casing (`elastic`) and the separate
+   * elastic waistband (`elasticWaistband`). Ignored for other finishes.
    */
   casingElasticWidth: CasingElasticWidthSetting;
 };
@@ -182,7 +205,7 @@ export const CARGO_TROUSER_STYLE: TrouserStyleSettings = (() => {
     waistDrop: m.waistDrop,
     waistbandDepth: m.waistbandDepth,
     waistbandMode: m.waistbandMode,
-    dartedWaistFinish: "elastic" as const,
+    dartedWaistFinish: "elasticWaistband" as const,
     dartedBandDepth: 25,
     zipLength: 180,
     ease: { ...m.ease },

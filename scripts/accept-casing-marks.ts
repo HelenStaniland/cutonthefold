@@ -182,19 +182,13 @@ function pairHash(body: BodyMeasurements, style: TrouserFrontStyle): string {
 }
 
 function casingMarks(piece: PatternPiece): {
-  fold?: Extract<Marking, { kind: "casingFold" }>;
   turndown?: Extract<Marking, { kind: "casingTurndown" }>;
-  region?: Extract<Marking, { kind: "casingRegion" }>;
 } {
-  let fold: Extract<Marking, { kind: "casingFold" }> | undefined;
   let turndown: Extract<Marking, { kind: "casingTurndown" }> | undefined;
-  let region: Extract<Marking, { kind: "casingRegion" }> | undefined;
   for (const m of piece.markings) {
-    if (m.kind === "casingFold") fold = m;
     if (m.kind === "casingTurndown") turndown = m;
-    if (m.kind === "casingRegion") region = m;
   }
-  return { fold, turndown, region };
+  return { turndown };
 }
 
 console.log("=== ACCEPT: casing marks + slash on turndown ===\n");
@@ -240,23 +234,17 @@ console.log("=== 0. Cut-on-fold inventory (must stay distinct from casing) ===\n
   }
 
   const cm = casingMarks(front);
-  console.log(`  Casing fold label: "${cm.fold?.label ?? "(missing)"}"`);
   console.log(
-    "  Casing style: dash-dot (.casingFold 10 3 2 3, instruction blue) — internal",
+    `  Casing channel stitch present: ${cm.turndown ? "yes" : "no"} ` +
+      `(hem fold is the sewing outline; no fold-2 / shading / casing label)`,
   );
-  console.log("  SA / stitch: .stitchLine (slate) / .cutLine — not dash-dot");
+  console.log("  SA / stitch: .stitchLine (slate) / .cutLine — continuous into casing");
   console.log(
-    '  Side-by-side: placeOnFold = solid bracket + "Place to fold";',
+    '  Side-by-side: placeOnFold = solid bracket + "Place to fold" (waistband only);',
   );
-  console.log(
-    '               casingFold = dash-dot + "Casing — fold to inside".',
-  );
-  console.log(
-    "  Confusion impossible: different glyph, colour family, and directional label.",
-  );
-  if (cm.fold?.label !== "Casing — fold to inside") {
-    fail(`casing fold label wrong: ${cm.fold?.label}`);
-  } else ok('casing fold label = "Casing — fold to inside"');
+  console.log("               casing = sewing line + channel stitch mark only.");
+  if (!cm.turndown) fail("casing channel stitch missing");
+  else ok("casing mark = channel stitch only (fold-2/region/label removed)");
 
   const facingPat = withSeamAllowance(
     draftTrousers(body, facingStyle),
@@ -316,35 +304,21 @@ for (const g of elasticGarments) {
       const p = pat.pieces.find((x) => x.name === name)!;
       const cm = casingMarks(p);
       const d = resolveCasingDepths(w);
-      if (!cm.fold || !cm.turndown || !cm.region) {
-        fail(`${g.name}/${name}/w${w}: missing casing marks`);
+      const kinds = new Set(p.markings.map((m) => m.kind));
+      if (!cm.turndown) {
+        fail(`${g.name}/${name}/w${w}: missing channel stitch`);
         continue;
       }
-      if (cm.fold.label !== "Casing — fold to inside") {
-        fail(`${g.name}/${name}/w${w}: fold label`);
+      for (const k of ["casingFold", "casingHem", "casingRegion"] as const) {
+        if (kinds.has(k as never)) {
+          fail(`${g.name}/${name}/w${w}: removed mark still present: ${k}`);
+        }
       }
-      if (cm.region.label !== "Casing") {
-        fail(`${g.name}/${name}/w${w}: region label`);
-      }
-      // Marks sit on the casing refs (geometry unchanged; marks additive).
-      const refFold = p.waistCasing!.foldLine;
       const refTurn = p.waistCasing!.turndownSeam;
-      if (
-        cm.fold.points.length !== refFold.length ||
-        cm.turndown.points.length !== refTurn.length
-      ) {
-        fail(`${g.name}/${name}/w${w}: mark polyline length ≠ ref`);
+      if (cm.turndown.points.length !== refTurn.length) {
+        fail(`${g.name}/${name}/w${w}: stitch polyline length ≠ ref`);
       } else {
         let maxD = 0;
-        for (let i = 0; i < refFold.length; i++) {
-          maxD = Math.max(
-            maxD,
-            Math.hypot(
-              cm.fold.points[i]!.x - refFold[i]!.x,
-              cm.fold.points[i]!.y - refFold[i]!.y,
-            ),
-          );
-        }
         for (let i = 0; i < refTurn.length; i++) {
           maxD = Math.max(
             maxD,
@@ -354,10 +328,11 @@ for (const g of elasticGarments) {
             ),
           );
         }
-        if (maxD > EPS) fail(`${g.name}/${name}/w${w}: mark points ≠ casing refs`);
+        if (maxD > EPS) fail(`${g.name}/${name}/w${w}: stitch ≠ turndown ref`);
       }
-      // Fold is channelDepth above turndown at mid (front level; back parallelogram).
-      const midF = refFold[Math.floor(refFold.length / 2)]!;
+      const midF = p.waistCasing!.foldLine[
+        Math.floor(p.waistCasing!.foldLine.length / 2)
+      ]!;
       const midT = refTurn[Math.floor(refTurn.length / 2)]!;
       const sep = Math.hypot(midF.x - midT.x, midF.y - midT.y);
       if (Math.abs(sep - d.channelDepth) > 0.5) {
@@ -365,7 +340,7 @@ for (const g of elasticGarments) {
           `${g.name}/${name}/w${w}: mid fold−turndown ${f3(sep)} ≠ channel ${d.channelDepth}`,
         );
       }
-      ok(`${g.name}/${name}/w${w}: fold+turndown+region marks`);
+      ok(`${g.name}/${name}/w${w}: channel stitch only`);
     }
   }
 }
