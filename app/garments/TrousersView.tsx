@@ -617,9 +617,9 @@ function TrousersViewInner({
       p.name === "Back waistband" ||
       p.name === ELASTIC_WAISTBAND_PIECE_NAME,
   );
-  const pocketPieces = displayPattern.pieces.filter((p) =>
-    p.name.startsWith("Slant pocket"),
-  );
+  const pocketPieces = displayPattern.pieces
+    .filter((p) => p.name.startsWith("Slant pocket"))
+    .map(mirrorPieceX);
   const front = mirrorPieceX(frontRaw);
   const displayConstruction = construction.map((c) =>
     c.pieceName === "Trouser front" ? mirrorConstructionX(c) : c,
@@ -1965,7 +1965,8 @@ function TrousersViewInner({
                               downloadPattern(
                                 {
                                   pieces: pattern.pieces.map((p) =>
-                                    p.name === "Trouser front"
+                                    p.name === "Trouser front" ||
+                                    p.name.startsWith("Slant pocket")
                                       ? mirrorPieceX(p)
                                       : p,
                                   ),
@@ -2135,14 +2136,32 @@ function TrousersViewInner({
                     );
                   case "foldLine":
                     return (
-                      <line key={i}
-                        {...svgLineProps(
-                          m.line.from.x + dx,
-                          m.line.from.y + dy,
-                          m.line.to.x + dx,
-                          m.line.to.y + dy,
+                      <g key={i}>
+                        <line
+                          {...svgLineProps(
+                            m.line.from.x + dx,
+                            m.line.from.y + dy,
+                            m.line.to.x + dx,
+                            m.line.to.y + dy,
+                          )}
+                          className={styles.foldLine}
+                        />
+                        {m.label && (
+                          <text
+                            x={svgCoord(
+                              (m.line.from.x + m.line.to.x) / 2 + dx,
+                            )}
+                            y={svgCoord(
+                              (m.line.from.y + m.line.to.y) / 2 + dy - 8,
+                            )}
+                            className={styles.patternLabel}
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                          >
+                            {m.label}
+                          </text>
                         )}
-                        className={styles.foldLine} />
+                      </g>
                     );
                   case "casingTurndown": {
                     const pts = m.points.map((p) => ({

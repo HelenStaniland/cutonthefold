@@ -121,7 +121,8 @@ export function notchCount(m: NotchMarking): 1 | 2 {
 // exactly once; a piece just lists the markings it carries.
 export type Marking =
   | { kind: "grainline"; line: Line }
-  | { kind: "foldLine"; line: Line }
+  /** Internal construction fold (e.g. channel fold-to-inside). Optional label. */
+  | { kind: "foldLine"; line: Line; label?: string }
   | { kind: "placeOnFold"; line: Line; inward: { x: number; y: number }; label?: string }
   | { kind: "gather"; line: Line }
   | { kind: "constructionLine"; line: Line }

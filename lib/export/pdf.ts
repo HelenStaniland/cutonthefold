@@ -362,13 +362,20 @@ function drawMarkings(
         break;
       }
       case "foldLine": {
-        // Internal fold/roll — long dash, fold green (distinct from casing dash-dot).
+        // Internal fold/roll — long dash, fold green (distinct from placeOnFold bracket).
         doc.setDrawColor(...FOLD_MARK_RGB);
         strokePolyline(doc, [m.line.from, m.line.to], place, {
           width: 0.45,
           dash: [16, 10],
         });
         doc.setDrawColor(0);
+        if (m.label) {
+          const mid = {
+            x: (m.line.from.x + m.line.to.x) / 2,
+            y: (m.line.from.y + m.line.to.y) / 2 - 8,
+          };
+          drawMarkLabel(doc, m.label, mid, place, tile, FOLD_MARK_RGB);
+        }
         break;
       }
       case "placeOnFold": {

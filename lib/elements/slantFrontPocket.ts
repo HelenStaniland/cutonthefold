@@ -481,6 +481,43 @@ function dedupeClose(outline: OutlinePoint[]): OutlinePoint[] {
 }
 
 /**
+ * Grainline through the middle of a pocket piece (garment-space bbox centre),
+ * still parallel to garment +y so fabric grain is unchanged. Avoids sitting on
+ * the opening edge of the pocket front.
+ */
+function grainlineThroughPiece(
+  outline: OutlinePoint[],
+  openingTop: Point,
+  openingBottom: Point,
+  layoutDy = 0,
+): Marking {
+  const xs = outline.map((o) => o.at.x);
+  const ys = outline.map((o) => o.at.y);
+  const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const span = Math.max(maxY - minY, 1);
+  const margin = Math.min(40, span * 0.2);
+  const from = localPoint(
+    { x: cx, y: minY + margin },
+    openingTop,
+    openingBottom,
+  );
+  const to = localPoint(
+    { x: cx, y: maxY - margin },
+    openingTop,
+    openingBottom,
+  );
+  return {
+    kind: "grainline",
+    line: {
+      from: layoutDy !== 0 ? offsetPt(from, 0, layoutDy) : from,
+      to: layoutDy !== 0 ? offsetPt(to, 0, layoutDy) : to,
+    },
+  };
+}
+
+/**
  * Draft pocket back + pocket front (both trouser fabric). Outlines start in
  * garment coords, shift to a local construction frame (origin at opening top,
  * +x along the slant), then rigid-rotate so the grainline is vertical for
@@ -517,24 +554,7 @@ export function draftSlantFrontPocketPieces(
 
   const backLocal = toLocalFrame(backOutline, openingTop, openingBottom);
   const backMarks: Marking[] = [
-    {
-      kind: "grainline",
-      line: {
-        from: localPoint(
-          { x: (waistAnchorPt.x + bagSideEnd.x) / 2, y: openingTop.y + 20 },
-          openingTop,
-          openingBottom,
-        ),
-        to: localPoint(
-          {
-            x: (waistAnchorPt.x + bagSideEnd.x) / 2,
-            y: bagSideEnd.y - 20,
-          },
-          openingTop,
-          openingBottom,
-        ),
-      },
-    },
+    grainlineThroughPiece(backOutline, openingTop, openingBottom),
     {
       kind: "notch",
       role: "balance",
@@ -582,32 +602,7 @@ export function draftSlantFrontPocketPieces(
   // Offset in layout so it doesn't sit on the back
   const frontLayout = offsetOutline(frontLocal, 0, 40);
   const frontMarks: Marking[] = [
-    {
-      kind: "grainline",
-      line: {
-        from: offsetPt(
-          localPoint(
-            { x: (waistAnchorPt.x + bagSideEnd.x) / 2, y: openingTop.y + 20 },
-            openingTop,
-            openingBottom,
-          ),
-          0,
-          40,
-        ),
-        to: offsetPt(
-          localPoint(
-            {
-              x: (waistAnchorPt.x + bagSideEnd.x) / 2,
-              y: bagSideEnd.y - 20,
-            },
-            openingTop,
-            openingBottom,
-          ),
-          0,
-          40,
-        ),
-      },
-    },
+    grainlineThroughPiece(frontOutline, openingTop, openingBottom, 40),
     {
       kind: "notch",
       role: "balance",

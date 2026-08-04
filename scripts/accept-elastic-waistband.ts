@@ -314,15 +314,16 @@ for (const bod of bodies) {
       if (Math.abs(specOn.frontTop - specOff.frontTop) > EPS) {
         fail(`${bod.name}/sa${sa}/w${w}: frontTop slash Δ`);
       }
-      if (Math.abs(specOn.cutLength - specOff.cutLength) > EPS) {
+      if (Math.abs(specOn.fullLoopNet - specOff.fullLoopNet) > EPS) {
         fail(
-          `${bod.name}/sa${sa}/w${w}: cutLength slash on ${f3(specOn.cutLength)} ≠ off ${f3(specOff.cutLength)}`,
+          `${bod.name}/sa${sa}/w${w}: fullLoopNet slash on ${f3(specOn.fullLoopNet)} ≠ off ${f3(specOff.fullLoopNet)}`,
         );
       } else if (bod.name === "Helen-print" && sa === 10 && w === 25) {
         ok(
           `Helen sa10/w25: front_preslash=${f3(specOn.frontTop)} ` +
-            `back=${f3(specOn.backTop)} cutLength=${f3(specOn.cutLength)} ` +
-            `(=2F+2B+2SA); slash on≡off`,
+            `back=${f3(specOn.backTop)} fullLoopNet=${f3(specOn.fullLoopNet)} ` +
+            `netHalf=${f3(specOn.netHalfLength)} cutHalf=${f3(specOn.cutHalfLength)} ` +
+            `(=half+SA); slash on≡off`,
         );
         // Pocketed outline (CF→mouth) must be shorter — band must NOT use it.
         const mouth = resolveFrontSlantPocketMouth(body, on.style);
@@ -369,9 +370,9 @@ console.log("\n=== 3. Band cut width = 2×(elastic + ease + SA) ===\n");
         continue;
       }
       const dims = rectDims(cut);
-      if (Math.abs(dims.length - spec.cutLength) > 0.05) {
+      if (Math.abs(dims.length - spec.cutHalfLength) > 0.05) {
         fail(
-          `w${w}/sa${sa}: cut length ${f3(dims.length)} ≠ ${f3(spec.cutLength)}`,
+          `w${w}/sa${sa}: cut half length ${f3(dims.length)} ≠ ${f3(spec.cutHalfLength)}`,
         );
       }
       if (Math.abs(dims.width - spec.cutWidth) > 0.05) {
@@ -401,8 +402,11 @@ console.log("\n=== 4. Single loop (one piece, one join) ===\n");
   else ok("no Front/Back waistband halves");
   if (bands[0]!.cutCount !== 1) fail(`cutCount=${bands[0]!.cutCount}`);
   else ok("cutCount = 1");
-  if (bands[0]!.onFold) fail("onFold true (should be full loop)");
-  else ok("onFold = false (full loop, not on-fold half)");
+  if (!bands[0]!.onFold) fail("onFold false (should cut on fold like other bands)");
+  else ok("onFold = true (half-loop on fold)");
+  const pof = bands[0]!.markings.find((m) => m.kind === "placeOnFold");
+  if (!pof || pof.kind !== "placeOnFold") fail("missing placeOnFold");
+  else ok(`placeOnFold label="${pof.label ?? ""}"`);
 }
 
 // --- 5. Cargo plain top — no casing extension ---
