@@ -4,7 +4,7 @@
  * Two all-fabric pieces (both cut from trouser fabric):
  * 1. Pocket back (pouch) — restores the trimmed corner (silhouette
  *    invariant), caught into the waist over `waistAnchor` and into the side
- *    over `bagDepth`; square bottom-inner with ~25 mm hand-room.
+ *    over `bagDepth`; free bottom-inner corner rounded (`bagCornerRadius`).
  * 2. Pocket front — opening diagonal sews to the front-leg opening; waist
  *    catch and side catch basted into those seams alongside the back; pouch
  *    inner sewn to the back to close the bag. No facing / stay.
@@ -33,6 +33,11 @@ export const DEFAULT_SLANT_OPENING_SIDE_DOWN = 160;
 export const DEFAULT_SLANT_WAIST_ANCHOR = 60;
 /** Bag: further down the side past the opening bottom (mm). */
 export const DEFAULT_SLANT_BAG_DEPTH = 100;
+/**
+ * Free bottom-inner corner radius (mm). Default 35 — toile-tunable.
+ * 0 restores the square corner.
+ */
+export const DEFAULT_SLANT_BAG_CORNER_RADIUS = 35;
 /** Fixed hand-room widening on the bag inner edge (mm) — not a style param yet. */
 export const SLANT_HAND_ROOM = 25;
 
@@ -47,6 +52,11 @@ export const SLANT_WAIST_ANCHOR_MIN = 20;
 export const SLANT_WAIST_ANCHOR_MAX = 120;
 export const SLANT_BAG_DEPTH_MIN = 40;
 export const SLANT_BAG_DEPTH_MAX = 200;
+export const SLANT_BAG_CORNER_RADIUS_MIN = 0;
+export const SLANT_BAG_CORNER_RADIUS_MAX = 80;
+
+/** Samples along the free-corner quarter-circle (exclusive of endpoints). */
+const BAG_CORNER_ARC_SAMPLES = 8;
 
 export type PocketFront = "none" | "slant";
 
@@ -55,6 +65,8 @@ export type SlantPocketParams = {
   openingSideDown: Millimetres;
   waistAnchor: Millimetres;
   bagDepth: Millimetres;
+  /** Free bottom-inner corner radius (mm). 0 = square. */
+  bagCornerRadius: Millimetres;
 };
 
 export type SpocketGeometry = {
@@ -107,6 +119,7 @@ export function resolveSlantPocketParams(raw: {
   slantOpeningSideDown?: Millimetres;
   slantWaistAnchor?: Millimetres;
   slantBagDepth?: Millimetres;
+  slantBagCornerRadius?: Millimetres;
   /** @deprecated Ignored — four-offset rebuild. */
   slantMouthInset?: Millimetres;
   /** @deprecated Ignored. */
@@ -132,6 +145,11 @@ export function resolveSlantPocketParams(raw: {
       raw.slantBagDepth ?? DEFAULT_SLANT_BAG_DEPTH,
       SLANT_BAG_DEPTH_MIN,
       SLANT_BAG_DEPTH_MAX,
+    ),
+    bagCornerRadius: clamp(
+      raw.slantBagCornerRadius ?? DEFAULT_SLANT_BAG_CORNER_RADIUS,
+      SLANT_BAG_CORNER_RADIUS_MIN,
+      SLANT_BAG_CORNER_RADIUS_MAX,
     ),
   };
 }
@@ -260,7 +278,7 @@ function unit(dx: number, dy: number): Point {
   return { x: dx / len, y: dy / len };
 }
 
-/** Shared pouch-inner corners (hand-room + square bottom). */
+/** Shared pouch-inner corners (hand-room + free bottom-inner, optionally rounded). */
 function pouchInnerPoints(geom: SpocketGeometry): {
   handPt: Point;
   squareInner: Point;
@@ -284,6 +302,157 @@ function pouchInnerPoints(geom: SpocketGeometry): {
   };
   const squareInner = { x: handPt.x, y: bagSideEnd.y };
   return { handPt, squareInner };
+}
+
+/**
+ * Free bottom-inner corner path: bagSideEnd → … → handPt.
+ * Radius 0 → single square corner. Radius > 0 → quarter-circle fillet
+ * cutting the tip (same on both bag pieces).
+ */
+export function roundedBottomInnerCorner(
+  bagSideEnd: Point,
+  squareInner: Point,
+  handPt: Point,
+  radius: Millimetres,
+): {
+  /** Points from A through the arc to B (excludes bagSideEnd and handPt). */
+  path: Point[];
+  /** Applied radius after edge-length clamp (0 = square). */
+  appliedRadius: Millimetres;
+  /** Geometric square tip (for diagnostics). */
+  squareInner: Point;
+  /** Fillet start on the bag-bottom edge. */
+  filletStart: Point;
+  /** Fillet end on the bag-inner edge. */
+  filletEnd: Point;
+  /** Arc centre (undefined when square). */
+  centre: Point | null;
+} {
+  const bottomLen = Math.hypot(
+    squareInner.x - bagSideEnd.x,
+    squareInner.y - bagSideEnd.y,
+  );
+  const innerLen = Math.hypot(
+    handPt.x - squareInner.x,
+    handPt.y - squareInner.y,
+  );
+  const R = Math.min(
+    Math.max(0, radius),
+    bottomLen * 0.5 - 0.01,
+    innerLen * 0.5 - 0.01,
+  );
+  if (R < 0.05) {
+    return {
+      path: [{ ...squareInner }],
+      appliedRadius: 0,
+      squareInner: { ...squareInner },
+      filletStart: { ...squareInner },
+      filletEnd: { ...squareInner },
+      centre: null,
+    };
+  }
+
+  const bottomDir = unit(
+    squareInner.x - bagSideEnd.x,
+    squareInner.y - bagSideEnd.y,
+  );
+  const innerDir = unit(handPt.x - squareInner.x, handPt.y - squareInner.y);
+  const A: Point = {
+    x: squareInner.x - bottomDir.x * R,
+    y: squareInner.y - bottomDir.y * R,
+  };
+  const B: Point = {
+    x: squareInner.x + innerDir.x * R,
+    y: squareInner.y + innerDir.y * R,
+  };
+  // Centre of the quarter-circle that cuts the square tip.
+  const C: Point = {
+    x: squareInner.x - bottomDir.x * R + innerDir.x * R,
+    y: squareInner.y - bottomDir.y * R + innerDir.y * R,
+  };
+
+  const a0 = Math.atan2(A.y - C.y, A.x - C.x);
+  const a1 = Math.atan2(B.y - C.y, B.x - C.x);
+  let delta = a1 - a0;
+  while (delta <= -Math.PI) delta += 2 * Math.PI;
+  while (delta > Math.PI) delta -= 2 * Math.PI;
+  // Prefer the short sweep whose midpoint lies toward the tip (fillet).
+  const alt = delta > 0 ? delta - 2 * Math.PI : delta + 2 * Math.PI;
+  const midDist = (d: number) => {
+    const a = a0 + d / 2;
+    const m = { x: C.x + R * Math.cos(a), y: C.y + R * Math.sin(a) };
+    return Math.hypot(m.x - squareInner.x, m.y - squareInner.y);
+  };
+  if (midDist(alt) < midDist(delta)) delta = alt;
+
+  const path: Point[] = [{ ...A }];
+  for (let i = 1; i <= BAG_CORNER_ARC_SAMPLES; i++) {
+    const t = i / (BAG_CORNER_ARC_SAMPLES + 1);
+    const a = a0 + delta * t;
+    path.push({ x: C.x + R * Math.cos(a), y: C.y + R * Math.sin(a) });
+  }
+  path.push({ ...B });
+
+  return {
+    path,
+    appliedRadius: R,
+    squareInner: { ...squareInner },
+    filletStart: A,
+    filletEnd: B,
+    centre: C,
+  };
+}
+
+/**
+ * Append bag-bottom → rounded/square free corner → bag-inner → waist anchor
+ * onto an outline that already ends at bagSideEnd (role bag-bottom).
+ */
+function pushPouchInnerClose(
+  outline: OutlinePoint[],
+  geom: SpocketGeometry,
+  handPt: Point,
+  squareInner: Point,
+): void {
+  const corner = roundedBottomInnerCorner(
+    geom.bagSideEnd,
+    squareInner,
+    handPt,
+    geom.params.bagCornerRadius,
+  );
+  for (let i = 0; i < corner.path.length; i++) {
+    const isLast = i === corner.path.length - 1;
+    // Square tip (r=0): bag-bottom on the corner vertex — byte-identical to the
+    // first-pass outline. Rounded: A+arc stay bag-bottom; B starts bag-inner.
+    const role =
+      corner.appliedRadius < 0.05
+        ? "bag-bottom"
+        : isLast
+          ? "bag-inner"
+          : "bag-bottom";
+    outline.push({
+      at: { ...corner.path[i]! },
+      edge: "seam",
+      role,
+    });
+  }
+  // handPt may coincide with filletEnd when R eats the whole inner — skip dup.
+  if (
+    Math.hypot(
+      handPt.x - corner.filletEnd.x,
+      handPt.y - corner.filletEnd.y,
+    ) > 0.05
+  ) {
+    outline.push({
+      at: { ...handPt },
+      edge: "seam",
+      role: "bag-inner",
+    });
+  }
+  outline.push({
+    at: { ...geom.waistAnchorPt },
+    edge: "seam",
+    role: "bag-inner",
+  });
 }
 
 function pushRoleRun(
@@ -343,21 +512,7 @@ export function draftSlantFrontPocketPieces(
   if (backOutline.length > 0) {
     backOutline[backOutline.length - 1]!.role = "bag-bottom";
   }
-  backOutline.push({
-    at: { ...squareInner },
-    edge: "seam",
-    role: "bag-bottom",
-  });
-  backOutline.push({
-    at: { ...handPt },
-    edge: "seam",
-    role: "bag-inner",
-  });
-  backOutline.push({
-    at: { ...waistAnchorPt },
-    edge: "seam",
-    role: "bag-inner",
-  });
+  pushPouchInnerClose(backOutline, geom, handPt, squareInner);
   dedupeClose(backOutline);
 
   const backLocal = toLocalFrame(backOutline, openingTop, openingBottom);
@@ -420,21 +575,7 @@ export function draftSlantFrontPocketPieces(
   if (frontOutline.length > 0) {
     frontOutline[frontOutline.length - 1]!.role = "bag-bottom";
   }
-  frontOutline.push({
-    at: { ...squareInner },
-    edge: "seam",
-    role: "bag-bottom",
-  });
-  frontOutline.push({
-    at: { ...handPt },
-    edge: "seam",
-    role: "bag-inner",
-  });
-  frontOutline.push({
-    at: { ...waistAnchorPt },
-    edge: "seam",
-    role: "bag-inner",
-  });
+  pushPouchInnerClose(frontOutline, geom, handPt, squareInner);
   dedupeClose(frontOutline);
 
   const frontLocal = toLocalFrame(frontOutline, openingTop, openingBottom);

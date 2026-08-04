@@ -41,11 +41,13 @@ export {
   DEFAULT_SLANT_OPENING_SIDE_DOWN,
   DEFAULT_SLANT_WAIST_ANCHOR,
   DEFAULT_SLANT_BAG_DEPTH,
+  DEFAULT_SLANT_BAG_CORNER_RADIUS,
   SLANT_HAND_ROOM,
   SLANT_POCKET_BACK_NAME,
   SLANT_POCKET_FRONT_NAME,
   resolveSlantPocketMouth,
   resolveSlantPocketParams,
+  roundedBottomInnerCorner,
   silhouetteInvariantDelta,
   polylineMaxDelta,
   bagSideSpanMm,
@@ -562,6 +564,11 @@ export type TrouserFrontStyle = {
   slantWaistAnchor?: Millimetres;
   /** Bag side catch past the opening bottom (mm). Default 100. */
   slantBagDepth?: Millimetres;
+  /**
+   * Free bottom-inner corner radius on both bag pieces (mm). Default 35.
+   * 0 restores the square corner. Does not affect seamed waist/side edges.
+   */
+  slantBagCornerRadius?: Millimetres;
 };
 
 export const withWaistband = (

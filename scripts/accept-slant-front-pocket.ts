@@ -34,6 +34,8 @@ import {
   CARGO_TROUSER_STYLE,
   CLEO_TROUSER_STYLE,
   MILA_TROUSER_STYLE,
+  effectiveDartedWaistFinish,
+  isPullOnWaistFinish,
   type TrouserStyleSettings,
 } from "../lib/pattern/garmentStyles";
 import {
@@ -92,10 +94,13 @@ function resolveStyle(
     slantOpeningSideDown: number;
     slantWaistAnchor: number;
     slantBagDepth: number;
+    slantBagCornerRadius: number;
   }>,
 ): TrouserFrontStyle {
-  const finish = finishOverride ?? s.dartedWaistFinish;
-  const elastic = finish === "elastic";
+  const pocket = s.pocketFront;
+  const stored = finishOverride ?? s.dartedWaistFinish;
+  const finish = effectiveDartedWaistFinish(stored, pocket);
+  const pullOn = isPullOnWaistFinish(finish);
   const base: TrouserFrontStyle = {
     bottomWidth: s.legBottomWidth,
     block: blockFromWaistDrop(s.waistDrop),
@@ -120,7 +125,7 @@ function resolveStyle(
     ...(s.waistlineCurveFront != null
       ? { waistlineCurveFront: s.waistlineCurveFront }
       : {}),
-    ...(elastic
+    ...(pullOn
       ? { frontWaistInset: 0, waistTaper: 0 }
       : {
           ...(s.frontWaistInset != null
@@ -139,7 +144,7 @@ function resolveStyle(
     ...(s.pocketFront === "slant" ? { pocketFront: "slant" as const } : {}),
     ...slantOverrides,
   };
-  if (elastic) {
+  if (pullOn) {
     return withWaistband(base, 0, "shaped", body);
   }
   if (finish === "facing") {
