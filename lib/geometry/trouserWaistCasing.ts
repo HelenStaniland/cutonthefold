@@ -586,7 +586,10 @@ export function applyTrouserWaistCasingTurnup(
         : i === sewingHem.length - 1
           ? sewingEndCutIdx
           : Math.min(topBase + i, endCornerCutIdx);
-    pushNet({ at: { ...sewingHem[i]! } }, cutIdx);
+    pushNet(
+      { at: { ...sewingHem[i]! }, edge: "seam", role: "waist" },
+      cutIdx,
+    );
   }
 
   // Side / pocket-mouth at waist — sewing comes back down here.
