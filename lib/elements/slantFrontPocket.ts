@@ -32,7 +32,7 @@ export const DEFAULT_SLANT_OPENING_SIDE_DOWN = 160;
 /** Bag top: further in along the waist past the opening top (mm). */
 export const DEFAULT_SLANT_WAIST_ANCHOR = 60;
 /** Bag: further down the side past the opening bottom (mm). */
-export const DEFAULT_SLANT_BAG_DEPTH = 100;
+export const DEFAULT_SLANT_BAG_DEPTH = 50;
 /**
  * Free bottom-inner corner radius (mm). Default 35 — toile-tunable.
  * 0 restores the square corner.

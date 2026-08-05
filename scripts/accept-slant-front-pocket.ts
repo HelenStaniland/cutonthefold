@@ -374,9 +374,9 @@ console.log("\n=== 4. Opening reaches side; bag caught into waist + side ===\n")
     p.bagDepth !== DEFAULT_SLANT_BAG_DEPTH
   ) {
     fail(
-      `defaults not 100/160/60/100 — got ${p.openingWaistIn}/${p.openingSideDown}/${p.waistAnchor}/${p.bagDepth}`,
+      `defaults not 100/160/60/50 — got ${p.openingWaistIn}/${p.openingSideDown}/${p.waistAnchor}/${p.bagDepth}`,
     );
-  } else ok("defaults 100 / 160 / 60 / 100");
+  } else ok("defaults 100 / 160 / 60 / 50");
 
   // Opening bottom on the side seam (first point of sideFromOpening)
   const sideStart = mouth.sideFromOpening[0]!;
